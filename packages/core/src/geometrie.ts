@@ -228,18 +228,36 @@ export function maatlijnen(v: Verdieping, afstandMm = 450): Maatlijn[] {
       const u = { x: (m.eind.x - m.start.x) / L, y: (m.eind.y - m.start.y) / L };
       let n = { x: -u.y, y: u.x };
       const mid = { x: (m.start.x + m.eind.x) / 2, y: (m.start.y + m.eind.y) / 2 };
-      if ((mid.x - midden.x) * n.x + (mid.y - midden.y) * n.y < 0) n = { x: -n.x, y: -n.y };
+      // naar buiten = weg van de eigen ruimte; zonder ruimte: weg van het planmidden
+      const eigen = v.ruimtes.find((r) => r.muurIds.includes(m.id));
+      const ref = eigen ? zwaartepunt(eigen.contour) : midden;
+      if ((mid.x - ref.x) * n.x + (mid.y - ref.y) * n.y < 0) n = { x: -n.x, y: -n.y };
       const aans = aansluitingen(m, v.muren);
+      // De gevel loopt recht door als een collineaire BUITENmuur aansluit
+      // (een tussenmuur in het verlengde telt niet: daar springt de gevel).
       const loopDoor = (p: Punt) =>
         v.muren.some((w) => {
-          if (w.id === m.id) return false;
+          if (w.id === m.id || (telling.get(w.id) ?? 0) >= 2) return false;
           const raakt = (w.start.x === p.x && w.start.y === p.y) || (w.eind.x === p.x && w.eind.y === p.y);
           if (!raakt) return false;
           const wl = muurLengte(w);
           return Math.abs((u.x * (w.eind.y - w.start.y)) / wl - (u.y * (w.eind.x - w.start.x)) / wl) < 1e-6;
         });
-      const es = loopDoor(m.start) ? 0 : aans.start;
-      const ee = loopDoor(m.eind) ? 0 : aans.eind;
+      // Eindigt de muur tegen een doorlopende muur (T-aansluiting, bv. een
+      // aanbouw tegen een gevel), dan begint de maat aan de gevelkant.
+      const tegenDoorlopend = (p: Punt): number | null => {
+        const haaks = v.muren.filter((w) => {
+          if (w.id === m.id) return false;
+          const raakt = (w.start.x === p.x && w.start.y === p.y) || (w.eind.x === p.x && w.eind.y === p.y);
+          if (!raakt) return false;
+          const wl = muurLengte(w);
+          return Math.abs((u.x * (w.eind.y - w.start.y)) / wl - (u.y * (w.eind.x - w.start.x)) / wl) > 1e-6;
+        });
+        if (haaks.length < 2) return null;
+        return -Math.max(...haaks.map((w) => w.dikte)) / 2;
+      };
+      const es = loopDoor(m.start) ? 0 : tegenDoorlopend(m.start) ?? aans.start;
+      const ee = loopDoor(m.eind) ? 0 : tegenDoorlopend(m.eind) ?? aans.eind;
       const s0 = { x: m.start.x - u.x * es, y: m.start.y - u.y * es };
       const e0 = { x: m.eind.x + u.x * ee, y: m.eind.y + u.y * ee };
       const off = m.dikte / 2 + afstandMm;
@@ -261,4 +279,16 @@ export function binnenmaten(r: Ruimte): { breedte: number; diepte: number } | nu
   if (xs.size !== 2 || ys.size !== 2) return null;
   const [x1, x2] = [...xs].sort((a, b) => a - b), [y1, y2] = [...ys].sort((a, b) => a - b);
   return { breedte: x2! - x1!, diepte: y2! - y1! };
+}
+
+/** Zwaartepunt van een veelhoek (voor labels en richting). */
+export function zwaartepunt(c: Punt[]): Punt {
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0; i < c.length; i++) {
+    const p = c[i]!, q = c[(i + 1) % c.length]!;
+    const k = p.x * q.y - q.x * p.y;
+    a += k; cx += (p.x + q.x) * k; cy += (p.y + q.y) * k;
+  }
+  if (a === 0) return c[0]!;
+  return { x: cx / (3 * a), y: cy / (3 * a) };
 }

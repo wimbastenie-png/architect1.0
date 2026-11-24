@@ -10,6 +10,7 @@ import {
   rechthoekigProject,
   verdiepingNaarDXF,
   verdiepingNaarSVG,
+  voegRuimteToe,
   zetBinnenLengte,
   type Dragend,
   type Muur,
@@ -70,15 +71,17 @@ export function App() {
   };
 
   const wijzigVerdieping = useCallback(
-    (f: (v: Verdieping) => Verdieping) => {
-      if (!project) return;
+    (f: (v: Verdieping) => Verdieping): boolean => {
+      if (!project) return false;
       try {
         const verdiepingen = project.verdiepingen.map((v, i) => (i === vi ? f(v) : v));
         zetGeschiedenis((g) => [...g.slice(-49), project]);
         zetProject({ ...project, verdiepingen, gewijzigd: new Date().toISOString() });
         zetMelding(null);
+        return true;
       } catch (e) {
         zetMelding(e instanceof Error ? e.message : String(e));
+        return false;
       }
     },
     [project, vi],
@@ -195,7 +198,7 @@ interface WerkbladProps {
   zetVi: (i: number) => void;
   selectie: Selectie;
   zetSelectie: (s: Selectie) => void;
-  wijzig: (f: (v: Verdieping) => Verdieping) => void;
+  wijzig: (f: (v: Verdieping) => Verdieping) => boolean;
   wijzigProject: (p: Project) => void;
   zetMelding: (s: string | null) => void;
 }
@@ -303,7 +306,7 @@ const STANDAARD: Record<Opening["soort"], { breedte: number; hoogte: number; bor
   doorgang: { breedte: 900, hoogte: 2115, borstwering: 0 },
 };
 
-function MuurPaneel({ muur, v, wijzig, sluit, meld }: { muur: Muur; v: Verdieping; wijzig: (f: (v: Verdieping) => Verdieping) => void; sluit: () => void; meld: (s: string | null) => void }) {
+function MuurPaneel({ muur, v, wijzig, sluit, meld }: { muur: Muur; v: Verdieping; wijzig: (f: (v: Verdieping) => Verdieping) => boolean; sluit: () => void; meld: (s: string | null) => void }) {
   const binnen = Math.round(binnenLengte(muur, v.muren));
   const aans = aansluitingen(muur, v.muren);
   const [maat, zetMaat] = useState(String(binnen));
@@ -403,7 +406,57 @@ function MuurPaneel({ muur, v, wijzig, sluit, meld }: { muur: Muur; v: Verdiepin
         </div>
         <button type="submit">Opening toevoegen</button>
       </form>
+
+      {v.ruimtes.filter((r) => r.muurIds.includes(muur.id)).length < 2 && (
+        <RuimteErnaast muur={muur} v={v} binnen={binnen} wijzig={wijzig} klaar={sluit} />
+      )}
     </section>
+  );
+}
+
+function RuimteErnaast({ muur, v, binnen, wijzig, klaar }: { muur: Muur; v: Verdieping; binnen: number; wijzig: (f: (v: Verdieping) => Verdieping) => boolean; klaar: () => void }) {
+  const buur = v.ruimtes.find((r) => r.muurIds.includes(muur.id));
+  const [open, zetOpen] = useState(false);
+  const [f, zetF] = useState({
+    naam: "", breedte: String(binnen), diepte: "", afstand: "0",
+    dikte: String(muur.dikte), hoogte: String(buur?.plafondhoogte ?? 2600), methode: "manueel" as "manueel" | "laser",
+  });
+  const zet = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => zetF({ ...f, [k]: e.target.value });
+  if (!open) return <button className="ruimte-erbij" onClick={() => zetOpen(true)}>+ Ruimte hiernaast toevoegen</button>;
+  return (
+    <form className="nieuwe-ruimte" onSubmit={(e) => {
+      e.preventDefault();
+      const ok = wijzig((x) => voegRuimteToe(x, {
+        muurId: muur.id, naam: f.naam, breedte: +f.breedte, diepte: +f.diepte, afstandVanafA: +f.afstand || 0,
+        muurdikte: +f.dikte, plafondhoogte: +f.hoogte, methode: f.methode,
+      }));
+      if (ok) klaar();
+    }}>
+      <h3>Ruimte hiernaast toevoegen</h3>
+      <p className="uitleg">Deze muur wordt de tussenmuur. Binnenmaten van de nieuwe ruimte in mm.</p>
+      <Veld label="Naam nieuwe ruimte"><input value={f.naam} onChange={zet("naam")} placeholder="bv. Keuken" required /></Veld>
+      <div className="rij">
+        <Veld label="Breedte langs deze muur"><input type="number" inputMode="numeric" min={1} value={f.breedte} onChange={zet("breedte")} required /></Veld>
+        <Veld label="Diepte"><input type="number" inputMode="numeric" min={1} value={f.diepte} onChange={zet("diepte")} required /></Veld>
+      </div>
+      <div className="rij">
+        <Veld label="Begint op (mm van hoek A)"><input type="number" inputMode="numeric" min={0} value={f.afstand} onChange={zet("afstand")} /></Veld>
+        <Veld label="Dikte nieuwe muren"><input type="number" inputMode="numeric" min={1} value={f.dikte} onChange={zet("dikte")} /></Veld>
+      </div>
+      <div className="rij">
+        <Veld label="Plafondhoogte nieuwe ruimte"><input type="number" inputMode="numeric" min={1} value={f.hoogte} onChange={zet("hoogte")} /></Veld>
+        <Veld label="Gemeten met (nieuwe ruimte)">
+          <select value={f.methode} onChange={zet("methode")}>
+            <option value="manueel">Rolmeter</option>
+            <option value="laser">Laser</option>
+          </select>
+        </Veld>
+      </div>
+      <div className="acties">
+        <button className="primair" type="submit">Ruimte toevoegen</button>
+        <button type="button" onClick={() => zetOpen(false)}>Annuleren</button>
+      </div>
+    </form>
   );
 }
 

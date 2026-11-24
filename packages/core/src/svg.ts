@@ -1,6 +1,5 @@
 /** Planvoorbeeld als SVG — dezelfde tekening die app en webviewer tonen. */
-import { zwaartepunt } from "./dxf.ts";
-import { binnenmaten, maatlijnen, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur } from "./geometrie.ts";
+import { binnenmaten, maatlijnen, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import type { MeetMethode, Punt, Verdieping } from "./schema.ts";
 
 const KLEUR: Record<MeetMethode, string> = {

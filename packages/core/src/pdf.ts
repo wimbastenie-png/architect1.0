@@ -8,8 +8,7 @@
  * "aan pagina aanpaste".
  */
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
-import { zwaartepunt } from "./dxf.ts";
-import { binnenmaten, maatlijnen, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur } from "./geometrie.ts";
+import { binnenmaten, maatlijnen, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import type { MeetMethode, Project, Punt, Verdieping } from "./schema.ts";
 
 export type Papier = "A4" | "A3";
