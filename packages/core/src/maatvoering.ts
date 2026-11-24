@@ -19,7 +19,7 @@ export interface MaatOpties {
 
 type Zijde = "onder" | "boven" | "links" | "rechts";
 const NORMAAL: Record<Zijde, Punt> = { onder: { x: 0, y: -1 }, boven: { x: 0, y: 1 }, links: { x: -1, y: 0 }, rechts: { x: 1, y: 0 } };
-const ZWAKSTE: MeetMethode[] = ["gescand", "gecorrigeerd", "manueel", "laser"];
+const ZWAKSTE: MeetMethode[] = ["overgenomen", "gescand", "gecorrigeerd", "manueel", "laser"];
 
 interface Stuk { lo: number; hi: number; muur: Muur }
 
@@ -54,6 +54,17 @@ export function maatketens(v: Verdieping, opties: MaatOpties = {}): Maatlijn[] {
     const rand = z === "onder" ? omh.minY : z === "boven" ? omh.maxY : z === "links" ? omh.minX : omh.maxX;
     const lijnOp = (k: number) => rand + (z === "onder" || z === "links" ? -1 : 1) * (afstand + k * tussen);
     const punt = (t: number, pos: number): Punt => (horizontaal ? { x: t, y: pos } : { x: pos, y: t });
+    const teken = z === "onder" || z === "links" ? -1 : 1;
+    // gevelvlak bij positie t langs de zijde: het meest naar buiten liggende muurvlak daar
+    const gevel = (t: number, kandidaten: Stuk[]): Punt => {
+      let best = -Infinity;
+      for (const s of kandidaten) {
+        if (t < s.lo - 1 || t > s.hi + 1) continue;
+        const as = horizontaal ? s.muur.start.y : s.muur.start.x;
+        best = Math.max(best, teken * (as + teken * (s.muur.dikte / 2)));
+      }
+      return punt(t, best === -Infinity ? rand : teken * best);
+    };
     let rij = 0;
     const leg = (bps: number[], gedekt: Stuk[], soort: number, methode?: MeetMethode) => {
       const pos = lijnOp(rij);
@@ -67,6 +78,7 @@ export function maatketens(v: Verdieping, opties: MaatOpties = {}): Maatlijn[] {
         uit.push({
           muurId: dek.muur.id, a: punt(a, pos), b: punt(b, pos), n, lengte: b - a,
           methode: methode ?? dek.muur.bron.methode, rij: soort,
+          hulpA: gevel(a, gedekt), hulpB: gevel(b, gedekt),
         });
         n0++;
       }
@@ -94,7 +106,10 @@ export function maatketens(v: Verdieping, opties: MaatOpties = {}): Maatlijn[] {
       const lo = Math.min(...stukken.map((s) => s.lo)), hi = Math.max(...stukken.map((s) => s.hi));
       const zwakste = stukken.map((s) => s.muur.bron.methode).reduce((a, b) => (ZWAKSTE.indexOf(a) <= ZWAKSTE.indexOf(b) ? a : b));
       const pos = lijnOp(rij);
-      uit.push({ muurId: "", a: punt(lo, pos), b: punt(hi, pos), n, lengte: hi - lo, methode: zwakste, rij: 2 });
+      uit.push({
+        muurId: "", a: punt(lo, pos), b: punt(hi, pos), n, lengte: hi - lo, methode: zwakste, rij: 2,
+        hulpA: gevel(lo, stukken), hulpB: gevel(hi, stukken),
+      });
     }
   }
   return uit;

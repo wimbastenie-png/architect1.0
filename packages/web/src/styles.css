@@ -88,3 +88,13 @@ tfoot td { font-weight: 600; border-bottom: 0; }
 .disclaimer { color: var(--zacht); font-size: 12px; margin: 12px 2px; }
 .ruimte-erbij { margin-top: 14px; width: 100%; justify-content: center; border-style: dashed; }
 .nieuwe-ruimte { border-top: 1px solid var(--lijn); margin-top: 14px; padding-top: 4px; }
+.tabs .peil { color: var(--zacht); font-size: 12px; margin-left: 6px; font-weight: 400; }
+.tab-nieuw { border-style: dashed; }
+.schakelaar { display: inline-flex; border: 1px solid var(--lijn); border-radius: 8px; overflow: hidden; }
+.schakelaar button { border: 0; border-radius: 0; min-height: 32px; padding: 4px 10px; font-size: 13px; }
+.schakelaar button.actief { background: var(--accent); color: var(--accent-tekst); }
+.kaart-kop { gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.uitleg.klein { font-size: 12px; margin-top: 10px; }
+button.gevaar { color: var(--gevaar); border-color: var(--gevaar); margin-top: 6px; }
+.bevestiging { background: var(--kaart); border: 1px solid var(--laser); color: var(--laser); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 14px; }
+.legende-overgenomen { color: #78716c; font-weight: 600; }

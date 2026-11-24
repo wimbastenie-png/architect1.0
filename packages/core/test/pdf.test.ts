@@ -30,7 +30,8 @@ describe("pdf", () => {
     const twee = { ...appartement, verdiepingen: [v0, { ...v0, id: "v1", naam: "Eerste verdieping" }] };
     const bytes = await projectNaarPDF(twee, { datum: "2026-11-24" });
     const doc = await PDFDocument.load(bytes);
-    expect(doc.getPageCount()).toBe(2);
+    // 2 planbladen + minstens 1 lijstenblad
+    expect(doc.getPageCount()).toBeGreaterThanOrEqual(3);
     const { width, height } = doc.getPage(0).getSize();
     expect(width / PT).toBeCloseTo(297, 0);
     expect(height / PT).toBeCloseTo(210, 0);

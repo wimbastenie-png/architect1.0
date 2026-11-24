@@ -4,7 +4,8 @@
  * Eenheden: millimeter. Lagen: MUREN, OPENINGEN, RUIMTES, MATEN, TEKST.
  */
 import { maatketens } from "./maatvoering.ts";
-import { binnenmaten, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
+import { openingLabelPunt, openingLabels } from "./openingen.ts";
+import { binnenmaten, m2Tekst, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import type { Punt, Verdieping } from "./schema.ts";
 
 const LAGEN: Record<string, number> = { MUREN: 7, OPENINGEN: 4, RUIMTES: 8, MATEN: 1, TEKST: 3 };
@@ -52,7 +53,7 @@ class Dxf {
 
 const fmt = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(3));
 
-export function verdiepingNaarDXF(v: Verdieping, opties: { tekstHoogte?: number } = {}): string {
+export function verdiepingNaarDXF(v: Verdieping, opties: { tekstHoogte?: number; labels?: Map<string, string> } = {}): string {
   const th = opties.tekstHoogte ?? 150; // 150 mm ≈ 3 mm op papier bij 1:50
   const d = new Dxf();
 
@@ -76,7 +77,18 @@ export function verdiepingNaarDXF(v: Verdieping, opties: { tekstHoogte?: number 
 
   for (const m of v.muren) d.polylijn("MUREN", muurVorm(m, v.muren));
 
-  for (const ml of maatketens(v)) {
+  const ketens = maatketens(v);
+  for (const ml of ketens) {
+    for (const [hp, q] of [[ml.hulpA, ml.a], [ml.hulpB, ml.b]] as const) {
+      if (hp) d.lijn("MATEN", { x: hp.x + ml.n.x * 70, y: hp.y + ml.n.y * 70 }, { x: q.x + ml.n.x * 60, y: q.y + ml.n.y * 60 });
+    }
+  }
+  const labels = opties.labels ?? openingLabels({ verdiepingen: [v] });
+  for (const o of v.openingen) {
+    const tekst = labels.get(o.id), plek = openingLabelPunt(v, o, 130);
+    if (tekst && plek) d.tekst("OPENINGEN", plek.punt, th * 0.8, tekst, plek.hoek);
+  }
+  for (const ml of ketens) {
     const { a, b, n } = ml;
     d.lijn("MATEN", a, b);
     for (const q of [a, b]) d.lijn("MATEN", { x: q.x - n.x * 100, y: q.y - n.y * 100 }, { x: q.x + n.x * 100, y: q.y + n.y * 100 });
@@ -98,7 +110,7 @@ export function verdiepingNaarDXF(v: Verdieping, opties: { tekstHoogte?: number 
   for (const r of v.ruimtes) {
     d.polylijn("RUIMTES", r.contour);
     const c = zwaartepunt(r.contour);
-    const m2 = (oppervlakte(r.contour) / 1e6).toFixed(2).replace(".", ",");
+    const m2 = m2Tekst(oppervlakte(r.contour));
     const bm = binnenmaten(r);
     d.tekst("TEKST", { x: c.x, y: c.y + th * 1.2 }, th * 1.3, r.naam);
     d.tekst("TEKST", { x: c.x, y: c.y - th * 0.4 }, th, `${m2} m²`);
