@@ -109,7 +109,7 @@ describe("export", () => {
     for (const laag of ["MUREN", "OPENINGEN", "RUIMTES", "MATEN", "TEKST"]) expect(dxf).toContain(`\r\n${laag}\r\n`);
     expect(dxf.match(/\r\nPOLYLINE\r\n/g)!.length).toBe(7 + 4 + 2);
     expect(dxf.trimEnd().endsWith("EOF")).toBe(true);
-    expect(dxf).toContain("\r\n6000\r\n"); // maat van m-onder-links
+    expect(dxf).toContain("\r\n6150\r\n"); // buitenmaat m-onder-links: 150 + 6000
     expect(dxf).toContain("5800 x 4500");
   });
 

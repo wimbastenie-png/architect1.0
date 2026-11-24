@@ -86,7 +86,7 @@ export function zetMuurLengte(
   muurId: string,
   nieuweLengte: number,
   vast: "start" | "eind" = "start",
-  methode: "gecorrigeerd" | "laser" = "gecorrigeerd",
+  methode: "gecorrigeerd" | "laser" | "manueel" = "gecorrigeerd",
 ): Verdieping {
   const m = v.muren.find((x) => x.id === muurId);
   if (!m) throw new Error(`muur '${muurId}' bestaat niet`);
@@ -123,7 +123,7 @@ export function zetMuurLengte(
     muren: v.muren.map((x) => {
       const n = { ...x, start: schuif(x.start), eind: schuif(x.eind) };
       return x.id === muurId
-        ? { ...n, bron: { ...x.bron, methode, nauwkeurigheidMm: methode === "laser" ? 2 : x.bron.nauwkeurigheidMm } }
+        ? { ...n, bron: { ...x.bron, methode, nauwkeurigheidMm: methode === "laser" ? 2 : methode === "manueel" ? 5 : x.bron.nauwkeurigheidMm } }
         : n;
     }),
     ruimtes: v.ruimtes.map((r) => ({
@@ -134,6 +134,49 @@ export function zetMuurLengte(
 }
 
 /**
+ * Halve dikte van de dikste haakse muur die aan elk uiteinde aansluit.
+ * Daarmee rekenen we tussen hartlijnlengte en binnenmaat:
+ * binnenmaat = hartlijn − aansluiting.start − aansluiting.eind.
+ */
+export function aansluitingen(m: Muur, alle: Muur[]): { start: number; eind: number } {
+  const L = muurLengte(m);
+  const ux = (m.eind.x - m.start.x) / L, uy = (m.eind.y - m.start.y) / L;
+  const bij = (p: Punt) => {
+    let d = 0;
+    for (const w of alle) {
+      if (w.id === m.id) continue;
+      const raakt = (w.start.x === p.x && w.start.y === p.y) || (w.eind.x === p.x && w.eind.y === p.y);
+      if (!raakt) continue;
+      const wl = muurLengte(w);
+      const kruis = Math.abs((ux * (w.eind.y - w.start.y)) / wl - (uy * (w.eind.x - w.start.x)) / wl);
+      if (kruis > 1e-6) d = Math.max(d, w.dikte / 2);
+    }
+    return d;
+  };
+  return { start: bij(m.start), eind: bij(m.eind) };
+}
+
+/** Binnenmaat langs een muur: de maat die je met rolmeter of laser binnen meet. */
+export function binnenLengte(m: Muur, alle: Muur[]): number {
+  const a = aansluitingen(m, alle);
+  return muurLengte(m) - a.start - a.eind;
+}
+
+/** Zet de binnenmaat langs een muur (rekent om naar hartlijnlengte). */
+export function zetBinnenLengte(
+  v: Verdieping,
+  muurId: string,
+  binnenmaat: number,
+  vast: "start" | "eind" = "start",
+  methode: "gecorrigeerd" | "laser" | "manueel" = "manueel",
+): Verdieping {
+  const m = v.muren.find((x) => x.id === muurId);
+  if (!m) throw new Error(`muur '${muurId}' bestaat niet`);
+  const a = aansluitingen(m, v.muren);
+  return zetMuurLengte(v, muurId, binnenmaat + a.start + a.eind, vast, methode);
+}
+
+/**
  * Muurvorm voor tekenen: rechthoek rond de hartlijn, aan elk uiteinde
  * verlengd met de halve dikte van de dikste haakse muur die daar aansluit,
  * zodat hoeken dicht zijn (geen "kerf" in de tekening).
@@ -141,19 +184,7 @@ export function zetMuurLengte(
 export function muurVorm(m: Muur, alle: Muur[]): [Punt, Punt, Punt, Punt] {
   const L = muurLengte(m);
   const ux = (m.eind.x - m.start.x) / L, uy = (m.eind.y - m.start.y) / L;
-  const verlenging = (p: Punt) => {
-    let d = 0;
-    for (const w of alle) {
-      if (w.id === m.id) continue;
-      const raakt = (w.start.x === p.x && w.start.y === p.y) || (w.eind.x === p.x && w.eind.y === p.y);
-      if (!raakt) continue;
-      const wl = muurLengte(w);
-      const kruis = Math.abs(ux * (w.eind.y - w.start.y) / wl - uy * (w.eind.x - w.start.x) / wl);
-      if (kruis > 1e-6) d = Math.max(d, w.dikte / 2);
-    }
-    return d;
-  };
-  const a = verlenging(m.start), b = verlenging(m.eind);
+  const { start: a, eind: b } = aansluitingen(m, alle);
   return muurRechthoek({
     ...m,
     start: { x: m.start.x - ux * a, y: m.start.y - uy * a },
@@ -180,6 +211,11 @@ export interface Maatlijn {
 /**
  * Maatlijnen voor de buitenmaten: één per muur die niet aan twee ruimtes
  * grenst, aan de kant weg van het midden van het plan.
+ *
+ * De maat loopt tot de buitenkant van de haakse muur aan elk uiteinde. Loopt
+ * de gevel daar recht door (een tussenmuur sluit aan), dan stopt de maat op
+ * de hartlijn van die tussenmuur: zo tellen de deelmaten op tot de totale
+ * buitenmaat (bv. 6150 + 3750 = 9900).
  */
 export function maatlijnen(v: Verdieping, afstandMm = 450): Maatlijn[] {
   const midden = planMidden(v);
@@ -189,16 +225,30 @@ export function maatlijnen(v: Verdieping, afstandMm = 450): Maatlijn[] {
     .filter((m) => (telling.get(m.id) ?? 0) < 2)
     .map((m) => {
       const L = muurLengte(m);
-      let n = { x: -(m.eind.y - m.start.y) / L, y: (m.eind.x - m.start.x) / L };
+      const u = { x: (m.eind.x - m.start.x) / L, y: (m.eind.y - m.start.y) / L };
+      let n = { x: -u.y, y: u.x };
       const mid = { x: (m.start.x + m.eind.x) / 2, y: (m.start.y + m.eind.y) / 2 };
       if ((mid.x - midden.x) * n.x + (mid.y - midden.y) * n.y < 0) n = { x: -n.x, y: -n.y };
+      const aans = aansluitingen(m, v.muren);
+      const loopDoor = (p: Punt) =>
+        v.muren.some((w) => {
+          if (w.id === m.id) return false;
+          const raakt = (w.start.x === p.x && w.start.y === p.y) || (w.eind.x === p.x && w.eind.y === p.y);
+          if (!raakt) return false;
+          const wl = muurLengte(w);
+          return Math.abs((u.x * (w.eind.y - w.start.y)) / wl - (u.y * (w.eind.x - w.start.x)) / wl) < 1e-6;
+        });
+      const es = loopDoor(m.start) ? 0 : aans.start;
+      const ee = loopDoor(m.eind) ? 0 : aans.eind;
+      const s0 = { x: m.start.x - u.x * es, y: m.start.y - u.y * es };
+      const e0 = { x: m.eind.x + u.x * ee, y: m.eind.y + u.y * ee };
       const off = m.dikte / 2 + afstandMm;
       return {
         muurId: m.id,
-        a: { x: m.start.x + n.x * off, y: m.start.y + n.y * off },
-        b: { x: m.eind.x + n.x * off, y: m.eind.y + n.y * off },
+        a: { x: s0.x + n.x * off, y: s0.y + n.y * off },
+        b: { x: e0.x + n.x * off, y: e0.y + n.y * off },
         n,
-        lengte: L,
+        lengte: L + es + ee,
         methode: m.bron.methode,
       };
     });

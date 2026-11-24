@@ -4,7 +4,25 @@ App die een ruimte scant met de gsm en er een bemaat plan, meetstaat en
 exportbestanden (PDF/DXF/IFC) van maakt. Zie het plan in het document
 "Scan-app: analyse en MVP-plan".
 
-## Wat er nu is (stap 1: de kern)
+## Webapp (pc en gsm)
+
+`packages/web` — werkt in elke browser, op pc en gsm, zonder installatie:
+
+- Nieuw project uit binnenmaten (rolmeter of laser), of het voorbeeld openen.
+- Muur aanklikken: binnenmaat aanpassen (haakse muren schuiven mee), meetmethode aanduiden, dragend of niet, ramen/deuren/doorgangen toevoegen.
+- Ruimte aanklikken: naam en plafondhoogte.
+- Meetstaat live; export naar PDF, DXF, CSV (Excel) en projectbestand (JSON).
+- Ongedaan maken (ook Ctrl+Z) en automatisch bewaren in de browser.
+
+Online via GitHub Pages zodra dat aan staat (zie onder). Lokaal: `npm run web`.
+
+### GitHub Pages aanzetten (één keer)
+
+Repository → **Settings** → **Pages** → bij *Source* kies **GitHub Actions**.
+Daarna publiceert elke wijziging op `main` de app op
+`https://wimbastenie-png.github.io/architect1.0/`.
+
+## De kern
 
 `packages/core` — gedeelde rekenkern voor gsm-app, webversie en server:
 
@@ -22,7 +40,8 @@ exportbestanden (PDF/DXF/IFC) van maakt. Zie het plan in het document
 
 ```bash
 npm install
-npm test            # 15 tests
+npm test            # 22 tests
+npm run web         # webapp lokaal starten
 npm run voorbeeld   # voorbeelduitvoer
 ```
 
@@ -30,12 +49,14 @@ npm run voorbeeld   # voorbeelduitvoer
 
 - Wandoppervlak gebruikt de binnencontour × plafondhoogte; dagkanten (neggen) van ramen en deuren zitten er nog niet in.
 - Muren meeschuiven werkt voor rechte, haakse plannen; schuine muren en bogen zijn nog niet getest.
-- Maatlijnen alleen voor buitenmuren; binnenmaten staan als tekst in rechthoekige ruimtes.
+- Maatlijnen tonen buitenmaten (tot de hartlijn van een aansluitende tussenmuur); binnenmaten staan als tekst in rechthoekige ruimtes. Nog geen maatketting voor openingen.
+- De webapp maakt voorlopig één rechthoekige ruimte per nieuw project; meerdere ruimtes tekenen komt later.
 - Nog geen IFC-export.
 - PDF gebruikt de standaardletter Helvetica: tekens buiten West-Europese talen (bv. Pools, Grieks) worden nog niet ondersteund.
 
 ## Volgende stappen
 
-1. Omzetting RoomPlan-uitvoer (`CapturedRoom` JSON) → dit projectformaat.
-2. Expo-app met planweergave en maat aanpassen.
-3. Eenvoudige IFC-export.
+1. Ruimtes toevoegen naast een bestaande ruimte (woning opbouwen kamer per kamer).
+2. Android: begeleid opmeten met ARCore (hoeken aantikken) → dit projectformaat.
+3. Omzetting RoomPlan-uitvoer (iPhone/iPad Pro met LiDAR) → dit projectformaat; vraagt een echt scanbestand.
+4. Eenvoudige IFC-export.

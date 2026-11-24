@@ -10,7 +10,16 @@ const KLEUR: Record<MeetMethode, string> = {
   laser: "#15803d", // groen: betrouwbaar
 };
 
-export function verdiepingNaarSVG(v: Verdieping, opties: { marge?: number } = {}): string {
+export interface SvgOpties {
+  marge?: number;
+  /** Id van de geselecteerde muur: wordt gemarkeerd, met A (start) en B (eind). */
+  geselecteerd?: string;
+  /** Voegt `data-muur` / `data-ruimte` toe zodat de webapp klikken kan opvangen. */
+  interactief?: boolean;
+}
+
+export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string {
+  const ia = opties.interactief ?? false;
   const marge = opties.marge ?? 1100;
   const alle = v.muren.flatMap((m) => muurVorm(m, v.muren));
   const xs = alle.map((p) => p.x), ys = alle.map((p) => p.y);
@@ -22,7 +31,7 @@ export function verdiepingNaarSVG(v: Verdieping, opties: { marge?: number } = {}
   const el: string[] = [];
 
   for (const r of v.ruimtes) {
-    el.push(`<polygon points="${r.contour.map(t).join(" ")}" fill="#f5f5f4" stroke="none"/>`);
+    el.push(`<polygon points="${r.contour.map(t).join(" ")}" fill="#f5f5f4" stroke="none"${ia ? ` data-ruimte="${esc(r.id)}" style="cursor:pointer"` : ""}/>`);
     const c = zwaartepunt(r.contour);
     const [cx, cy] = t(c).split(",");
     const m2 = (oppervlakte(r.contour) / 1e6).toFixed(2).replace(".", ",");
@@ -32,7 +41,8 @@ export function verdiepingNaarSVG(v: Verdieping, opties: { marge?: number } = {}
     if (bm) el.push(`<text x="${cx}" y="${Number(cy) + 440}" font-size="160" text-anchor="middle" fill="#57534e">${bm.breedte} × ${bm.diepte}</text>`);
   }
   for (const m of v.muren) {
-    el.push(`<polygon points="${muurVorm(m, v.muren).map(t).join(" ")}" fill="#292524"/>`);
+    const sel = m.id === opties.geselecteerd;
+    el.push(`<polygon points="${muurVorm(m, v.muren).map(t).join(" ")}" fill="${sel ? "#dc2626" : "#292524"}"${ia ? ` data-muur="${esc(m.id)}" style="cursor:pointer"` : ""}/>`);
   }
   const muren = new Map(v.muren.map((m) => [m.id, m]));
   for (const o of v.openingen) {
@@ -55,7 +65,16 @@ export function verdiepingNaarSVG(v: Verdieping, opties: { marge?: number } = {}
     const [mx, my] = t(tp).split(",");
     let hoek = -(Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
     if (hoek > 90 || hoek <= -90) hoek += 180;
-    el.push(`<text x="${mx}" y="${my}" font-size="160" text-anchor="middle" dominant-baseline="central" fill="${kleur}" transform="rotate(${hoek.toFixed(1)} ${mx} ${my})">${Math.round(ml.lengte)}</text>`);
+    el.push(`<text${ia ? ` data-muur="${esc(ml.muurId)}" style="cursor:pointer"` : ""} x="${mx}" y="${my}" font-size="160" text-anchor="middle" dominant-baseline="central" fill="${kleur}" transform="rotate(${hoek.toFixed(1)} ${mx} ${my})">${Math.round(ml.lengte)}</text>`);
+  }
+
+  const sel = v.muren.find((m) => m.id === opties.geselecteerd);
+  if (sel) {
+    for (const [p, letter] of [[sel.start, "A"], [sel.eind, "B"]] as const) {
+      const [x, y] = t(p).split(",");
+      el.push(`<circle cx="${x}" cy="${y}" r="200" fill="#fff" stroke="#dc2626" stroke-width="30" pointer-events="none"/>`);
+      el.push(`<text x="${x}" y="${y}" font-size="220" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#dc2626" pointer-events="none">${letter}</text>`);
+    }
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" font-family="Helvetica, Arial, sans-serif" style="background:#fff">\n${el.join("\n")}\n</svg>\n`;

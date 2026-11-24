@@ -1,10 +1,14 @@
 {
   "name": "scanapp",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "test": "npm test -w @scanapp/core",
-    "typecheck": "npm run typecheck -w @scanapp/core",
-    "voorbeeld": "npm run voorbeeld -w @scanapp/core"
+    "typecheck": "npm run typecheck -w @scanapp/core && npm run typecheck -w @scanapp/web",
+    "voorbeeld": "npm run voorbeeld -w @scanapp/core",
+    "web": "npm run dev -w @scanapp/web",
+    "build": "npm run build -w @scanapp/web"
   }
 }
