@@ -1,4 +1,5 @@
 /** Meetstaat: hoeveelheden per ruimte, zoals een aannemer ze voor een offerte nodig heeft. */
+import { vloerNetto } from "./bewerken.ts";
 import { m2, omtrek, oppervlakte, ruimteWandVlak } from "./geometrie.ts";
 import type { MeetMethode, Project } from "./schema.ts";
 
@@ -29,7 +30,7 @@ export function meetstaat(p: Project): MeetstaatRij[] {
       rijen.push({
         verdieping: v.naam,
         ruimte: r.naam,
-        vloerM2: m2(oppervlakte(r.contour)),
+        vloerM2: m2(vloerNetto(r, v)), // min sparingen (trapgat …)
         omtrekM: r2(omtrek(r.contour) / 1000),
         plafondhoogteM: r2(r.plafondhoogte / 1000),
         volumeM3: r2((vloer * r.plafondhoogte) / 1000),

@@ -62,7 +62,7 @@ h3 { font-size: 14px; margin: 18px 0 8px; }
 .rij { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; }
 .acties { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 
-.werkblad { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; padding: 16px; align-items: start; }
+.werkblad { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 16px; padding: 16px; align-items: start; }
 @media (max-width: 900px) { .werkblad { grid-template-columns: minmax(0, 1fr); } }
 .plan { background: #fff; border: 1px solid var(--lijn); border-radius: 12px; padding: 8px; }
 .plan svg { width: 100%; height: auto; max-height: 70vh; display: block; }
@@ -98,3 +98,28 @@ tfoot td { font-weight: 600; border-bottom: 0; }
 button.gevaar { color: var(--gevaar); border-color: var(--gevaar); margin-top: 6px; }
 .bevestiging { background: var(--kaart); border: 1px solid var(--laser); color: var(--laser); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 14px; }
 .legende-overgenomen { color: #78716c; font-weight: 600; }
+textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--lijn); border-radius: 8px; background: var(--kaart); color: var(--tekst); font: inherit; resize: vertical; }
+.openingen li .knopjes { display: inline-flex; gap: 6px; flex-shrink: 0; }
+.openingen li.bewerk { display: block; }
+.lastenboek td:nth-child(2), .lastenboek td:nth-child(4) { white-space: nowrap; }
+.lastenboek { font-size: 12.5px; }
+.lastenboek th, .lastenboek td { padding: 6px 3px; }
+.lastenboek input.prijs { width: 64px; min-height: 32px; padding: 4px 6px; text-align: right; }
+.lastenboek tfoot td { text-align: right; }
+.lastenboek tfoot td:first-child { text-align: left; }
+.lastenboek select { width: auto; min-height: 28px; padding: 2px 4px; }
+.start { gap: 16px; }
+.start .kaart + .kaart { margin-top: 0; }
+.plan.klein svg { max-height: 40vh; }
+.vinkje { display: flex; gap: 8px; align-items: center; margin: 10px 0; font-size: 14px; }
+.vinkje input { width: auto; min-height: 0; }
+/* AR-overlay: alleen zichtbaar tijdens de camerasessie */
+.ar-overlay { display: none; }
+.ar-overlay.aan { display: block; position: fixed; inset: 0; pointer-events: none; color: #fff; font: 600 16px system-ui, sans-serif; }
+.ar-kruis { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 0 2px rgba(0,0,0,.5); }
+.ar-kruis::before, .ar-kruis::after { content: ""; position: absolute; background: #fff; left: 50%; top: 50%; }
+.ar-kruis::before { width: 2px; height: 70px; margin: -35px 0 0 -1px; }
+.ar-kruis::after { width: 70px; height: 2px; margin: -1px 0 0 -35px; }
+.ar-status { position: absolute; top: 16px; left: 16px; right: 16px; text-align: center; background: rgba(0,0,0,.55); padding: 10px; border-radius: 10px; }
+.ar-knoppen { position: absolute; bottom: 24px; left: 16px; right: 16px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; pointer-events: auto; }
+.ar-knoppen button { min-height: 52px; font-size: 16px; }

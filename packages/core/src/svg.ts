@@ -1,4 +1,5 @@
 /** Planvoorbeeld als SVG — dezelfde tekening die app en webviewer tonen. */
+import { vloerNetto } from "./bewerken.ts";
 import { maatketens, tekstBreedte } from "./maatvoering.ts";
 import { openingLabelPunt, openingLabels } from "./openingen.ts";
 import { binnenmaten, m2Tekst, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
@@ -39,11 +40,22 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     el.push(`<polygon points="${r.contour.map(t).join(" ")}" fill="#f5f5f4" stroke="none"${ia ? ` data-ruimte="${esc(r.id)}" style="cursor:pointer"` : ""}/>`);
     const c = zwaartepunt(r.contour);
     const [cx, cy] = t(c).split(",");
-    const m2 = m2Tekst(oppervlakte(r.contour));
+    const m2 = m2Tekst(vloerNetto(r, v));
     el.push(`<text x="${cx}" y="${Number(cy) - 120}" font-size="220" text-anchor="middle" font-weight="600">${esc(r.naam)}</text>`);
     el.push(`<text x="${cx}" y="${Number(cy) + 200}" font-size="180" text-anchor="middle" fill="#57534e">${m2} m²</text>`);
     const bm = binnenmaten(r);
     if (bm) el.push(`<text x="${cx}" y="${Number(cy) + 440}" font-size="160" text-anchor="middle" fill="#57534e">${bm.breedte} × ${bm.diepte}</text>`);
+  }
+  // sparingen (trapgat, vide, schacht): kader in streeplijn met kruis
+  for (const sp of v.sparingen ?? []) {
+    const pts = sp.contour.map(t);
+    el.push(`<polygon points="${pts.join(" ")}" fill="#fff" stroke="#57534e" stroke-width="14" stroke-dasharray="80 50" pointer-events="none"/>`);
+    if (pts.length === 4) {
+      el.push(`<line x1="${pts[0]!.split(",")[0]}" y1="${pts[0]!.split(",")[1]}" x2="${pts[2]!.split(",")[0]}" y2="${pts[2]!.split(",")[1]}" stroke="#a8a29e" stroke-width="8" pointer-events="none"/>`);
+      el.push(`<line x1="${pts[1]!.split(",")[0]}" y1="${pts[1]!.split(",")[1]}" x2="${pts[3]!.split(",")[0]}" y2="${pts[3]!.split(",")[1]}" stroke="#a8a29e" stroke-width="8" pointer-events="none"/>`);
+    }
+    const [sx, sy] = t(zwaartepunt(sp.contour)).split(",");
+    el.push(`<text x="${sx}" y="${sy}" font-size="130" text-anchor="middle" dominant-baseline="central" fill="#57534e" paint-order="stroke" stroke="#fff" stroke-width="40" pointer-events="none">${sp.soort}</text>`);
   }
   for (const m of v.muren) {
     const sel = m.id === opties.geselecteerd;
@@ -54,8 +66,8 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     const m = muren.get(o.muurId);
     if (!m) continue;
     const deel = { ...m, start: puntLangsMuur(m, o.offset), eind: puntLangsMuur(m, o.offset + o.breedte) };
-    el.push(`<polygon points="${muurRechthoek(deel).map(t).join(" ")}" fill="#fff" stroke="#0e7490" stroke-width="20"/>`);
-    if (o.soort === "raam") el.push(`<line x1="${t(deel.start).split(",")[0]}" y1="${t(deel.start).split(",")[1]}" x2="${t(deel.eind).split(",")[0]}" y2="${t(deel.eind).split(",")[1]}" stroke="#0e7490" stroke-width="20"/>`);
+    el.push(`<polygon points="${muurRechthoek(deel).map(t).join(" ")}" fill="#fff" stroke="#0e7490" stroke-width="20"${ia ? ` data-muur="${esc(m.id)}" style="cursor:pointer"` : ""}/>`);
+    if (o.soort === "raam") el.push(`<line pointer-events="none" x1="${t(deel.start).split(",")[0]}" y1="${t(deel.start).split(",")[1]}" x2="${t(deel.eind).split(",")[0]}" y2="${t(deel.eind).split(",")[1]}" stroke="#0e7490" stroke-width="20"/>`);
   }
   // hulplijnen
   for (const ml of ketens) {

@@ -78,8 +78,24 @@ export const Ruimte = z.object({
   /** Muren die deze ruimte begrenzen (voor wandoppervlak in de meetstaat). */
   muurIds: z.array(id).default([]),
   bron: Bron,
+  /** Vrije notities van de werf (vocht, stopcontacten, opmerkingen klant …). */
+  notities: z.string().optional(),
 });
 export type Ruimte = z.infer<typeof Ruimte>;
+
+/**
+ * Sparing = gat in de vloer van deze verdieping (trapgat, vide, schacht).
+ * Wordt afgetrokken van de vloer van deze verdieping en van het plafond
+ * van de verdieping eronder.
+ */
+export const Sparing = z.object({
+  id,
+  soort: z.enum(["trapgat", "vide", "schacht"]),
+  /** Contour in plancoördinaten (mm), tegen de klok in. */
+  contour: z.array(Punt).min(3),
+  bron: Bron,
+});
+export type Sparing = z.infer<typeof Sparing>;
 
 export const Verdieping = z.object({
   id,
@@ -89,6 +105,7 @@ export const Verdieping = z.object({
   muren: z.array(Muur).default([]),
   openingen: z.array(Opening).default([]),
   ruimtes: z.array(Ruimte).default([]),
+  sparingen: z.array(Sparing).default([]),
 });
 export type Verdieping = z.infer<typeof Verdieping>;
 
@@ -106,6 +123,7 @@ export const Project = z.object({
     })
     .optional(),
   bouwjaar: z.number().int().optional(),
+  notities: z.string().optional(),
   aangemaakt: z.string().datetime(),
   gewijzigd: z.string().datetime(),
   verdiepingen: z.array(Verdieping).min(1),
@@ -163,6 +181,7 @@ export function controleerSamenhang(p: Project): Validatiefout[] {
       if (o.borstwering + o.hoogte > m.hoogte)
         fouten.push({ pad, melding: `opening is hoger dan muur '${m.id}'` });
     });
+    (v.sparingen ?? []).forEach((sp, si) => uniek(sp.id, `verdiepingen.${vi}.sparingen.${si}`));
     v.ruimtes.forEach((r, ri) => {
       const pad = `verdiepingen.${vi}.ruimtes.${ri}`;
       uniek(r.id, pad);
