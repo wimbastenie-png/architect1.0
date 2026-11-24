@@ -1,47 +1,125 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12100 7300" font-family="Helvetica, Arial, sans-serif" style="background:#fff">
-<polygon points="1400,5900 7200,5900 7200,1400 1400,1400" fill="#f5f5f4" stroke="none"/>
-<text x="4300" y="3530" font-size="220" text-anchor="middle" font-weight="600">Leefruimte</text>
-<text x="4300" y="3850" font-size="180" text-anchor="middle" fill="#57534e">26,10 m²</text>
-<text x="4300" y="4090" font-size="160" text-anchor="middle" fill="#57534e">5800 × 4500</text>
-<polygon points="7300,5900 10700,5900 10700,1400 7300,1400" fill="#f5f5f4" stroke="none"/>
-<text x="9000" y="3530" font-size="220" text-anchor="middle" font-weight="600">Slaapkamer</text>
-<text x="9000" y="3850" font-size="180" text-anchor="middle" fill="#57534e">15,30 m²</text>
-<text x="9000" y="4090" font-size="160" text-anchor="middle" fill="#57534e">3400 × 4500</text>
-<polygon points="1100,5900 7300,5900 7300,6200 1100,6200" fill="#292524"/>
-<polygon points="7200,5900 11000,5900 11000,6200 7200,6200" fill="#292524"/>
-<polygon points="10700,6200 10700,1100 11000,1100 11000,6200" fill="#292524"/>
-<polygon points="11000,1400 7200,1400 7200,1100 11000,1100" fill="#292524"/>
-<polygon points="7300,1400 1100,1400 1100,1100 7300,1100" fill="#292524"/>
-<polygon points="1400,1100 1400,6200 1100,6200 1100,1100" fill="#292524"/>
-<polygon points="7200,6200 7200,1100 7300,1100 7300,6200" fill="#292524"/>
-<polygon points="2750,5900 5150,5900 5150,6200 2750,6200" fill="#fff" stroke="#0e7490" stroke-width="20"/>
-<line x1="2750" y1="6050" x2="5150" y2="6050" stroke="#0e7490" stroke-width="20"/>
-<polygon points="8150,5900 9750,5900 9750,6200 8150,6200" fill="#fff" stroke="#0e7490" stroke-width="20"/>
-<line x1="8150" y1="6050" x2="9750" y2="6050" stroke="#0e7490" stroke-width="20"/>
-<polygon points="1400,2250 1400,3180 1100,3180 1100,2250" fill="#fff" stroke="#0e7490" stroke-width="20"/>
-<polygon points="7200,2850 7200,2020 7300,2020 7300,2850" fill="#fff" stroke="#0e7490" stroke-width="20"/>
-<line x1="1100" y1="6650" x2="7250" y2="6650" stroke="#b45309" stroke-width="12"/>
-<line x1="1100" y1="6550" x2="1100" y2="6750" stroke="#b45309" stroke-width="12"/>
-<line x1="7250" y1="6550" x2="7250" y2="6750" stroke="#b45309" stroke-width="12"/>
-<text x="4175" y="6780" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 4175 6780)">6150</text>
-<line x1="7250" y1="6650" x2="11000" y2="6650" stroke="#b45309" stroke-width="12"/>
-<line x1="7250" y1="6550" x2="7250" y2="6750" stroke="#b45309" stroke-width="12"/>
-<line x1="11000" y1="6550" x2="11000" y2="6750" stroke="#b45309" stroke-width="12"/>
-<text x="9125" y="6780" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 9125 6780)">3750</text>
-<line x1="11450" y1="6200" x2="11450" y2="1100" stroke="#b45309" stroke-width="12"/>
-<line x1="11350" y1="6200" x2="11550" y2="6200" stroke="#b45309" stroke-width="12"/>
-<line x1="11350" y1="1100" x2="11550" y2="1100" stroke="#b45309" stroke-width="12"/>
-<text x="11580" y="3650" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(90.0 11580 3650)">5100</text>
-<line x1="11000" y1="650" x2="7250" y2="650" stroke="#b45309" stroke-width="12"/>
-<line x1="11000" y1="750" x2="11000" y2="550" stroke="#b45309" stroke-width="12"/>
-<line x1="7250" y1="750" x2="7250" y2="550" stroke="#b45309" stroke-width="12"/>
-<text x="9125" y="520" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 9125 520)">3750</text>
-<line x1="7250" y1="650" x2="1100" y2="650" stroke="#b45309" stroke-width="12"/>
-<line x1="7250" y1="750" x2="7250" y2="550" stroke="#b45309" stroke-width="12"/>
-<line x1="1100" y1="750" x2="1100" y2="550" stroke="#b45309" stroke-width="12"/>
-<text x="4175" y="520" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 4175 520)">6150</text>
-<line x1="650" y1="1100" x2="650" y2="6200" stroke="#b45309" stroke-width="12"/>
-<line x1="750" y1="1100" x2="550" y2="1100" stroke="#b45309" stroke-width="12"/>
-<line x1="750" y1="6200" x2="550" y2="6200" stroke="#b45309" stroke-width="12"/>
-<text x="520" y="3650" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(90.0 520 3650)">5100</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12950 9050" font-family="Helvetica, Arial, sans-serif" style="background:#fff">
+<polygon points="2050,6550 7850,6550 7850,2050 2050,2050" fill="#f5f5f4" stroke="none"/>
+<text x="4950" y="4180" font-size="220" text-anchor="middle" font-weight="600">Leefruimte</text>
+<text x="4950" y="4500" font-size="180" text-anchor="middle" fill="#57534e">26,10 m²</text>
+<text x="4950" y="4740" font-size="160" text-anchor="middle" fill="#57534e">5800 × 4500</text>
+<polygon points="7950,6550 11350,6550 11350,2050 7950,2050" fill="#f5f5f4" stroke="none"/>
+<text x="9650" y="4180" font-size="220" text-anchor="middle" font-weight="600">Slaapkamer</text>
+<text x="9650" y="4500" font-size="180" text-anchor="middle" fill="#57534e">15,30 m²</text>
+<text x="9650" y="4740" font-size="160" text-anchor="middle" fill="#57534e">3400 × 4500</text>
+<polygon points="1750,6550 7950,6550 7950,6850 1750,6850" fill="#292524"/>
+<polygon points="7850,6550 11650,6550 11650,6850 7850,6850" fill="#292524"/>
+<polygon points="11350,6850 11350,1750 11650,1750 11650,6850" fill="#292524"/>
+<polygon points="11650,2050 7850,2050 7850,1750 11650,1750" fill="#292524"/>
+<polygon points="7950,2050 1750,2050 1750,1750 7950,1750" fill="#292524"/>
+<polygon points="2050,1750 2050,6850 1750,6850 1750,1750" fill="#292524"/>
+<polygon points="7850,6850 7850,1750 7950,1750 7950,6850" fill="#292524"/>
+<polygon points="3400,6550 5800,6550 5800,6850 3400,6850" fill="#fff" stroke="#0e7490" stroke-width="20"/>
+<line x1="3400" y1="6700" x2="5800" y2="6700" stroke="#0e7490" stroke-width="20"/>
+<polygon points="8800,6550 10400,6550 10400,6850 8800,6850" fill="#fff" stroke="#0e7490" stroke-width="20"/>
+<line x1="8800" y1="6700" x2="10400" y2="6700" stroke="#0e7490" stroke-width="20"/>
+<polygon points="2050,2900 2050,3830 1750,3830 1750,2900" fill="#fff" stroke="#0e7490" stroke-width="20"/>
+<polygon points="7850,3500 7850,2670 7950,2670 7950,3500" fill="#fff" stroke="#0e7490" stroke-width="20"/>
+<line x1="1750" y1="7450" x2="3400" y2="7450" stroke="#b45309" stroke-width="12"/>
+<line x1="1750" y1="7360" x2="1750" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="1700" y1="7400" x2="1800" y2="7500" stroke="#b45309" stroke-width="24"/>
+<line x1="3400" y1="7360" x2="3400" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="3350" y1="7400" x2="3450" y2="7500" stroke="#b45309" stroke-width="24"/>
+<text x="2575" y="7560" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 2575 7560)">1650</text>
+<line x1="3400" y1="7450" x2="5800" y2="7450" stroke="#b45309" stroke-width="12"/>
+<line x1="3400" y1="7360" x2="3400" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="3350" y1="7400" x2="3450" y2="7500" stroke="#b45309" stroke-width="24"/>
+<line x1="5800" y1="7360" x2="5800" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="5750" y1="7400" x2="5850" y2="7500" stroke="#b45309" stroke-width="24"/>
+<text x="4600" y="7560" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 4600 7560)">2400</text>
+<line x1="5800" y1="7450" x2="7900" y2="7450" stroke="#b45309" stroke-width="12"/>
+<line x1="5800" y1="7360" x2="5800" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="5750" y1="7400" x2="5850" y2="7500" stroke="#b45309" stroke-width="24"/>
+<line x1="7900" y1="7360" x2="7900" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="7850" y1="7400" x2="7950" y2="7500" stroke="#b45309" stroke-width="24"/>
+<text x="6850" y="7560" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 6850 7560)">2100</text>
+<line x1="7900" y1="7450" x2="8800" y2="7450" stroke="#b45309" stroke-width="12"/>
+<line x1="7900" y1="7360" x2="7900" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="7850" y1="7400" x2="7950" y2="7500" stroke="#b45309" stroke-width="24"/>
+<line x1="8800" y1="7360" x2="8800" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="8750" y1="7400" x2="8850" y2="7500" stroke="#b45309" stroke-width="24"/>
+<text x="8350" y="7560" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 8350 7560)">900</text>
+<line x1="8800" y1="7450" x2="10400" y2="7450" stroke="#b45309" stroke-width="12"/>
+<line x1="8800" y1="7360" x2="8800" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="8750" y1="7400" x2="8850" y2="7500" stroke="#b45309" stroke-width="24"/>
+<line x1="10400" y1="7360" x2="10400" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="10350" y1="7400" x2="10450" y2="7500" stroke="#b45309" stroke-width="24"/>
+<text x="9600" y="7560" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 9600 7560)">1600</text>
+<line x1="10400" y1="7450" x2="11650" y2="7450" stroke="#b45309" stroke-width="12"/>
+<line x1="10400" y1="7360" x2="10400" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="10350" y1="7400" x2="10450" y2="7500" stroke="#b45309" stroke-width="24"/>
+<line x1="11650" y1="7360" x2="11650" y2="7540" stroke="#b45309" stroke-width="12"/>
+<line x1="11600" y1="7400" x2="11700" y2="7500" stroke="#b45309" stroke-width="24"/>
+<text x="11025" y="7560" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 11025 7560)">1250</text>
+<line x1="1750" y1="7900" x2="7900" y2="7900" stroke="#b45309" stroke-width="12"/>
+<line x1="1750" y1="7810" x2="1750" y2="7990" stroke="#b45309" stroke-width="12"/>
+<line x1="1700" y1="7850" x2="1800" y2="7950" stroke="#b45309" stroke-width="24"/>
+<line x1="7900" y1="7810" x2="7900" y2="7990" stroke="#b45309" stroke-width="12"/>
+<line x1="7850" y1="7850" x2="7950" y2="7950" stroke="#b45309" stroke-width="24"/>
+<text x="4825" y="8010" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 4825 8010)">6150</text>
+<line x1="7900" y1="7900" x2="11650" y2="7900" stroke="#b45309" stroke-width="12"/>
+<line x1="7900" y1="7810" x2="7900" y2="7990" stroke="#b45309" stroke-width="12"/>
+<line x1="7850" y1="7850" x2="7950" y2="7950" stroke="#b45309" stroke-width="24"/>
+<line x1="11650" y1="7810" x2="11650" y2="7990" stroke="#b45309" stroke-width="12"/>
+<line x1="11600" y1="7850" x2="11700" y2="7950" stroke="#b45309" stroke-width="24"/>
+<text x="9775" y="8010" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 9775 8010)">3750</text>
+<line x1="1750" y1="8350" x2="11650" y2="8350" stroke="#b45309" stroke-width="12"/>
+<line x1="1750" y1="8260" x2="1750" y2="8440" stroke="#b45309" stroke-width="12"/>
+<line x1="1700" y1="8300" x2="1800" y2="8400" stroke="#b45309" stroke-width="24"/>
+<line x1="11650" y1="8260" x2="11650" y2="8440" stroke="#b45309" stroke-width="12"/>
+<line x1="11600" y1="8300" x2="11700" y2="8400" stroke="#b45309" stroke-width="24"/>
+<text x="6700" y="8460" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" font-weight="600" transform="rotate(0.0 6700 8460)">9900</text>
+<line x1="12250" y1="6850" x2="12250" y2="1750" stroke="#b45309" stroke-width="12"/>
+<line x1="12160" y1="6850" x2="12340" y2="6850" stroke="#b45309" stroke-width="12"/>
+<line x1="12200" y1="6900" x2="12300" y2="6800" stroke="#b45309" stroke-width="24"/>
+<line x1="12160" y1="1750" x2="12340" y2="1750" stroke="#b45309" stroke-width="12"/>
+<line x1="12200" y1="1800" x2="12300" y2="1700" stroke="#b45309" stroke-width="24"/>
+<text x="12360" y="4300" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(90.0 12360 4300)">5100</text>
+<line x1="1750" y1="1150" x2="7900" y2="1150" stroke="#b45309" stroke-width="12"/>
+<line x1="1750" y1="1240" x2="1750" y2="1060" stroke="#b45309" stroke-width="12"/>
+<line x1="1700" y1="1200" x2="1800" y2="1100" stroke="#b45309" stroke-width="24"/>
+<line x1="7900" y1="1240" x2="7900" y2="1060" stroke="#b45309" stroke-width="12"/>
+<line x1="7850" y1="1200" x2="7950" y2="1100" stroke="#b45309" stroke-width="24"/>
+<text x="4825" y="1040" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 4825 1040)">6150</text>
+<line x1="7900" y1="1150" x2="11650" y2="1150" stroke="#b45309" stroke-width="12"/>
+<line x1="7900" y1="1240" x2="7900" y2="1060" stroke="#b45309" stroke-width="12"/>
+<line x1="7850" y1="1200" x2="7950" y2="1100" stroke="#b45309" stroke-width="24"/>
+<line x1="11650" y1="1240" x2="11650" y2="1060" stroke="#b45309" stroke-width="12"/>
+<line x1="11600" y1="1200" x2="11700" y2="1100" stroke="#b45309" stroke-width="24"/>
+<text x="9775" y="1040" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(0.0 9775 1040)">3750</text>
+<line x1="1750" y1="700" x2="11650" y2="700" stroke="#b45309" stroke-width="12"/>
+<line x1="1750" y1="790" x2="1750" y2="610" stroke="#b45309" stroke-width="12"/>
+<line x1="1700" y1="750" x2="1800" y2="650" stroke="#b45309" stroke-width="24"/>
+<line x1="11650" y1="790" x2="11650" y2="610" stroke="#b45309" stroke-width="12"/>
+<line x1="11600" y1="750" x2="11700" y2="650" stroke="#b45309" stroke-width="24"/>
+<text x="6700" y="590" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" font-weight="600" transform="rotate(0.0 6700 590)">9900</text>
+<line x1="1150" y1="6850" x2="1150" y2="3830" stroke="#b45309" stroke-width="12"/>
+<line x1="1240" y1="6850" x2="1060" y2="6850" stroke="#b45309" stroke-width="12"/>
+<line x1="1200" y1="6900" x2="1100" y2="6800" stroke="#b45309" stroke-width="24"/>
+<line x1="1240" y1="3830" x2="1060" y2="3830" stroke="#b45309" stroke-width="12"/>
+<line x1="1200" y1="3880" x2="1100" y2="3780" stroke="#b45309" stroke-width="24"/>
+<text x="1040" y="5340" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(90.0 1040 5340)">3020</text>
+<line x1="1150" y1="3830" x2="1150" y2="2900" stroke="#b45309" stroke-width="12"/>
+<line x1="1240" y1="3830" x2="1060" y2="3830" stroke="#b45309" stroke-width="12"/>
+<line x1="1200" y1="3880" x2="1100" y2="3780" stroke="#b45309" stroke-width="24"/>
+<line x1="1240" y1="2900" x2="1060" y2="2900" stroke="#b45309" stroke-width="12"/>
+<line x1="1200" y1="2950" x2="1100" y2="2850" stroke="#b45309" stroke-width="24"/>
+<text x="1040" y="3365" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(90.0 1040 3365)">930</text>
+<line x1="1150" y1="2900" x2="1150" y2="1750" stroke="#b45309" stroke-width="12"/>
+<line x1="1240" y1="2900" x2="1060" y2="2900" stroke="#b45309" stroke-width="12"/>
+<line x1="1200" y1="2950" x2="1100" y2="2850" stroke="#b45309" stroke-width="24"/>
+<line x1="1240" y1="1750" x2="1060" y2="1750" stroke="#b45309" stroke-width="12"/>
+<line x1="1200" y1="1800" x2="1100" y2="1700" stroke="#b45309" stroke-width="24"/>
+<text x="1040" y="2325" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(90.0 1040 2325)">1150</text>
+<line x1="700" y1="6850" x2="700" y2="1750" stroke="#b45309" stroke-width="12"/>
+<line x1="790" y1="6850" x2="610" y2="6850" stroke="#b45309" stroke-width="12"/>
+<line x1="750" y1="6900" x2="650" y2="6800" stroke="#b45309" stroke-width="24"/>
+<line x1="790" y1="1750" x2="610" y2="1750" stroke="#b45309" stroke-width="12"/>
+<line x1="750" y1="1800" x2="650" y2="1700" stroke="#b45309" stroke-width="24"/>
+<text x="590" y="4300" font-size="160" text-anchor="middle" dominant-baseline="central" fill="#b45309" transform="rotate(90.0 590 4300)">5100</text>
 </svg>

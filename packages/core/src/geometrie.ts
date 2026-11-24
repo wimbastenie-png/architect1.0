@@ -206,6 +206,11 @@ export interface Maatlijn {
   n: Punt;
   lengte: number;
   methode: Muur["bron"]["methode"];
+  /** Begin- en eindpunt van de gemeten maat op de muur zelf (hartlijn, verlengd). */
+  van?: Punt;
+  tot?: Punt;
+  /** Rij in de maatketting: 0 = openingen, 1 = gevel, 2 = totaal. */
+  rij?: number;
 }
 
 /**
@@ -243,9 +248,12 @@ export function maatlijnen(v: Verdieping, afstandMm = 450): Maatlijn[] {
           const wl = muurLengte(w);
           return Math.abs((u.x * (w.eind.y - w.start.y)) / wl - (u.y * (w.eind.x - w.start.x)) / wl) < 1e-6;
         });
-      // Eindigt de muur tegen een doorlopende muur (T-aansluiting, bv. een
-      // aanbouw tegen een gevel), dan begint de maat aan de gevelkant.
-      const tegenDoorlopend = (p: Punt): number | null => {
+      // Uiteinde van de gevelmaat, volgens waar de gevel heen gaat:
+      // - een haakse muur steekt naar buiten (aanbouw, doorlopende muur):
+      //   stop aan het vlak van die muur  → −dikte/2
+      // - alleen haakse muren naar binnen (gewone buitenhoek):
+      //   loop door tot de buitenkant van de hoek → +dikte/2
+      const uiteinde = (p: Punt): number => {
         const haaks = v.muren.filter((w) => {
           if (w.id === m.id) return false;
           const raakt = (w.start.x === p.x && w.start.y === p.y) || (w.eind.x === p.x && w.eind.y === p.y);
@@ -253,11 +261,16 @@ export function maatlijnen(v: Verdieping, afstandMm = 450): Maatlijn[] {
           const wl = muurLengte(w);
           return Math.abs((u.x * (w.eind.y - w.start.y)) / wl - (u.y * (w.eind.x - w.start.x)) / wl) > 1e-6;
         });
-        if (haaks.length < 2) return null;
-        return -Math.max(...haaks.map((w) => w.dikte)) / 2;
+        if (!haaks.length) return 0;
+        const dikte = Math.max(...haaks.map((w) => w.dikte)) / 2;
+        const naarBuiten = haaks.some((w) => {
+          const ander = w.start.x === p.x && w.start.y === p.y ? w.eind : w.start;
+          return (ander.x - p.x) * n.x + (ander.y - p.y) * n.y > 1e-6;
+        });
+        return naarBuiten ? -dikte : dikte;
       };
-      const es = loopDoor(m.start) ? 0 : tegenDoorlopend(m.start) ?? aans.start;
-      const ee = loopDoor(m.eind) ? 0 : tegenDoorlopend(m.eind) ?? aans.eind;
+      const es = loopDoor(m.start) ? 0 : uiteinde(m.start);
+      const ee = loopDoor(m.eind) ? 0 : uiteinde(m.eind);
       const s0 = { x: m.start.x - u.x * es, y: m.start.y - u.y * es };
       const e0 = { x: m.eind.x + u.x * ee, y: m.eind.y + u.y * ee };
       const off = m.dikte / 2 + afstandMm;
@@ -268,6 +281,8 @@ export function maatlijnen(v: Verdieping, afstandMm = 450): Maatlijn[] {
         n,
         lengte: L + es + ee,
         methode: m.bron.methode,
+        van: s0,
+        tot: e0,
       };
     });
 }

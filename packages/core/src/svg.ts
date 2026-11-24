@@ -1,5 +1,6 @@
 /** Planvoorbeeld als SVG — dezelfde tekening die app en webviewer tonen. */
-import { binnenmaten, maatlijnen, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
+import { maatketens, tekstBreedte } from "./maatvoering.ts";
+import { binnenmaten, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import type { MeetMethode, Punt, Verdieping } from "./schema.ts";
 
 const KLEUR: Record<MeetMethode, string> = {
@@ -19,8 +20,9 @@ export interface SvgOpties {
 
 export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string {
   const ia = opties.interactief ?? false;
-  const marge = opties.marge ?? 1100;
-  const alle = v.muren.flatMap((m) => muurVorm(m, v.muren));
+  const marge = opties.marge ?? 400;
+  const ketens = maatketens(v);
+  const alle = [...v.muren.flatMap((m) => muurVorm(m, v.muren)), ...ketens.flatMap((k) => [k.a, k.b].map((p) => ({ x: p.x + k.n.x * 300, y: p.y + k.n.y * 300 })))];
   const xs = alle.map((p) => p.x), ys = alle.map((p) => p.y);
   const minX = Math.min(...xs) - marge, maxX = Math.max(...xs) + marge;
   const minY = Math.min(...ys) - marge, maxY = Math.max(...ys) + marge;
@@ -51,20 +53,30 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     el.push(`<polygon points="${muurRechthoek(deel).map(t).join(" ")}" fill="#fff" stroke="#0e7490" stroke-width="20"/>`);
     if (o.soort === "raam") el.push(`<line x1="${t(deel.start).split(",")[0]}" y1="${t(deel.start).split(",")[1]}" x2="${t(deel.eind).split(",")[0]}" y2="${t(deel.eind).split(",")[1]}" stroke="#0e7490" stroke-width="20"/>`);
   }
-  for (const ml of maatlijnen(v)) {
+  for (const ml of ketens) {
     const { a, b, n } = ml;
     const kleur = KLEUR[ml.methode];
-    const lijn = (p: Punt, q: Punt) => {
+    const lijn = (p: Punt, q: Punt, dikte = 12) => {
       const [x1, y1] = t(p).split(","), [x2, y2] = t(q).split(",");
-      el.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${kleur}" stroke-width="12"/>`);
+      el.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${kleur}" stroke-width="${dikte}"/>`);
     };
     lijn(a, b);
-    for (const q of [a, b]) lijn({ x: q.x - n.x * 100, y: q.y - n.y * 100 }, { x: q.x + n.x * 100, y: q.y + n.y * 100 });
-    const tp = { x: (a.x + b.x) / 2 + n.x * 130, y: (a.y + b.y) / 2 + n.y * 130 };
+    const u = { x: (b.x - a.x) / ml.lengte, y: (b.y - a.y) / ml.lengte };
+    for (const q of [a, b]) {
+      lijn({ x: q.x - n.x * 90, y: q.y - n.y * 90 }, { x: q.x + n.x * 90, y: q.y + n.y * 90 });
+      lijn({ x: q.x - (u.x + n.x) * 50, y: q.y - (u.y + n.y) * 50 }, { x: q.x + (u.x + n.x) * 50, y: q.y + (u.y + n.y) * 50 }, 24);
+    }
+    const tekst = `${Math.round(ml.lengte)}`;
+    // past het getal niet tussen de streepjes: kleiner, aan de binnenkant
+    const klein = tekstBreedte(tekst, 160) > ml.lengte * 0.9;
+    const grootte = klein ? 120 : 160;
+    const afst = klein ? -110 : 110;
+    const tp = { x: (a.x + b.x) / 2 + n.x * afst, y: (a.y + b.y) / 2 + n.y * afst };
     const [mx, my] = t(tp).split(",");
     let hoek = -(Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
     if (hoek > 90 || hoek <= -90) hoek += 180;
-    el.push(`<text${ia ? ` data-muur="${esc(ml.muurId)}" style="cursor:pointer"` : ""} x="${mx}" y="${my}" font-size="160" text-anchor="middle" dominant-baseline="central" fill="${kleur}" transform="rotate(${hoek.toFixed(1)} ${mx} ${my})">${Math.round(ml.lengte)}</text>`);
+    const klik = ia && ml.muurId ? ` data-muur="${esc(ml.muurId)}" style="cursor:pointer"` : "";
+    el.push(`<text${klik} x="${mx}" y="${my}" font-size="${grootte}" text-anchor="middle" dominant-baseline="central" fill="${kleur}"${ml.rij === 2 ? ' font-weight="600"' : ""} transform="rotate(${hoek.toFixed(1)} ${mx} ${my})">${tekst}</text>`);
   }
 
   const sel = v.muren.find((m) => m.id === opties.geselecteerd);

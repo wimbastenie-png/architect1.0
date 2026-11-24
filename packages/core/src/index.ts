@@ -6,3 +6,4 @@ export * from "./svg.ts";
 export * from "./pdf.ts";
 export * from "./sjablonen.ts";
 export * from "./uitbreiden.ts";
+export * from "./maatvoering.ts";

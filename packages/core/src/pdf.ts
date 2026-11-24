@@ -8,7 +8,8 @@
  * "aan pagina aanpaste".
  */
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
-import { binnenmaten, maatlijnen, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
+import { maatketens, tekstBreedte } from "./maatvoering.ts";
+import { binnenmaten, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import type { MeetMethode, Project, Punt, Verdieping } from "./schema.ts";
 
 export type Papier = "A4" | "A3";
@@ -55,10 +56,13 @@ const OPENING = rgb(0.055, 0.455, 0.565);
 const WIT = rgb(1, 1, 1);
 
 /** Uitgestrektheid van de tekening in plan-mm, inclusief maatlijnen en hun tekst. */
-export function tekenGrenzen(v: Verdieping): { minX: number; minY: number; maxX: number; maxY: number } {
+/** Rijafstanden op papier (mm), omgerekend naar plan-mm voor een schaal. */
+const ketenOpties = (schaal: number) => ({ afstand: 8 * schaal, tussen: 7 * schaal });
+
+export function tekenGrenzen(v: Verdieping, schaal: number = 50): { minX: number; minY: number; maxX: number; maxY: number } {
   const pts: Punt[] = v.muren.flatMap((m) => muurVorm(m, v.muren));
-  for (const ml of maatlijnen(v)) {
-    const extra = 500; // ruimte voor het maatgetal buiten de maatlijn
+  for (const ml of maatketens(v, ketenOpties(schaal))) {
+    const extra = 4 * schaal; // maatgetal reikt tot ±3 mm buiten de maatlijn
     pts.push(
       { x: ml.a.x + ml.n.x * extra, y: ml.a.y + ml.n.y * extra },
       { x: ml.b.x + ml.n.x * extra, y: ml.b.y + ml.n.y * extra },
@@ -72,10 +76,10 @@ export function tekenGrenzen(v: Verdieping): { minX: number; minY: number; maxX:
 
 /** Kiest papier en schaal zodat de tekening past. */
 export function kiesBlad(v: Verdieping, opties: PdfOpties = {}): { papier: Papier; schaal: Schaal; past: boolean } {
-  const g = tekenGrenzen(v);
-  const bw = g.maxX - g.minX, bh = g.maxY - g.minY;
   const kandidaten = VOLGORDE.filter(([p, s]) => (!opties.papier || p === opties.papier) && (!opties.schaal || s === opties.schaal));
   for (const [papier, schaal] of kandidaten) {
+    const g = tekenGrenzen(v, schaal);
+    const bw = g.maxX - g.minX, bh = g.maxY - g.minY;
     const { b, h } = PAPIER[papier];
     if (bw / schaal <= b - 2 * RAND && bh / schaal <= h - 2 * RAND - TITELBLOK_H) return { papier, schaal, past: true };
   }
@@ -117,7 +121,7 @@ function tekenBlad(
   const H = h * PT;
 
   // --- plan → papier (pt). Tekening gecentreerd in het vak boven het titelblok.
-  const g = tekenGrenzen(v);
+  const g = tekenGrenzen(v, schaal);
   const vakB = b - 2 * RAND, vakH = h - 2 * RAND - TITELBLOK_H;
   const ox = RAND + (vakB - (g.maxX - g.minX) / schaal) / 2;
   const oy = RAND + TITELBLOK_H + (vakH - (g.maxY - g.minY) / schaal) / 2;
@@ -143,22 +147,26 @@ function tekenBlad(
   }
 
   // --- maatlijnen (kleur = meetbron)
-  for (const ml of maatlijnen(v)) {
+  for (const ml of maatketens(v, ketenOpties(schaal))) {
     const kleur = KLEUR[ml.methode];
     const { a, b: e, n } = ml;
     lijnPlan(a, e, kleur, 0.18);
     const tik = 1.2 * schaal; // 1,2 mm op papier
+    const u = { x: (e.x - a.x) / ml.lengte, y: (e.y - a.y) / ml.lengte };
     for (const q of [a, e]) {
       lijnPlan({ x: q.x - n.x * tik, y: q.y - n.y * tik }, { x: q.x + n.x * tik, y: q.y + n.y * tik }, kleur, 0.18);
       // schuine streep (architectenconventie)
-      const u = { x: (e.x - a.x) / ml.lengte, y: (e.y - a.y) / ml.lengte };
       const s = { x: (u.x + n.x) * 0.7 * schaal, y: (u.y + n.y) * 0.7 * schaal };
       lijnPlan({ x: q.x - s.x, y: q.y - s.y }, { x: q.x + s.x, y: q.y + s.y }, kleur, 0.35);
     }
-    const midden = naar({ x: (a.x + e.x) / 2 + n.x * 1.8 * schaal, y: (a.y + e.y) / 2 + n.y * 1.8 * schaal });
+    const tekst = `${Math.round(ml.lengte)}`;
+    // past het getal niet tussen de streepjes (op papier): kleiner, aan de binnenkant
+    const klein = tekstBreedte(tekst, 2.2) > (ml.lengte / schaal) * 0.9;
+    const afst = (klein ? -1.6 : 1.8) * schaal;
+    const midden = naar({ x: (a.x + e.x) / 2 + n.x * afst, y: (a.y + e.y) / 2 + n.y * afst });
     let hoek = (Math.atan2(e.y - a.y, e.x - a.x) * 180) / Math.PI;
     if (hoek > 90 || hoek <= -90) hoek += 180;
-    tekstGecentreerd(page, `${Math.round(ml.lengte)}`, midden, 2.2, f.gewoon, kleur, hoek);
+    tekstGecentreerd(page, tekst, midden, klein ? 1.7 : 2.2, ml.rij === 2 ? f.vet : f.gewoon, kleur, hoek);
   }
 
   // --- ruimtelabels

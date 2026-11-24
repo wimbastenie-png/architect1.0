@@ -3,7 +3,8 @@
  * AutoCAD, BricsCAD, DraftSight, LibreCAD, QCAD).
  * Eenheden: millimeter. Lagen: MUREN, OPENINGEN, RUIMTES, MATEN, TEKST.
  */
-import { binnenmaten, maatlijnen, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
+import { maatketens } from "./maatvoering.ts";
+import { binnenmaten, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import type { Punt, Verdieping } from "./schema.ts";
 
 const LAGEN: Record<string, number> = { MUREN: 7, OPENINGEN: 4, RUIMTES: 8, MATEN: 1, TEKST: 3 };
@@ -75,7 +76,7 @@ export function verdiepingNaarDXF(v: Verdieping, opties: { tekstHoogte?: number 
 
   for (const m of v.muren) d.polylijn("MUREN", muurVorm(m, v.muren));
 
-  for (const ml of maatlijnen(v)) {
+  for (const ml of maatketens(v)) {
     const { a, b, n } = ml;
     d.lijn("MATEN", a, b);
     for (const q of [a, b]) d.lijn("MATEN", { x: q.x - n.x * 100, y: q.y - n.y * 100 }, { x: q.x + n.x * 100, y: q.y + n.y * 100 });

@@ -31,6 +31,7 @@ Daarna publiceert elke wijziging op `main` de app op
 | --- | --- |
 | `src/schema.ts` | Projectformaat v0.1: verdiepingen, muren, openingen, ruimtes. Alles in hele mm; elke maat onthoudt hoe ze gemeten is (gescand / gecorrigeerd / laser / manueel). Validatie van structuur én samenhang. |
 | `src/geometrie.ts` | Oppervlakte, omtrek, wandvlakken. Muurlengte aanpassen zoals in CAD: haakse muren schuiven mee, het plan blijft gesloten. |
+| `src/maatvoering.ts` | Maatkettingen per zijde, buiten het hele gebouw: rij openingen (gevelstuk · raam · gevelstuk), rij gevelstukken, rij totaal. Gebruikt door PDF, DXF en scherm. |
 | `src/uitbreiden.ts` | Ruimte tegen een bestaande muur zetten: muur splitsen, openingen verhuizen, gedeelde muren hergebruiken, overlap weigeren. |
 | `src/sjablonen.ts` | Nieuw project uit binnenmaten (rechthoekige ruimte). |
 | `src/meetstaat.ts` | Meetstaat per ruimte (vloer, volume, wand bruto/netto) en CSV voor Belgische Excel (`;` en decimale komma). |
@@ -43,7 +44,7 @@ Daarna publiceert elke wijziging op `main` de app op
 
 ```bash
 npm install
-npm test            # 30 tests
+npm test            # 35 tests
 npm run web         # webapp lokaal starten
 npm run voorbeeld   # voorbeelduitvoer
 ```
@@ -52,7 +53,7 @@ npm run voorbeeld   # voorbeelduitvoer
 
 - Wandoppervlak gebruikt de binnencontour × plafondhoogte; dagkanten (neggen) van ramen en deuren zitten er nog niet in.
 - Muren meeschuiven werkt voor rechte, haakse plannen; schuine muren en bogen zijn nog niet getest.
-- Maatlijnen tonen buitenmaten (tot de hartlijn van een aansluitende tussenmuur); binnenmaten staan als tekst in rechthoekige ruimtes. Nog geen maatketting voor openingen.
+- Maatkettingen alleen voor haakse gevels; schuine gevels krijgen één eigen maatlijn. Ramen en deuren in binnenmuren krijgen nog geen maat. Nog geen hulplijnen (streepjes van maatlijn naar gevel).
 - Ruimtes zijn rechthoekig en worden haaks tegen een bestaande muur gezet. Schuine muren, L-vormige ruimtes en een ruimte die tegen twee bestaande ruimtes tegelijk komt (bv. een hoek opvullen) kunnen nog niet.
 - Bij een aanbouw tegen een gevel kunnen gevelmaten en maten van de aanbouw elkaar kruisen; maatlijnen worden nog niet automatisch in rijen geschikt.
 - Nog geen IFC-export.
@@ -60,7 +61,7 @@ npm run voorbeeld   # voorbeelduitvoer
 
 ## Volgende stappen
 
-1. Maatketting op rijen (gevelmaten buiten de aanbouwen) en maten van ramen/deuren.
+1. Maten van deuren in binnenmuren, hulplijnen, hoogtematen (borstwering/raamhoogte) in een legende per opening.
 2. Android: begeleid opmeten met ARCore (hoeken aantikken) → dit projectformaat.
 3. Omzetting RoomPlan-uitvoer (iPhone/iPad Pro met LiDAR) → dit projectformaat; vraagt een echt scanbestand.
 4. Eenvoudige IFC-export.
