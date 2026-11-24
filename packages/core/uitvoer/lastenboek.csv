@@ -1,0 +1,37 @@
+﻿Post;Omschrijving;Eenheid;Hoeveelheid;Eenheidsprijs (EUR);Totaal (EUR)
+01;Vloerafwerking;m²;41,40;;=D2*E2
+02;Plinten;m;33,81;;=D3*E3
+03;Pleisterwerk wanden;m²;86,96;;=D4*E4
+04;Pleisterwerk plafond;m²;41,40;;=D5*E5
+05;Dagkanten (pleisterwerk);m;14,96;;=D6*E6
+06;Schilderwerk wanden;m²;86,96;;=D7*E7
+07;Schilderwerk plafond;m²;41,40;;=D8*E8
+08;Vensterbanken;m;4,00;;=D9*E9
+09;Buitenschrijnwerk (ramen en buitendeuren);m²;7,81;;=D10*E10
+10;Binnendeuren;st;1;;=D11*E11
+;Totaal excl. btw;;;;=F2+F3+F4+F5+F6+F7+F8+F9+F10+F11
+
+Detail per ruimte
+Post;Omschrijving;Verdieping;Ruimte;Eenheid;Hoeveelheid
+01;Vloerafwerking;Gelijkvloers;Leefruimte;m²;26,10
+02;Plinten;Gelijkvloers;Leefruimte;m;18,84
+03;Pleisterwerk wanden;Gelijkvloers;Leefruimte;m²;48,30
+04;Pleisterwerk plafond;Gelijkvloers;Leefruimte;m²;26,10
+05;Dagkanten (pleisterwerk);Gelijkvloers;Leefruimte;m;10,56
+06;Schilderwerk wanden;Gelijkvloers;Leefruimte;m²;48,30
+07;Schilderwerk plafond;Gelijkvloers;Leefruimte;m²;26,10
+08;Vensterbanken;Gelijkvloers;Leefruimte;m;2,40
+09;Buitenschrijnwerk (ramen en buitendeuren);Gelijkvloers;Leefruimte;m²;5,57
+10;Binnendeuren;Gelijkvloers;Leefruimte;st;1
+01;Vloerafwerking;Gelijkvloers;Slaapkamer;m²;15,30
+02;Plinten;Gelijkvloers;Slaapkamer;m;14,97
+03;Pleisterwerk wanden;Gelijkvloers;Slaapkamer;m²;38,66
+04;Pleisterwerk plafond;Gelijkvloers;Slaapkamer;m²;15,30
+05;Dagkanten (pleisterwerk);Gelijkvloers;Slaapkamer;m;4,40
+06;Schilderwerk wanden;Gelijkvloers;Slaapkamer;m²;38,66
+07;Schilderwerk plafond;Gelijkvloers;Slaapkamer;m²;15,30
+08;Vensterbanken;Gelijkvloers;Slaapkamer;m;1,60
+09;Buitenschrijnwerk (ramen en buitendeuren);Gelijkvloers;Slaapkamer;m²;2,24
+
+Project: Appartement Voorbeeldstraat 12
+"Hoeveelheden ter indicatie, berekend uit de opmeting; na te meten vóór bestelling. Eigen postindeling, niet volgens Standaardbestek 250. Wanden = omtrek × plafondhoogte min openingen; plafond = vloer; plinten = omtrek min deuren; dagkanten in lopende meter (2 × hoogte + breedte), zonder diepte."

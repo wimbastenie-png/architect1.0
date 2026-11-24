@@ -24,6 +24,7 @@ export const MeetMethode = z.enum([
   "gecorrigeerd", // door gebruiker aangepast
   "laser", // Bluetooth-laserafstandsmeter
   "manueel", // ingetypt (rolmeter, bestaand plan)
+  "overgenomen", // gekopieerd (bv. van de verdieping eronder), nog niet gemeten
 ]);
 export type MeetMethode = z.infer<typeof MeetMethode>;
 

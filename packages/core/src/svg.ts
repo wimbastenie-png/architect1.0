@@ -1,6 +1,7 @@
 /** Planvoorbeeld als SVG — dezelfde tekening die app en webviewer tonen. */
 import { maatketens, tekstBreedte } from "./maatvoering.ts";
-import { binnenmaten, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
+import { openingLabelPunt, openingLabels } from "./openingen.ts";
+import { binnenmaten, m2Tekst, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import type { MeetMethode, Punt, Verdieping } from "./schema.ts";
 
 const KLEUR: Record<MeetMethode, string> = {
@@ -8,6 +9,7 @@ const KLEUR: Record<MeetMethode, string> = {
   gecorrigeerd: "#1d4ed8",
   manueel: "#1d4ed8",
   laser: "#15803d", // groen: betrouwbaar
+  overgenomen: "#78716c", // grijs: niet gemeten
 };
 
 export interface SvgOpties {
@@ -16,6 +18,8 @@ export interface SvgOpties {
   geselecteerd?: string;
   /** Voegt `data-muur` / `data-ruimte` toe zodat de webapp klikken kan opvangen. */
   interactief?: boolean;
+  /** Labels per opening-id (codes over het hele project); standaard per verdieping genummerd. */
+  labels?: Map<string, string>;
 }
 
 export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string {
@@ -35,7 +39,7 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     el.push(`<polygon points="${r.contour.map(t).join(" ")}" fill="#f5f5f4" stroke="none"${ia ? ` data-ruimte="${esc(r.id)}" style="cursor:pointer"` : ""}/>`);
     const c = zwaartepunt(r.contour);
     const [cx, cy] = t(c).split(",");
-    const m2 = (oppervlakte(r.contour) / 1e6).toFixed(2).replace(".", ",");
+    const m2 = m2Tekst(oppervlakte(r.contour));
     el.push(`<text x="${cx}" y="${Number(cy) - 120}" font-size="220" text-anchor="middle" font-weight="600">${esc(r.naam)}</text>`);
     el.push(`<text x="${cx}" y="${Number(cy) + 200}" font-size="180" text-anchor="middle" fill="#57534e">${m2} m²</text>`);
     const bm = binnenmaten(r);
@@ -53,6 +57,24 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     el.push(`<polygon points="${muurRechthoek(deel).map(t).join(" ")}" fill="#fff" stroke="#0e7490" stroke-width="20"/>`);
     if (o.soort === "raam") el.push(`<line x1="${t(deel.start).split(",")[0]}" y1="${t(deel.start).split(",")[1]}" x2="${t(deel.eind).split(",")[0]}" y2="${t(deel.eind).split(",")[1]}" stroke="#0e7490" stroke-width="20"/>`);
   }
+  // hulplijnen
+  for (const ml of ketens) {
+    for (const [hp, q] of [[ml.hulpA, ml.a], [ml.hulpB, ml.b]] as const) {
+      if (!hp) continue;
+      const [x1, y1] = t({ x: hp.x + ml.n.x * 70, y: hp.y + ml.n.y * 70 }).split(",");
+      const [x2, y2] = t({ x: q.x + ml.n.x * 60, y: q.y + ml.n.y * 60 }).split(",");
+      el.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#a8a29e" stroke-width="6" pointer-events="none"/>`);
+    }
+  }
+  // codes bij ramen en deuren
+  const labels = opties.labels ?? openingLabels({ verdiepingen: [v] });
+  for (const o of v.openingen) {
+    const tekst = labels.get(o.id), plek = openingLabelPunt(v, o, 130);
+    if (!tekst || !plek) continue;
+    const [lx, ly] = t(plek.punt).split(",");
+    el.push(`<text x="${lx}" y="${ly}" font-size="120" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#0e7490" pointer-events="none" transform="rotate(${(-plek.hoek).toFixed(1)} ${lx} ${ly})">${esc(tekst)}</text>`);
+  }
+
   for (const ml of ketens) {
     const { a, b, n } = ml;
     const kleur = KLEUR[ml.methode];

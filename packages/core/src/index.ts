@@ -7,3 +7,6 @@ export * from "./pdf.ts";
 export * from "./sjablonen.ts";
 export * from "./uitbreiden.ts";
 export * from "./maatvoering.ts";
+export * from "./openingen.ts";
+export * from "./lastenboek.ts";
+export * from "./verdiepingen.ts";

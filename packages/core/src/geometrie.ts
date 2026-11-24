@@ -20,6 +20,19 @@ export function oppervlakte(contour: Punt[]): number {
   return Math.abs(s) / 2;
 }
 
+/**
+ * mm² → m², afgerond op 0,01 m². Rekent in hele mm² (geen kommagetallen),
+ * zodat plan, meetstaat en lastenboek altijd hetzelfde getal tonen.
+ */
+export function m2(mm2: number): number {
+  return Math.round(mm2 / 1e4) / 100;
+}
+
+/** m² als tekst met decimale komma: "26,33". */
+export function m2Tekst(mm2: number): string {
+  return m2(mm2).toFixed(2).replace(".", ",");
+}
+
 export function omtrek(contour: Punt[]): number {
   let s = 0;
   for (let i = 0; i < contour.length; i++) s += afstand(contour[i]!, contour[(i + 1) % contour.length]!);
@@ -211,6 +224,9 @@ export interface Maatlijn {
   tot?: Punt;
   /** Rij in de maatketting: 0 = openingen, 1 = gevel, 2 = totaal. */
   rij?: number;
+  /** Punten op het gevelvlak waar de hulplijnen naar a en b vertrekken. */
+  hulpA?: Punt;
+  hulpB?: Punt;
 }
 
 /**

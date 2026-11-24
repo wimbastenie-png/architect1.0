@@ -1,5 +1,5 @@
 /** Meetstaat: hoeveelheden per ruimte, zoals een aannemer ze voor een offerte nodig heeft. */
-import { omtrek, oppervlakte, ruimteWandVlak } from "./geometrie.ts";
+import { m2, omtrek, oppervlakte, ruimteWandVlak } from "./geometrie.ts";
 import type { MeetMethode, Project } from "./schema.ts";
 
 export interface MeetstaatRij {
@@ -16,7 +16,7 @@ export interface MeetstaatRij {
 }
 
 const r2 = (x: number) => Math.round(x * 100) / 100;
-const BETROUWBAARHEID: MeetMethode[] = ["gescand", "gecorrigeerd", "manueel", "laser"];
+const BETROUWBAARHEID: MeetMethode[] = ["overgenomen", "gescand", "gecorrigeerd", "manueel", "laser"];
 
 export function meetstaat(p: Project): MeetstaatRij[] {
   const rijen: MeetstaatRij[] = [];
@@ -29,12 +29,12 @@ export function meetstaat(p: Project): MeetstaatRij[] {
       rijen.push({
         verdieping: v.naam,
         ruimte: r.naam,
-        vloerM2: r2(vloer),
+        vloerM2: m2(oppervlakte(r.contour)),
         omtrekM: r2(omtrek(r.contour) / 1000),
         plafondhoogteM: r2(r.plafondhoogte / 1000),
         volumeM3: r2((vloer * r.plafondhoogte) / 1000),
-        wandBrutoM2: r2(wand.bruto / 1e6),
-        wandNettoM2: r2(wand.netto / 1e6),
+        wandBrutoM2: m2(wand.bruto),
+        wandNettoM2: m2(wand.netto),
         bron: zwakste,
       });
     }

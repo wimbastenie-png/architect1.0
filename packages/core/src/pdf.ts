@@ -8,8 +8,11 @@
  * "aan pagina aanpaste".
  */
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
+import { LASTENBOEK_AANNAMES, lastenboek } from "./lastenboek.ts";
 import { maatketens, tekstBreedte } from "./maatvoering.ts";
-import { binnenmaten, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
+import { openingLabelPunt, openingenLijst, openingLabel } from "./openingen.ts";
+import { peilTekst } from "./verdiepingen.ts";
+import { binnenmaten, m2Tekst, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import type { MeetMethode, Project, Punt, Verdieping } from "./schema.ts";
 
 export type Papier = "A4" | "A3";
@@ -48,12 +51,14 @@ const KLEUR: Record<MeetMethode, RGB> = {
   gecorrigeerd: rgb(0.114, 0.306, 0.847),
   manueel: rgb(0.114, 0.306, 0.847),
   laser: rgb(0.082, 0.502, 0.239),
+  overgenomen: rgb(0.47, 0.44, 0.42),
 };
 const ZWART = rgb(0.16, 0.15, 0.14);
 const GRIJS = rgb(0.34, 0.33, 0.31);
 const VLOER = rgb(0.96, 0.96, 0.955);
 const OPENING = rgb(0.055, 0.455, 0.565);
 const WIT = rgb(1, 1, 1);
+const HULP = rgb(0.6, 0.58, 0.56);
 
 /** Uitgestrektheid van de tekening in plan-mm, inclusief maatlijnen en hun tekst. */
 /** Rijafstanden op papier (mm), omgerekend naar plan-mm voor een schaal. */
@@ -98,9 +103,11 @@ export async function projectNaarPDF(p: Project, opties: PdfOpties = {}): Promis
     vet: await doc.embedFont(StandardFonts.HelveticaBold),
   };
   const datum = opties.datum ?? new Date().toISOString().slice(0, 10);
-  p.verdiepingen.forEach((v, i) => {
-    tekenBlad(doc, fonts, p, v, { ...opties, datum }, i + 1, p.verdiepingen.length);
-  });
+  // Titelblokken pas op het einde tekenen: dan is het totaal aantal bladen gekend.
+  const titelblokken: Array<(blad: number, bladen: number) => void> = [];
+  for (const v of p.verdiepingen) titelblokken.push(tekenBlad(doc, fonts, p, v, { ...opties, datum }));
+  titelblokken.push(...tekenLijsten(doc, fonts, p, { ...opties, datum }, kiesBlad(p.verdiepingen[0]!, opties).papier));
+  titelblokken.forEach((teken, i) => teken(i + 1, titelblokken.length));
   return doc.save();
 }
 
@@ -112,9 +119,7 @@ function tekenBlad(
   p: Project,
   v: Verdieping,
   opties: PdfOpties & { datum: string },
-  blad: number,
-  bladen: number,
-) {
+): (blad: number, bladen: number) => void {
   const { papier, schaal, past } = kiesBlad(v, opties);
   const { b, h } = PAPIER[papier];
   const page = doc.addPage([b * PT, h * PT]);
@@ -147,7 +152,23 @@ function tekenBlad(
   }
 
   // --- maatlijnen (kleur = meetbron)
-  for (const ml of maatketens(v, ketenOpties(schaal))) {
+  const ketens = maatketens(v, ketenOpties(schaal));
+  // hulplijnen: van net naast het gevelvlak tot net voorbij de maatlijn
+  for (const ml of ketens) {
+    for (const [h, q] of [[ml.hulpA, ml.a], [ml.hulpB, ml.b]] as const) {
+      if (!h) continue;
+      const n = ml.n;
+      lijnPlan({ x: h.x + n.x * 1.5 * schaal, y: h.y + n.y * 1.5 * schaal }, { x: q.x + n.x * 1.2 * schaal, y: q.y + n.y * 1.2 * schaal }, HULP, 0.1);
+    }
+  }
+  // codes bij ramen en deuren (binnendeuren ook met breedte)
+  const lijst = new Map(openingenLijst(p).map((r) => [r.id, r]));
+  for (const o of v.openingen) {
+    const rij = lijst.get(o.id), plek = openingLabelPunt(v, o, 2.2 * schaal);
+    if (rij && plek) tekstGecentreerd(page, openingLabel(rij.code, rij), naar(plek.punt), 1.8, f.vet, OPENING, plek.hoek);
+  }
+
+  for (const ml of ketens) {
     const kleur = KLEUR[ml.methode];
     const { a, b: e, n } = ml;
     lijnPlan(a, e, kleur, 0.18);
@@ -172,7 +193,7 @@ function tekenBlad(
   // --- ruimtelabels
   for (const r of v.ruimtes) {
     const c = naar(zwaartepunt(r.contour));
-    const m2 = (oppervlakte(r.contour) / 1e6).toFixed(2).replace(".", ",");
+    const m2 = m2Tekst(oppervlakte(r.contour));
     tekstGecentreerd(page, r.naam, { x: c.x, y: c.y + 5.5 * PT }, 3.2, f.vet, ZWART);
     tekstGecentreerd(page, `${m2} m²`, c, 2.5, f.gewoon, GRIJS);
     const bm = binnenmaten(r);
@@ -180,7 +201,8 @@ function tekenBlad(
   }
 
   tekenKader(page, b, h);
-  tekenTitelblok(page, f, p, v, { papier, schaal, past, blad, bladen, ...opties }, b);
+  const titel = `Plan bestaande toestand — ${v.naam} (peil ${peilTekst(v.peil)})`;
+  return (blad, bladen) => tekenTitelblok(page, f, p, titel, { papier, schaal, past, blad, bladen, muren: v.muren, ...opties }, b);
 }
 
 function tekstGecentreerd(page: PDFPage, s: string, c: { x: number; y: number }, hoogteMm: number, font: PDFFont, kleur: RGB, hoekGraden = 0) {
@@ -210,8 +232,8 @@ function tekenTitelblok(
   page: PDFPage,
   f: Fonts,
   p: Project,
-  v: Verdieping,
-  o: PdfOpties & { datum: string; papier: Papier; schaal: Schaal; past: boolean; blad: number; bladen: number },
+  titel: string,
+  o: PdfOpties & { datum: string; papier: Papier; schaal?: Schaal; past: boolean; blad: number; bladen: number; muren?: Verdieping["muren"] },
   b: number,
 ) {
   const x0 = RAND / 2, y0 = RAND / 2, w = b - RAND, hb = TITELBLOK_H - 2;
@@ -233,7 +255,7 @@ function tekenTitelblok(
   tekst(afkappen(p.naam, f.vet, 11, xSchaal - x0 - 6), x0 + 3, y0 + hb - 11, 11, f.vet);
   if (adres) tekst(afkappen(adres, f.gewoon, 8, xSchaal - x0 - 6), x0 + 3, y0 + hb - 16);
   label("Blad", x0 + 3, y0 + hb - 22);
-  tekst(`Plan bestaande toestand — ${v.naam}`, x0 + 3, y0 + hb - 27, 9, f.vet);
+  tekst(afkappen(titel, f.vet, 9, xSchaal - x0 - 6), x0 + 3, y0 + hb - 27, 9, f.vet);
   label("Datum", x0 + 3, y0 + 9);
   tekst(o.datum, x0 + 3, y0 + 4);
   label("Blad nr.", x0 + 26, y0 + 9);
@@ -245,6 +267,10 @@ function tekenTitelblok(
 
   // Schaal + schaalstok
   label("Schaal", xSchaal + 3, y0 + hb - 5);
+  if (!o.schaal) {
+    tekst(`Geen schaal  —  ${o.papier} liggend`, xSchaal + 3, y0 + hb - 11, 11, f.vet);
+    tekst("Lijsten bij de plannen", xSchaal + 3, y0 + hb - 16, 7, f.gewoon, GRIJS);
+  } else {
   tekst(`1:${o.schaal}  —  ${o.papier} liggend`, xSchaal + 3, y0 + hb - 11, 11, f.vet);
   if (!o.past) tekst("Tekening groter dan blad!", xSchaal + 3, y0 + hb - 16, 7, f.vet, rgb(0.75, 0.1, 0.1));
   tekst("Maten in mm", xSchaal + 3, y0 + hb - 16 - (o.past ? 0 : 4), 7, f.gewoon, GRIJS);
@@ -263,20 +289,23 @@ function tekenTitelblok(
   for (let i = 0; i <= stappen; i++) tekst(`${i * stapM}`.replace(".", ","), sx + i * stapMm - 0.8, sy - 4, 6);
   tekst("m", sx + stappen * stapMm + 2.5, sy - 4, 6);
   label("Controle afdruk: schaalstok nameten", sx, sy + 4);
+  }
 
   // Legende meetbronnen
-  label("Betrouwbaarheid maten", xLeg + 3, y0 + hb - 5);
+  label(o.schaal ? "Betrouwbaarheid maten" : "Hoeveelheden", xLeg + 3, y0 + hb - 5);
+  if (!o.schaal) regels("Ter indicatie, berekend uit de opmeting. Aannames: zie lijst.", f.gewoon, 7.5, 52 - 6).forEach((r, i) => tekst(r, xLeg + 3, y0 + hb - 12 - i * 3.6, 7.5));
   const legende: Array<[MeetMethode, string]> = [
     ["gescand", "Gescand (± enkele cm)"],
     ["gecorrigeerd", "Gecorrigeerd / ingegeven"],
     ["laser", "Lasermeting (± 2 mm)"],
+    ["overgenomen", "Overgenomen, niet gemeten"],
   ];
-  legende.forEach(([m, s], i) => {
+  if (o.schaal) legende.forEach(([m, s], i) => {
     const y = y0 + hb - 12 - i * 6;
     page.drawLine({ start: { x: mm(xLeg + 3), y: mm(y + 1) }, end: { x: mm(xLeg + 11), y: mm(y + 1) }, thickness: mm(0.6), color: KLEUR[m] });
     tekst(s, xLeg + 13, y, 7.5);
   });
-  const dragend = v.muren.some((m) => m.dragend === "vermoeden");
+  const dragend = (o.muren ?? []).some((m) => m.dragend === "vermoeden");
   if (dragend) tekst("Dragende muren: niet vastgesteld", xLeg + 3, y0 + 4, 6.5, f.gewoon, GRIJS);
 
   // Disclaimer
@@ -303,4 +332,107 @@ function regels(s: string, font: PDFFont, size: number, maxMm: number): string[]
   }
   if (huidig) uit.push(huidig);
   return uit;
+}
+
+// ---------------------------------------------------------------------------
+// Lijstenbladen: openingenlijst, meetstaat per post, detail per ruimte.
+
+interface Kolom { kop: string; breedte: number; rechts?: boolean }
+
+function tekenLijsten(doc: PDFDocument, f: Fonts, p: Project, opties: PdfOpties & { datum: string }, papier: Papier): Array<(blad: number, bladen: number) => void> {
+  const { b, h } = PAPIER[papier];
+  const mm = (q: number) => q * PT;
+  const titelblokken: Array<(blad: number, bladen: number) => void> = [];
+  const tussen = 8;
+  const kolB = (b - 2 * RAND - tussen) / 2;
+  const boven = h - RAND - 4, onder = RAND + TITELBLOK_H + 2;
+  const RIJ = 4.2;
+  let page!: PDFPage, kol = 0, y = 0;
+
+  const nieuweBlad = () => {
+    page = doc.addPage([b * PT, h * PT]);
+    tekenKader(page, b, h);
+    const pg = page;
+    titelblokken.push((blad, bladen) => tekenTitelblok(pg, f, p, "Lijsten — openingen en meetstaat", { papier, past: true, blad, bladen, ...opties }, b));
+    kol = 0;
+    y = boven;
+  };
+  const x0 = () => RAND + kol * (kolB + tussen);
+  const plaats = (nodig: number) => {
+    if (y - nodig >= onder) return;
+    if (kol === 0) { kol = 1; y = boven; return; }
+    nieuweBlad();
+  };
+  const tekst = (s: string, x: number, yy: number, size: number, font: PDFFont, kleur = ZWART) =>
+    page.drawText(s, { x: mm(x), y: mm(yy), size, font, color: kleur });
+  const kop = (s: string) => {
+    plaats(14);
+    y -= 6;
+    tekst(s, x0(), y, 10, f.vet);
+    y -= 2;
+  };
+  const rij = (kolommen: Kolom[], waarden: string[], vet = false) => {
+    plaats(RIJ + 1);
+    y -= RIJ;
+    let x = x0();
+    kolommen.forEach((k, i) => {
+      const font = vet ? f.vet : f.gewoon;
+      const w = afkappen(waarden[i] ?? "", font, 7.5, k.breedte - 1.5);
+      const tx = k.rechts ? x + k.breedte - 1.5 - font.widthOfTextAtSize(w, 7.5) / PT : x;
+      tekst(w, tx, y + 1.2, 7.5, font);
+      x += k.breedte;
+    });
+    if (vet) page.drawLine({ start: { x: mm(x0()), y: mm(y) }, end: { x: mm(x0() + kolB), y: mm(y) }, thickness: mm(0.25), color: ZWART });
+  };
+  const tabel = (kolommen: Kolom[], rijen: string[][]) => {
+    rij(kolommen, kolommen.map((k) => k.kop), true);
+    for (const r of rijen) {
+      if (y - (RIJ + 1) < onder) { plaats(RIJ * 2 + 2); rij(kolommen, kolommen.map((k) => k.kop), true); }
+      rij(kolommen, r);
+    }
+  };
+  const getal = (x: number, d = 2) => x.toFixed(d).replace(".", ",");
+
+  const openingen = openingenLijst(p);
+  const lb = lastenboek(p);
+  if (!openingen.length && !lb.regels.length) return [];
+  nieuweBlad();
+
+  if (openingen.length) {
+    kop("Openingenlijst (maten in mm)");
+    const meerdere = p.verdiepingen.length > 1;
+    const k: Kolom[] = [
+      { kop: "Code", breedte: 12 }, { kop: "Soort", breedte: 17 },
+      ...(meerdere ? [{ kop: "Verdieping", breedte: 24 }] : []),
+      { kop: "Ruimte(s)", breedte: meerdere ? 37 : 61 },
+      { kop: "Breedte", breedte: 14, rechts: true }, { kop: "Hoogte", breedte: 14, rechts: true },
+      { kop: "Borstw.", breedte: 14, rechts: true },
+    ];
+    tabel(k, openingen.map((o) => [
+      o.code, o.soort, ...(meerdere ? [o.verdieping] : []), o.ruimtes.join(" / "),
+      String(o.breedte), String(o.hoogte), o.soort === "raam" ? String(o.borstwering) : "–",
+    ]));
+  }
+
+  if (lb.totalen.length) {
+    kop("Meetstaat per post (totalen)");
+    tabel(
+      [{ kop: "Post", breedte: 12 }, { kop: "Omschrijving", breedte: 80 }, { kop: "Eenh.", breedte: 14 }, { kop: "Hoeveelheid", breedte: 26, rechts: true }],
+      lb.totalen.map((t) => [t.code, t.omschrijving, t.eenheid, t.eenheid === "st" ? String(t.hoeveelheid) : getal(t.hoeveelheid)]),
+    );
+    kop("Detail per ruimte");
+    const meerdere = p.verdiepingen.length > 1;
+    tabel(
+      [{ kop: "Ruimte", breedte: meerdere ? 44 : 44 }, { kop: "Post", breedte: 62 }, { kop: "Eenh.", breedte: 12 }, { kop: "Hoev.", breedte: 14, rechts: true }],
+      lb.regels.map((r) => [meerdere ? `${r.ruimte} (${r.verdieping})` : r.ruimte, `${r.code} ${r.omschrijving}`, r.eenheid, r.eenheid === "st" ? String(r.hoeveelheid) : getal(r.hoeveelheid)]),
+    );
+  }
+
+  // aannames
+  const regelsTekst = regels(LASTENBOEK_AANNAMES, f.gewoon, 7, kolB);
+  plaats(regelsTekst.length * 3.4 + 8);
+  y -= 6;
+  tekst("Aannames", x0(), y, 8, f.vet, GRIJS);
+  for (const r of regelsTekst) { y -= 3.4; tekst(r, x0(), y, 7, f.gewoon, GRIJS); }
+  return titelblokken;
 }
