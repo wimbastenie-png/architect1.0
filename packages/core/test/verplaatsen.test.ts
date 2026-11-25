@@ -67,9 +67,10 @@ describe("SVG voor slepen", () => {
     const svg = verdiepingNaarSVG(v0, { interactief: true, geselecteerd: "m-onder-links", opening: "o-raam-leef" });
     expect(svg).toContain('data-opening="o-raam-leef"');
     for (const k of ["data-min-x", "data-max-x", "data-min-y", "data-max-y"]) expect(svg).toMatch(new RegExp(`${k}="-?\\d+(\\.\\d+)?"`));
-    expect(svg).toContain("touch-action:none");
+    expect(svg).toContain("cursor:grab"); // geselecteerde muur: grijp-cursor
     expect(svg).toContain("#fde68a"); // gemarkeerde opening
-    expect(verdiepingNaarSVG(v0, { interactief: true })).not.toContain("touch-action:none");
+    // scrollen wordt nooit door de tekening zelf geblokkeerd (enkel tijdens het slepen, in de webapp)
+    expect(svg).not.toContain("touch-action");
   });
 });
 
