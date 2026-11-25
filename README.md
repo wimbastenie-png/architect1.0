@@ -57,6 +57,7 @@ Daarna publiceert elke wijziging op `main` de app op
 npm install
 npm test            # 83 tests
 npm run web         # webapp lokaal starten
+npm run e2e         # browsertests (pc + gsm) met Playwright
 npm run voorbeeld   # voorbeelduitvoer
 ```
 
@@ -79,6 +80,10 @@ npm run voorbeeld   # voorbeelduitvoer
 ## Werftest
 
 Zie [`docs/werftest.md`](docs/werftest.md): stappenplan en invulblad om de app op een echte woning te testen.
+
+## Browsertests
+
+`packages/web/e2e/` bevat Playwright-tests die de webapp in een echte browser bedienen: project maken, maten wijzigen, ramen, ruimtes toevoegen en uitbreken, trapgat, lastenboek (klembord en Excel), verdiepingen, en slepen met muis en vinger. Twee profielen: **pc** (Chrome 1280 × 900) en **gsm** (Pixel 7, aanraking). Ze draaien bij elke pull request op GitHub; publiceren gebeurt pas als ze slagen. Bij een fout staat het rapport met schermafdrukken onder *Actions → run → Artifacts → playwright-rapport*.
 
 ## Volgende stappen
 
