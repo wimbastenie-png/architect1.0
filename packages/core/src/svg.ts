@@ -36,15 +36,21 @@ export interface SvgOpties {
   raak?: number;
 }
 
-export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string {
-  const ia = opties.interactief ?? false;
-  const marge = opties.marge ?? 400;
+export type Kader = { minX: number; maxX: number; minY: number; maxY: number };
+
+/** Het volledige tekenkader (plan-mm): muren, maatkettingen en een marge. Vertrekpunt voor inzoomen. */
+export function tekenKader(v: Verdieping, marge = 400): Kader {
   const ketens = maatketens(v);
   const alle = [...v.muren.flatMap((m) => muurVorm(m, v.muren)), ...ketens.flatMap((k) => [k.a, k.b].map((p) => ({ x: p.x + k.n.x * 300, y: p.y + k.n.y * 300 })))];
+  if (!alle.length) return { minX: -marge, maxX: 1000 + marge, minY: -marge, maxY: 1000 + marge };
   const xs = alle.map((p) => p.x), ys = alle.map((p) => p.y);
-  const k = opties.kader;
-  const minX = k ? k.minX : Math.min(...xs) - marge, maxX = k ? k.maxX : Math.max(...xs) + marge;
-  const minY = k ? k.minY : Math.min(...ys) - marge, maxY = k ? k.maxY : Math.max(...ys) + marge;
+  return { minX: Math.min(...xs) - marge, maxX: Math.max(...xs) + marge, minY: Math.min(...ys) - marge, maxY: Math.max(...ys) + marge };
+}
+
+export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string {
+  const ia = opties.interactief ?? false;
+  const ketens = maatketens(v);
+  const { minX, maxX, minY, maxY } = opties.kader ?? tekenKader(v, opties.marge ?? 400);
   // SVG-y loopt naar beneden; plan-y naar boven → spiegelen.
   const t = (p: Punt) => `${(p.x - minX).toFixed(0)},${(maxY - p.y).toFixed(0)}`;
   const w = maxX - minX, h = maxY - minY;

@@ -43,6 +43,7 @@ import { ArOpmeting, ArResultaat, DEMO_PUNTEN, arOndersteund } from "./ArOpmetin
 import { LastenboekWeergave } from "./Lastenboek.tsx";
 import { RuimtePaneel } from "./RuimtePaneel.tsx";
 import { useSlepen } from "./Slepen.ts";
+import { MAX_ZOOM, useZoom } from "./Zoom.ts";
 import { Veld, getal, leesOpslag, schrijfOpslag } from "./ui.tsx";
 
 const OPSLAG = "architect1.0:project";
@@ -257,6 +258,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     wijzig,
     kiesMuur: (id) => zetSelectie({ soort: "muur", id }),
   });
+  const zoom = useZoom({ v, houder: planRef });
   // Aanraakzone: vaste grootte op het scherm (± 22 px met de vinger, 8 px met de muis),
   // omgerekend naar plan-mm met de huidige schaal van de tekening.
   const [raak, zetRaak] = useState(0);
@@ -275,8 +277,8 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     return () => window.removeEventListener("resize", meet);
   });
   const svg = useMemo(
-    () => verdiepingNaarSVG(v, { interactief: true, labels, raak, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
-    [v, selectie, labels, raak],
+    () => verdiepingNaarSVG(v, { interactief: true, labels, raak, kader: zoom.kader, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
+    [v, selectie, labels, raak, zoom.kader],
   );
   // Tijdens het slepen: voorbeeld in een aparte laag bovenop, met het vaste kader van de
   // tekening eronder. Die onderste tekening blijft ongewijzigd onder de vinger staan.
@@ -329,7 +331,8 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const naam = bestandsnaam(project.naam);
 
   const klik = (e: React.MouseEvent) => {
-    if (slepen.klikNegeren()) return;
+    const naSlepen = slepen.klikNegeren(), naVerschuiven = zoom.klikNegeren();
+    if (naSlepen || naVerschuiven) return;
     if ((e.target as Element).closest("[data-hoek]")) return; // tik op hoek A/B: selectie behouden
     const el = (e.target as Element).closest("[data-muur],[data-ruimte]");
     if (!el) return zetSelectie(null);
@@ -361,11 +364,25 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           <button className="tab-nieuw" onClick={() => { zetNieuweVerdieping(true); zetSelectie(null); }}>+ Verdieping</button>
         </div>
         <div className="plan-houder">
-          <div className="plan" ref={planRef} onClick={klik} {...slepen.handlers} dangerouslySetInnerHTML={{ __html: svg }} />
+          <div
+            className="plan"
+            ref={planRef}
+            onClick={klik}
+            onPointerDown={(e) => { zoom.handlers.onPointerDown(e); slepen.handlers.onPointerDown(e); }}
+            onPointerMove={(e) => { zoom.handlers.onPointerMove(e); slepen.handlers.onPointerMove(e); }}
+            onPointerUp={(e) => { zoom.handlers.onPointerUp(e); slepen.handlers.onPointerUp(e); }}
+            onPointerCancel={slepen.handlers.onPointerCancel}
+            dangerouslySetInnerHTML={{ __html: svg }}
+          />
+          <div className="zoom-knoppen" role="group" aria-label="Zoomen">
+            <button type="button" onClick={() => zoom.knop(1)} disabled={zoom.factor >= MAX_ZOOM - 0.01} aria-label="Inzoomen">+</button>
+            <button type="button" onClick={() => zoom.knop(-1)} disabled={zoom.factor <= 1} aria-label="Uitzoomen">−</button>
+            {zoom.factor > 1 && <button type="button" className="zoom-passend" onClick={() => zoom.knop(0)}>Passend ×{zoom.factor.toFixed(1).replace(".", ",")}</button>}
+          </div>
           {voorbeeldSvg && <div className="plan plan-voorbeeld" aria-hidden="true" dangerouslySetInnerHTML={{ __html: voorbeeldSvg }} />}
           {slepen.info && <div className={`sleep-info${slepen.info.fout ? " fout" : ""}`} role="status">{slepen.info.tekst}</div>}
         </div>
-        <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. <strong>Slepen:</strong> een muur haaks verschuiven, een raam of deur naar een andere plaats of muur, of de hoek A of B van een geselecteerde muur (maakt de muur schuin). <strong>Op de gsm:</strong> houd een muur, raam of hoek ingedrukt tot de gsm trilt, en sleep dan; gewoon vegen scrolt. Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>
+        <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. <strong>Slepen:</strong> een muur haaks verschuiven, een raam of deur naar een andere plaats of muur, of de hoek A of B van een geselecteerde muur (maakt de muur schuin). <strong>Op de gsm:</strong> houd een muur, raam of hoek ingedrukt tot de gsm trilt, en sleep dan; gewoon vegen scrolt. <strong>Inzoomen:</strong> knoppen + en −, knijpen met twee vingers (met twee vingers schuiven verplaatst het beeld), of Ctrl + muiswiel; met de muis versleep je het beeld op een lege plek. Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>
         <div className="export">
           <button className="primair" onClick={() => exporteer("pdf")}>PDF-plan</button>
           <button onClick={() => exporteer("dxf")}>DXF (CAD)</button>

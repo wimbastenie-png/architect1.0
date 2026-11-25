@@ -127,5 +127,34 @@ test.describe("gsm (Android)", () => {
     });
     expect(breedte).toBeGreaterThanOrEqual(40);
   });
+
+  test("knijpen met twee vingers zoomt het plan, niet de pagina; daarna fijn slepen", async ({ page }) => {
+    const fouten = await start(page);
+    await openVoorbeeld(page);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const s0 = await schaal(page);
+    // knijpen rond de tussenmuur, zodat die na het inzoomen in beeld blijft
+    const c = (await page.locator('polygon[data-muur="m-binnen"]').first().boundingBox())!;
+    const mx = c.x + c.width / 2, my = c.y + c.height / 2;
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: mx - 20, y: my, id: 1 }, { x: mx + 20, y: my, id: 2 }] });
+    for (let i = 1; i <= 10; i++) {
+      const d = 20 + 6 * i; // vingers 40 px → 160 px uit elkaar: ± ×4
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: mx - d, y: my, id: 1 }, { x: mx + d, y: my, id: 2 }] });
+      await page.waitForTimeout(20);
+    }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    const s1 = await schaal(page);
+    expect(s1 / s0).toBeGreaterThan(3);
+    expect(s1 / s0).toBeLessThan(5);
+    expect(await page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(1); // pagina zelf niet ingezoomd
+    await expect(page.getByRole("button", { name: /Passend ×/ })).toBeVisible();
+
+    // ingezoomd: 200 mm is nu ± 22 px (uitgezoomd maar 5,6 px: te weinig voor een vinger)
+    const bb = (await page.locator('polygon[data-muur="m-binnen"]').first().boundingBox())!;
+    await vingerSleep(page, bb.x + bb.width / 2, bb.y + bb.height / 2, 200 * s1);
+    await expect(await vloer(page, "Leefruimte")).toHaveText("27,00");
+    expect(fouten).toEqual([]);
+  });
 });
 
