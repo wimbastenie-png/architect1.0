@@ -9,6 +9,7 @@
     "typecheck": "npm run typecheck -w @scanapp/core && npm run typecheck -w @scanapp/web",
     "voorbeeld": "npm run voorbeeld -w @scanapp/core",
     "web": "npm run dev -w @scanapp/web",
-    "build": "npm run build -w @scanapp/web"
+    "build": "npm run build -w @scanapp/web",
+    "e2e": "npm run e2e -w @scanapp/web"
   }
 }

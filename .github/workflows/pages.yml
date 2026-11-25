@@ -12,9 +12,10 @@ permissions:
   pages: write
   id-token: write
 
+# Eén wachtrij per branch/PR: een push naar een PR mag de publicatie van main niet afbreken.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   bouwen:
@@ -34,9 +35,32 @@ jobs:
         with:
           path: packages/web/dist
 
+  browsertests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Chromium voor Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Browsertests (pc en gsm)
+        run: npm run e2e
+      - name: Testrapport bewaren bij een fout
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-rapport
+          path: |
+            packages/web/playwright-report
+            packages/web/test-results
+          retention-days: 14
+
   publiceren:
     if: github.ref == 'refs/heads/main'
-    needs: bouwen
+    needs: [bouwen, browsertests]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
