@@ -9,14 +9,16 @@
  * kunnen scrollen. Tijdens het slepen tonen we een voorbeeld; pas bij het
  * loslaten wordt het één stap in de geschiedenis (ongedaan maken).
  */
-import { aansluitingen, muurBijPunt, muurLengte, muurOmschrijving, verschuifMuur, verschuifRichtingen, wijzigOpening, type Punt, type Verdieping } from "@scanapp/core";
+import { aansluitingen, richtingLabel, verplaatsHoek, muurBijPunt, muurLengte, muurOmschrijving, verschuifMuur, verschuifRichtingen, wijzigOpening, type Punt, type Verdieping } from "@scanapp/core";
 import { useRef, useState } from "react";
 
 const STAP = 10; // mm
 const DREMPEL = 4; // px voor we het als slepen beschouwen
 
 interface Sleep {
-  soort: "muur" | "opening";
+  soort: "muur" | "opening" | "hoek";
+  /** bij een hoek: het hoekpunt in plan-mm */
+  hoek?: Punt;
   id: string;
   start: Punt; // plan-mm
   scherm: { x: number; y: number };
@@ -36,6 +38,15 @@ export function naarPlan(houder: Element, clientX: number, clientY: number): Pun
 
 const rond = (x: number) => Math.round(x / STAP) * STAP;
 
+export type Kader = { minX: number; maxX: number; minY: number; maxY: number };
+
+/** Het tekenkader van de huidige svg (plan-mm), om het tijdens het slepen vast te houden. */
+function leesKader(houder: Element): Kader | null {
+  const d = houder.querySelector("svg")?.dataset;
+  if (!d?.minX || !d.maxX || !d.minY || !d.maxY) return null;
+  return { minX: +d.minX, maxX: +d.maxX, minY: +d.minY, maxY: +d.maxY };
+}
+
 export function useSlepen(opties: {
   v: Verdieping;
   geselecteerdeMuur?: string;
@@ -47,9 +58,13 @@ export function useSlepen(opties: {
   const [voorbeeld, zetVoorbeeld] = useState<Verdieping | null>(null);
   const [info, zetInfo] = useState<{ tekst: string; fout: boolean } | null>(null);
   const [actieveOpening, zetActieveOpening] = useState<string | undefined>();
+  // Vast kader tijdens het slepen: anders zoomt de tekening uit als het plan
+  // groeit, en loopt het gesleepte punt weg onder de vinger.
+  const [kader, zetKader] = useState<Kader | undefined>();
 
   const stop = () => {
     sleep.current = null;
+    zetKader(undefined);
     zetVoorbeeld(null);
     zetInfo(null);
     zetActieveOpening(undefined);
@@ -60,6 +75,14 @@ export function useSlepen(opties: {
     // (de browser stuurde na het vorige slepen geen klik) mag hem niet opslokken.
     negeer.current = false;
     if (e.button !== 0) return;
+    const hoekEl = (e.target as Element).closest("circle[data-hoek]");
+    if (hoekEl) {
+      const [hx, hy] = hoekEl.getAttribute("data-hoek")!.split(",").map(Number) as [number, number];
+      const start = naarPlan(e.currentTarget, e.clientX, e.clientY);
+      if (!start) return;
+      sleep.current = { soort: "hoek", id: "", hoek: { x: hx, y: hy }, start, scherm: { x: e.clientX, y: e.clientY }, bewogen: false, geldig: null };
+      return;
+    }
     const el = (e.target as Element).closest("polygon[data-opening], polygon[data-muur]");
     if (!el) return;
     const openingId = el.getAttribute("data-opening");
@@ -80,13 +103,22 @@ export function useSlepen(opties: {
     const s = sleep.current;
     if (!s) return;
     if (!s.bewogen && Math.hypot(e.clientX - s.scherm.x, e.clientY - s.scherm.y) < DREMPEL) return;
-    if (!s.bewogen) e.currentTarget.setPointerCapture(e.pointerId); // vanaf nu echt slepen
+    if (!s.bewogen) {
+      e.currentTarget.setPointerCapture(e.pointerId); // vanaf nu echt slepen
+      zetKader(leesKader(e.currentTarget) ?? undefined);
+    }
     s.bewogen = true;
     const p = naarPlan(e.currentTarget, e.clientX, e.clientY);
     if (!p) return;
     const v = opties.v;
     try {
-      if (s.soort === "muur") {
+      if (s.soort === "hoek") {
+        const dx = rond(p.x - s.start.x), dy = rond(p.y - s.start.y);
+        s.geldig = dx || dy ? verplaatsHoek(v, s.hoek!, { x: s.hoek!.x + dx, y: s.hoek!.y + dy }) : null;
+        zetVoorbeeld(s.geldig);
+        const delen = [dx ? `${Math.abs(dx)} mm ${richtingLabel(Math.sign(dx), 0)}` : "", dy ? `${Math.abs(dy)} mm ${richtingLabel(0, Math.sign(dy))}` : ""].filter(Boolean);
+        zetInfo({ tekst: delen.length ? `Hoek ${delen.join(", ")}` : "Sleep de hoek", fout: false });
+      } else if (s.soort === "muur") {
         const m = v.muren.find((x) => x.id === s.id)!;
         const L = muurLengte(m);
         const n = { x: -(m.eind.y - m.start.y) / L, y: (m.eind.x - m.start.x) / L };
@@ -139,6 +171,7 @@ export function useSlepen(opties: {
 
   return {
     voorbeeld,
+    kader,
     info,
     actieveOpening,
     klikNegeren,
