@@ -37,7 +37,7 @@ import {
   type Project,
   type Verdieping,
 } from "@scanapp/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { appartement } from "../../core/examples/appartement.ts";
 import { ArOpmeting, ArResultaat, DEMO_PUNTEN, arOndersteund } from "./ArOpmeting.tsx";
 import { LastenboekWeergave } from "./Lastenboek.tsx";
@@ -256,9 +256,27 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     kiesMuur: (id) => zetSelectie({ soort: "muur", id }),
   });
   const toon = slepen.voorbeeld ?? v;
+  // Aanraakzone: vaste grootte op het scherm (± 22 px met de vinger, 8 px met de muis),
+  // omgerekend naar plan-mm met de huidige schaal van de tekening.
+  const planRef = useRef<HTMLDivElement>(null);
+  const [raak, zetRaak] = useState(0);
+  useEffect(() => {
+    const meet = () => {
+      const svgEl = planRef.current?.querySelector("svg");
+      const pxPerMm = svgEl?.getScreenCTM()?.a;
+      if (!pxPerMm) return;
+      let grof = false;
+      try { grof = window.matchMedia("(pointer: coarse)").matches; } catch { /* oude browser */ }
+      const nieuw = Math.round((grof ? 22 : 8) / pxPerMm);
+      zetRaak((oud) => (Math.abs(oud - nieuw) > oud * 0.05 ? nieuw : oud));
+    };
+    meet();
+    window.addEventListener("resize", meet);
+    return () => window.removeEventListener("resize", meet);
+  });
   const svg = useMemo(
-    () => verdiepingNaarSVG(toon, { interactief: true, labels, kader: slepen.kader, opening: slepen.actieveOpening, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
-    [toon, selectie, labels, slepen.actieveOpening, slepen.kader],
+    () => verdiepingNaarSVG(toon, { interactief: true, labels, raak, kader: slepen.kader, opening: slepen.actieveOpening, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
+    [toon, selectie, labels, slepen.actieveOpening, slepen.kader, raak],
   );
   const lb = useMemo(() => lastenboek(project), [project]);
   const [prijzen, zetPrijzen] = useState<Prijzen>(() => leesOpslag(PRIJZEN, leesPrijzen, {}));
@@ -304,6 +322,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
   const klik = (e: React.MouseEvent) => {
     if (slepen.klikNegeren()) return;
+    if ((e.target as Element).closest("[data-hoek]")) return; // tik op hoek A/B: selectie behouden
     const el = (e.target as Element).closest("[data-muur],[data-ruimte]");
     if (!el) return zetSelectie(null);
     const m = el.getAttribute("data-muur");
@@ -334,7 +353,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           <button className="tab-nieuw" onClick={() => { zetNieuweVerdieping(true); zetSelectie(null); }}>+ Verdieping</button>
         </div>
         <div className="plan-houder">
-          <div className="plan" onClick={klik} {...slepen.handlers} dangerouslySetInnerHTML={{ __html: svg }} />
+          <div className="plan" ref={planRef} onClick={klik} {...slepen.handlers} dangerouslySetInnerHTML={{ __html: svg }} />
           {slepen.info && <div className={`sleep-info${slepen.info.fout ? " fout" : ""}`} role="status">{slepen.info.tekst}</div>}
         </div>
         <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. <strong>Slepen:</strong> een muur haaks verschuiven, een raam of deur naar een andere plaats of muur, of de hoek A of B van een geselecteerde muur (maakt de muur schuin). Op de gsm: tik de muur eerst aan. Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>

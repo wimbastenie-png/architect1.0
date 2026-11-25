@@ -72,3 +72,15 @@ describe("SVG voor slepen", () => {
     expect(verdiepingNaarSVG(v0, { interactief: true })).not.toContain("touch-action:none");
   });
 });
+
+describe("aanraakzones", () => {
+  it("brede onzichtbare lijnen langs muren en openingen, ruime hoekzone; niet in exports", () => {
+    const svg = verdiepingNaarSVG(v0, { interactief: true, raak: 600, geselecteerd: "m-rechts" });
+    expect(svg).toMatch(/<line [^>]*stroke="transparent" stroke-width="1200" pointer-events="stroke" data-raak="1" data-muur="m-binnen"/);
+    expect(svg).toMatch(/data-raak="1" data-muur="m-onder-links" data-opening="o-raam-leef"/);
+    expect(svg).toMatch(/<circle [^>]*r="600" fill="transparent" pointer-events="all" data-hoek="9600,4800"/);
+    // zonder raak of niet-interactief (PDF/voorbeeld): geen aanraaklaag
+    expect(verdiepingNaarSVG(v0, { interactief: true })).not.toContain("data-raak");
+    expect(verdiepingNaarSVG(v0, { raak: 600 })).not.toContain("data-raak");
+  });
+});
