@@ -85,9 +85,47 @@ Zie [`docs/werftest.md`](docs/werftest.md): stappenplan en invulblad om de app o
 
 `packages/web/e2e/` bevat Playwright-tests die de webapp in een echte browser bedienen: project maken, maten wijzigen, ramen, ruimtes toevoegen en uitbreken, trapgat, lastenboek (klembord en Excel), verdiepingen, en slepen met muis en vinger. Twee profielen: **pc** (Chrome 1280 × 900) en **gsm** (Pixel 7, aanraking). Ze draaien bij elke pull request op GitHub; publiceren gebeurt pas als ze slagen. Bij een fout staat het rapport met schermafdrukken onder *Actions → run → Artifacts → playwright-rapport*.
 
-## Volgende stappen
+## Roadmap
 
-1. Werftest uitvoeren met `docs/werftest.md` en de bevindingen verwerken.
-2. Camera-opmeting testen op Android-toestellen en verfijnen (hoogte meten, schuine muren, meerdere ruimtes na elkaar).
-3. Omzetting RoomPlan-uitvoer (iPhone/iPad Pro met LiDAR) → dit projectformaat; vraagt een echt scanbestand.
-4. Eenvoudige IFC-export.
+De MVP staat online: opmeten (rolmeter, laser, camera op Android), plannen op schaal met maatkettingen, verdiepingen, bewerken met slepen en schuine muren, PDF, DXF, meetstaat en lastenboek met prijzen. De volgende stappen komen in deze volgorde; overal geldt dat de app voorbereidt en een bevoegde vakman controleert en aftekent.
+
+| Stap | Inhoud | Wie controleert of tekent af |
+| --- | --- | --- |
+| 1. Werftest | Een echte woning opmeten met `docs/werftest.md` en de bevindingen verwerken | – |
+| 2. Camera-opmeting verfijnen | Testen op Android-toestellen; plafondhoogte meten, schuine muren, meerdere ruimtes na elkaar | – |
+| 3. RoomPlan-omzetting | Scan van iPhone/iPad Pro met LiDAR omzetten naar het projectformaat; vraagt een echt scanbestand | – |
+| 4. IFC-export (open BIM) | Muren, ramen, deuren, ruimtes en verdiepingen als IFC, zodat architecten en ingenieurs de opmeting in hun eigen software openen | Architect of ingenieur gebruikt ze als vertrekpunt |
+| 5. Installaties | Elektriciteit, sanitair en gas op het plan, met schema's, materiaallijsten en aandachtspunten (zie hieronder) | Installateur; keuring waar verplicht. De app vervangt die niet |
+| 6. Ontwerp | Nieuwe toestand naast de bestaande, aanzichten en doorsneden | Architect waar de wet dat vraagt |
+| 7. Voordimensionering stalen liggers | Samen met een ingenieur uitgewerkt: rekennota met alle aannames, ter controle en aftekening. Fundering blijft buiten bereik: enkel voorbereiding | Ingenieur tekent af |
+| 8. Accounts en cloudopslag | Projecten bewaren en delen tussen gsm en pc, met klant, architect en ingenieur | – |
+| 9. Inrichting en renders | Meubels en materialen, fotorealistische beelden | – |
+
+### Installaties in detail
+
+**Elektriciteit**
+
+- Punten op het plan: stopcontacten, schakelaars, lichtpunten en verdeelbord, met legende.
+- Automatisch eendraadschema met kringen, differentiëlen, automaten en kabeldoorsnedes.
+- Basiscontroles volgens het AREI, als aandachtspunten om na te kijken door een installateur of keurder.
+- Materiaallijst.
+- De app vervangt de installateur en de keuring niet.
+
+**Sanitair**
+
+- Toestellen op het plan, en leidingen voor koud water, warm water en afvoer, met diameter, materiaal, hoogte en helling.
+- Leidingschema en materiaallijst.
+- Basiscontroles als aandachtspunten, na te kijken door een installateur.
+- De app vervangt de installateur niet.
+
+**Gas**
+
+- Toestellen en een gele gasleiding met kranen op het plan.
+- Verplichte waarschuwing voor de ontwerper, in de app én op elk PDF-blad: een bevoegde installateur moet de installatie ontwerpen en uitvoeren, en een keuring is verplicht vóór ingebruikname (NBN D 51-003, na te kijken).
+- Geen oordeel "conform": de app geeft enkel aandachtspunten.
+- De app vervangt de bevoegde installateur en de keuring niet.
+
+### Niet vergeten
+
+- **Partners zoeken:** een ingenieur (stabiliteit), een architect (vergunningen) en een installateur of keurder (elektriciteit, sanitair, gas), om te controleren en af te tekenen.
+- **Juridische punten:** algemene voorwaarden, privacy (scans van woningen zijn persoonsgegevens onder de GDPR) en verzekering (beroepsaansprakelijkheid).
