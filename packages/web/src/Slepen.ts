@@ -80,6 +80,7 @@ export function useSlepen(opties: {
     if (beeld.current !== null) cancelAnimationFrame(beeld.current);
     beeld.current = null;
     sleep.current = null;
+    laatstePunt.current = null;
     zetVoorbeeld(null);
     zetInfo(null);
     zetActieveOpening(undefined);
@@ -113,11 +114,31 @@ export function useSlepen(opties: {
     if (s.soort === "opening") zetActieveOpening(s.id);
   };
 
+  const laatstePunt = useRef<{ x: number; y: number } | null>(null);
+
   /** Voorbeeld berekenen voor de vinger/muis op (x, y) — hoogstens één keer per beeld. */
   const beweeg = (x: number, y: number) => {
-    if (beeld.current !== null) cancelAnimationFrame(beeld.current);
+    laatstePunt.current = { x, y };
+    if (beeld.current !== null) return; // er staat al een berekening klaar; die neemt het laatste punt
     beeld.current = requestAnimationFrame(() => {
       beeld.current = null;
+      if (laatstePunt.current) bereken(laatstePunt.current.x, laatstePunt.current.y);
+    });
+  };
+
+  /**
+   * Bij het loslaten: een nog wachtende berekening meteen uitvoeren, zodat de
+   * plaats waar je loslaat telt (en niet de vorige beeldverversing).
+   */
+  const spoel = () => {
+    if (beeld.current === null) return;
+    cancelAnimationFrame(beeld.current);
+    beeld.current = null;
+    if (laatstePunt.current) bereken(laatstePunt.current.x, laatstePunt.current.y);
+  };
+
+  const bereken = (x: number, y: number) => {
+    {
       const s = sleep.current, houder = laatst.current.houder.current;
       if (!s || !s.actief || !houder) return;
       const p = naarPlan(houder, x, y);
@@ -159,13 +180,14 @@ export function useSlepen(opties: {
         // ongeldige plaats: vorige geldige stand blijft staan, reden tonen
         zetInfo({ tekst: (fout as Error).message, fout: true });
       }
-    });
+    }
   };
 
   /** Loslaten: het laatste geldige voorbeeld wordt één stap in de geschiedenis. */
   const einde = () => {
     const s = sleep.current;
     if (!s) return;
+    spoel(); // de plaats van het loslaten telt
     if (s.actief) {
       negeer.current = true; // de klik die na het loslaten volgt, niet als selectie behandelen
       const eind = s.geldig;

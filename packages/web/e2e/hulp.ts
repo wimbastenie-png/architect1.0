@@ -28,9 +28,22 @@ export async function schaal(page: Page) {
   return page.evaluate(() => document.querySelector(".plan svg")!.getScreenCTM()!.a);
 }
 
+/** Midden van een element op het scherm. Rechtstreeks in de pagina gemeten: het plan wordt
+ *  bij elke wijziging opnieuw getekend, en een locator kan net een verdwenen element vasthebben. */
 export async function midden(page: Page, selector: string) {
-  const bb = (await page.locator(selector).first().boundingBox())!;
-  return { x: bb.x + bb.width / 2, y: bb.y + bb.height / 2 };
+  await page.locator(selector).first().waitFor();
+  return page.evaluate((sel) => {
+    const r = document.querySelector(sel)!.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  }, selector);
+}
+
+export async function kader(page: Page, selector: string) {
+  await page.locator(selector).first().waitFor();
+  return page.evaluate((sel) => {
+    const r = document.querySelector(sel)!.getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  }, selector);
 }
 
 /** Muis slepen in kleine stappen (zoals een echte hand). */
