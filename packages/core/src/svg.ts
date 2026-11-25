@@ -28,6 +28,12 @@ export interface SvgOpties {
    * slepen, zodat de tekening niet in- of uitzoomt onder de vinger.
    */
   kader?: { minX: number; maxX: number; minY: number; maxY: number };
+  /**
+   * Straal van de aanraakzone (plan-mm) rond muren, ramen en hoeken. De
+   * webapp rekent die om uit een vaste grootte op het scherm (± 22 px op een
+   * gsm), zodat een vinger ook raakt als het plan ver uitgezoomd is.
+   */
+  raak?: number;
 }
 
 export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string {
@@ -81,6 +87,23 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     el.push(`<polygon points="${muurRechthoek(deel).map(t).join(" ")}" fill="${actief ? "#fde68a" : "#fff"}" stroke="${actief ? "#b45309" : "#0e7490"}" stroke-width="${actief ? 40 : 20}"${ia ? ` data-muur="${esc(m.id)}" data-opening="${esc(o.id)}" style="${stijl}"` : ""}/>`);
     if (o.soort === "raam") el.push(`<line pointer-events="none" x1="${t(deel.start).split(",")[0]}" y1="${t(deel.start).split(",")[1]}" x2="${t(deel.eind).split(",")[0]}" y2="${t(deel.eind).split(",")[1]}" stroke="#0e7490" stroke-width="20"/>`);
   }
+  // aanraaklaag: onzichtbare brede lijnen langs muren en openingen (vaste grootte op het scherm)
+  if (ia && opties.raak) {
+    const lijn = (a: Punt, b: Punt, breedte: number, attr: string) => {
+      const [x1, y1] = t(a).split(","), [x2, y2] = t(b).split(",");
+      el.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="${breedte.toFixed(0)}" pointer-events="stroke" data-raak="1"${attr}/>`);
+    };
+    for (const m of v.muren) {
+      const stijl = m.id === opties.geselecteerd ? "cursor:grab;touch-action:none" : "cursor:pointer";
+      lijn(m.start, m.eind, Math.max(m.dikte, 2 * opties.raak), ` data-muur="${esc(m.id)}" style="${stijl}"`);
+    }
+    for (const o of v.openingen) {
+      const m = muren.get(o.muurId);
+      if (!m) continue;
+      const stijl = m.id === opties.geselecteerd ? "cursor:grab;touch-action:none" : "cursor:pointer";
+      lijn(puntLangsMuur(m, o.offset), puntLangsMuur(m, o.offset + o.breedte), Math.max(m.dikte, 2 * opties.raak), ` data-muur="${esc(m.id)}" data-opening="${esc(o.id)}" style="${stijl}"`);
+    }
+  }
   // hulplijnen
   for (const ml of ketens) {
     for (const [hp, q] of [[ml.hulpA, ml.a], [ml.hulpB, ml.b]] as const) {
@@ -129,10 +152,11 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
   if (sel) {
     for (const [p, letter] of [[sel.start, "A"], [sel.eind, "B"]] as const) {
       const [x, y] = t(p).split(",");
-      // in de webapp: hoek A/B versleepbaar (maakt de muur schuin)
-      const hoek = ia ? ` data-hoek="${p.x},${p.y}" style="cursor:move;touch-action:none"` : ` pointer-events="none"`;
-      el.push(`<circle cx="${x}" cy="${y}" r="200" fill="#fff" stroke="#dc2626" stroke-width="30"${hoek}/>`);
-      el.push(`<text x="${x}" y="${y}" font-size="220" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#dc2626" pointer-events="none">${letter}</text>`);
+      const r = Math.max(200, (opties.raak ?? 0) * 0.6);
+      el.push(`<circle cx="${x}" cy="${y}" r="${r.toFixed(0)}" fill="#fff" stroke="#dc2626" stroke-width="${(r * 0.15).toFixed(0)}" pointer-events="none"/>`);
+      el.push(`<text x="${x}" y="${y}" font-size="${(r * 1.1).toFixed(0)}" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#dc2626" pointer-events="none">${letter}</text>`);
+      // in de webapp: hoek A/B versleepbaar (maakt de muur schuin), met ruime aanraakzone
+      if (ia) el.push(`<circle cx="${x}" cy="${y}" r="${Math.max(r, opties.raak ?? 0).toFixed(0)}" fill="transparent" pointer-events="all" data-hoek="${p.x},${p.y}" style="cursor:move;touch-action:none"/>`);
     }
   }
 

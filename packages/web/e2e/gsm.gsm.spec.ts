@@ -47,5 +47,37 @@ test.describe("gsm (Android)", () => {
     expect(slaap).toBeGreaterThan(15.3); // hoek rechtsboven 500 mm naar rechts: slaapkamer groter
     expect(fouten).toEqual([]);
   });
+
+  test("onnauwkeurige vinger: muur en hoek raken ook naast het midden", async ({ page }) => {
+    const fouten = await start(page);
+    await openVoorbeeld(page);
+    await page.evaluate(() => window.scrollTo(0, 0)); // plan in beeld, zoals op de gsm
+    // een muur is op een gsm maar ± 8 px dik: tik 12 px ernaast
+    const m = (await page.locator('polygon[data-muur="m-rechts"]').first().boundingBox())!;
+    await page.touchscreen.tap(m.x + m.width / 2 - 12, m.y + m.height / 2);
+    await expect(page.locator(".paneel h2").first()).toHaveText("Muur");
+    // hoek B slepen vanaf 14 px naast het midden van het rondje
+    const s = await schaal(page);
+    const c = (await page.locator('circle[data-hoek="9600,4800"]').first().boundingBox())!;
+    await vingerSleep(page, c.x + c.width / 2 + 10, c.y + c.height / 2 + 10, 500 * s);
+    const slaap = Number((await (await vloer(page, "Slaapkamer")).textContent())!.replace(",", "."));
+    expect(slaap).toBeGreaterThan(15.3);
+    // de muur blijft geselecteerd na het slepen van de hoek
+    await expect(page.locator(".paneel h2").first()).toHaveText("Muur");
+    expect(fouten).toEqual([]);
+  });
+
+  test("aanraakzones zijn minstens 40 px groot op het scherm", async ({ page }) => {
+    await start(page);
+    await openVoorbeeld(page);
+    await page.locator('polygon[data-muur="m-rechts"]').first().tap({ force: true });
+    const hoek = (await page.locator('circle[data-hoek="9600,4800"]').last().boundingBox())!;
+    expect(hoek.width).toBeGreaterThanOrEqual(40);
+    const breedte = await page.evaluate(() => {
+      const l = document.querySelector('line[data-raak][data-muur="m-binnen"]') as SVGLineElement;
+      return Number(l.getAttribute("stroke-width")) * document.querySelector(".plan svg")!.getScreenCTM()!.a;
+    });
+    expect(breedte).toBeGreaterThanOrEqual(40);
+  });
 });
 

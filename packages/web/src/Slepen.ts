@@ -75,7 +75,7 @@ export function useSlepen(opties: {
     // (de browser stuurde na het vorige slepen geen klik) mag hem niet opslokken.
     negeer.current = false;
     if (e.button !== 0) return;
-    const hoekEl = (e.target as Element).closest("circle[data-hoek]");
+    const hoekEl = (e.target as Element).closest("[data-hoek]");
     if (hoekEl) {
       const [hx, hy] = hoekEl.getAttribute("data-hoek")!.split(",").map(Number) as [number, number];
       const start = naarPlan(e.currentTarget, e.clientX, e.clientY);
@@ -83,7 +83,7 @@ export function useSlepen(opties: {
       sleep.current = { soort: "hoek", id: "", hoek: { x: hx, y: hy }, start, scherm: { x: e.clientX, y: e.clientY }, bewogen: false, geldig: null };
       return;
     }
-    const el = (e.target as Element).closest("polygon[data-opening], polygon[data-muur]");
+    const el = (e.target as Element).closest("[data-raak], polygon[data-opening], polygon[data-muur]");
     if (!el) return;
     const openingId = el.getAttribute("data-opening");
     const muurId = el.getAttribute("data-muur")!;
