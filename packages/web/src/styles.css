@@ -133,3 +133,4 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--lijn); border
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 8px rgb(0 0 0 / .2);
 }
 .sleep-info.fout { background: var(--gevaar); color: #fff; }
+.plan-voorbeeld { position: absolute; inset: 0; pointer-events: none; }

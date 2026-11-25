@@ -249,16 +249,16 @@ interface WerkbladProps {
 function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigProject, zetMelding }: WerkbladProps) {
   const v = project.verdiepingen[vi] ?? project.verdiepingen[0]!;
   const labels = useMemo(() => openingLabels(project), [project]);
+  const planRef = useRef<HTMLDivElement>(null);
   const slepen = useSlepen({
+    houder: planRef,
     v,
     geselecteerdeMuur: selectie?.soort === "muur" ? selectie.id : undefined,
     wijzig,
     kiesMuur: (id) => zetSelectie({ soort: "muur", id }),
   });
-  const toon = slepen.voorbeeld ?? v;
   // Aanraakzone: vaste grootte op het scherm (± 22 px met de vinger, 8 px met de muis),
   // omgerekend naar plan-mm met de huidige schaal van de tekening.
-  const planRef = useRef<HTMLDivElement>(null);
   const [raak, zetRaak] = useState(0);
   useEffect(() => {
     const meet = () => {
@@ -275,8 +275,16 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     return () => window.removeEventListener("resize", meet);
   });
   const svg = useMemo(
-    () => verdiepingNaarSVG(toon, { interactief: true, labels, raak, kader: slepen.kader, opening: slepen.actieveOpening, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
-    [toon, selectie, labels, slepen.actieveOpening, slepen.kader, raak],
+    () => verdiepingNaarSVG(v, { interactief: true, labels, raak, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
+    [v, selectie, labels, raak],
+  );
+  // Tijdens het slepen: voorbeeld in een aparte laag bovenop, met het vaste kader van de
+  // tekening eronder. Die onderste tekening blijft ongewijzigd onder de vinger staan.
+  const voorbeeldSvg = useMemo(
+    () => slepen.kader
+      ? verdiepingNaarSVG(slepen.voorbeeld ?? v, { labels, kader: slepen.kader, opening: slepen.actieveOpening, geselecteerd: slepen.sleepMuur ?? (selectie?.soort === "muur" ? selectie.id : undefined) })
+      : null,
+    [slepen.kader, slepen.voorbeeld, slepen.actieveOpening, slepen.sleepMuur, v, labels, selectie],
   );
   const lb = useMemo(() => lastenboek(project), [project]);
   const [prijzen, zetPrijzen] = useState<Prijzen>(() => leesOpslag(PRIJZEN, leesPrijzen, {}));
@@ -354,9 +362,10 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         </div>
         <div className="plan-houder">
           <div className="plan" ref={planRef} onClick={klik} {...slepen.handlers} dangerouslySetInnerHTML={{ __html: svg }} />
+          {voorbeeldSvg && <div className="plan plan-voorbeeld" aria-hidden="true" dangerouslySetInnerHTML={{ __html: voorbeeldSvg }} />}
           {slepen.info && <div className={`sleep-info${slepen.info.fout ? " fout" : ""}`} role="status">{slepen.info.tekst}</div>}
         </div>
-        <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. <strong>Slepen:</strong> een muur haaks verschuiven, een raam of deur naar een andere plaats of muur, of de hoek A of B van een geselecteerde muur (maakt de muur schuin). Op de gsm: tik de muur eerst aan. Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>
+        <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. <strong>Slepen:</strong> een muur haaks verschuiven, een raam of deur naar een andere plaats of muur, of de hoek A of B van een geselecteerde muur (maakt de muur schuin). <strong>Op de gsm:</strong> houd een muur, raam of hoek ingedrukt tot de gsm trilt, en sleep dan; gewoon vegen scrolt. Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>
         <div className="export">
           <button className="primair" onClick={() => exporteer("pdf")}>PDF-plan</button>
           <button onClick={() => exporteer("dxf")}>DXF (CAD)</button>
