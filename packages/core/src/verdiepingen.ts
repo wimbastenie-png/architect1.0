@@ -47,6 +47,7 @@ export function voegVerdiepingToe(p: Project, i: NieuweVerdieping): { project: P
       muren: van.muren.map((m) => ({ ...m, id: hernoem(m.id), bron })),
       openingen: [],
       ruimtes: van.ruimtes.map((r) => ({ ...r, id: hernoem(r.id), muurIds: r.muurIds.map(hernoem), bron })),
+      sparingen: [], // een trapgat ligt per verdieping anders; niet overnemen
     };
   } else {
     const basis = rechthoekigProject({

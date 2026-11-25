@@ -5,14 +5,16 @@
  *
  * Aannames (staan ook in de export):
  * - wandvlak = omtrek × plafondhoogte − openingen (zie ruimteWandVlak)
- * - plafond = vloeroppervlak (vlakke plafonds)
+ * - vloer netto (min trapgat/vide/schacht); plafond = ruimte min sparingen in de verdieping erboven (vlakke plafonds)
  * - plinten = omtrek − breedte van deuren en doorgangen in de muren van de ruimte
  * - dagkanten in lopende meter (2 × hoogte + breedte) voor openingen in buitenmuren;
  *   de diepte hangt af van de plaats van het schrijnwerk en wordt niet geraamd
  * - vensterbanken = breedte van ramen met borstwering in buitenmuren
  * - binnendeuren één keer geteld, bij de eerste ruimte waaraan ze grenzen
  */
-import { m2, omtrek, oppervlakte, ruimteWandVlak } from "./geometrie.ts";
+import { plafondNetto, vloerNetto } from "./bewerken.ts";
+import { m2, omtrek, ruimteWandVlak } from "./geometrie.ts";
+import type { Prijzen } from "./prijzen.ts";
 import type { Project } from "./schema.ts";
 
 export type Eenheid = "m²" | "m" | "st";
@@ -38,7 +40,7 @@ export const POSTEN: PostDefinitie[] = [
 
 export const LASTENBOEK_AANNAMES =
   "Hoeveelheden ter indicatie, berekend uit de opmeting; na te meten vóór bestelling. Eigen postindeling, niet volgens Standaardbestek 250. " +
-  "Wanden = omtrek × plafondhoogte min openingen; plafond = vloer; plinten = omtrek min deuren; dagkanten in lopende meter (2 × hoogte + breedte), zonder diepte.";
+  "Wanden = omtrek × plafondhoogte min openingen; vloer en plafond netto (min trapgaten), vlakke plafonds; plinten = omtrek min deuren; dagkanten in lopende meter (2 × hoogte + breedte), zonder diepte.";
 
 export interface LastenboekRegel extends PostDefinitie {
   verdieping: string;
@@ -62,7 +64,8 @@ export function lastenboek(p: Project): Lastenboek {
     for (const r of v.ruimtes) {
       const eigen = v.openingen.filter((o) => r.muurIds.includes(o.muurId));
       const buiten = eigen.filter((o) => (aantalRuimtes.get(o.muurId) ?? 0) < 2);
-      const vloer = m2(oppervlakte(r.contour));
+      const vloer = m2(vloerNetto(r, v));
+      const plafond = m2(plafondNetto(r, v, p));
       const wand = m2(ruimteWandVlak(r, v).netto);
       const deurBreedte = eigen.filter((o) => o.soort !== "raam").reduce((s, o) => s + o.breedte, 0);
       const plint = Math.max(0, omtrek(r.contour) - deurBreedte) / 1000;
@@ -77,8 +80,8 @@ export function lastenboek(p: Project): Lastenboek {
         }
       }
       const waarden: Record<string, number> = {
-        "01": vloer, "02": plint, "03": wand, "04": vloer, "05": dagkant,
-        "06": wand, "07": vloer, "08": vensterbank, "09": schrijnwerk, "10": binnendeuren,
+        "01": vloer, "02": plint, "03": wand, "04": plafond, "05": dagkant,
+        "06": wand, "07": plafond, "08": vensterbank, "09": schrijnwerk, "10": binnendeuren,
       };
       for (const post of POSTEN) {
         const h = r2(waarden[post.code] ?? 0);
@@ -100,16 +103,22 @@ const tekst = (s: string) => (/[;"\n\t]/.test(s) ? `"${s.replace(/"/g, '""')}"` 
  * CSV voor Belgische Excel (`;`, decimale komma). Bovenaan de totalen per post
  * met kolommen voor eenheidsprijs en totaal (formule), daaronder het detail per ruimte.
  */
-export function lastenboekCSV(lb: Lastenboek, projectnaam: string): string {
+export function lastenboekCSV(lb: Lastenboek, projectnaam: string, prijzen: Prijzen = {}, btwPct?: number): string {
   const r: string[] = [];
   r.push(["Post", "Omschrijving", "Eenheid", "Hoeveelheid", "Eenheidsprijs (EUR)", "Totaal (EUR)"].join(";"));
   lb.totalen.forEach((t, i) => {
     const rij = i + 2; // Excel-rijnummer (rij 1 = kop)
-    r.push([t.code, tekst(t.omschrijving), t.eenheid, getal(t.hoeveelheid, t.eenheid), "", `=D${rij}*E${rij}`].join(";"));
+    const prijs = prijzen[t.code];
+    r.push([t.code, tekst(t.omschrijving), t.eenheid, getal(t.hoeveelheid, t.eenheid), prijs === undefined ? "" : prijs.toFixed(2).replace(".", ","), `=D${rij}*E${rij}`].join(";"));
   });
   // gewone optelling i.p.v. SUM/SOM: werkt in elke taalversie van Excel
   const som = lb.totalen.map((_, i) => `F${i + 2}`).join("+") || "0";
   r.push(["", "Totaal excl. btw", "", "", "", `=${som}`].join(";"));
+  if (btwPct !== undefined) {
+    const t = lb.totalen.length + 2; // rij van "Totaal excl. btw"
+    r.push(["", `Btw ${btwPct} %`, "", "", "", `=F${t}*${btwPct}/100`].join(";"));
+    r.push(["", "Totaal incl. btw", "", "", "", `=F${t}+F${t + 1}`].join(";"));
+  }
   r.push("");
   r.push(["Detail per ruimte"].join(";"));
   r.push(["Post", "Omschrijving", "Verdieping", "Ruimte", "Eenheid", "Hoeveelheid"].join(";"));
@@ -121,6 +130,13 @@ export function lastenboekCSV(lb: Lastenboek, projectnaam: string): string {
 }
 
 /** Tab-gescheiden totalen om te plakken in een offerteprogramma of Excel. */
-export function lastenboekTSV(lb: Lastenboek): string {
-  return lb.totalen.map((t) => [t.code, t.omschrijving, t.eenheid, getal(t.hoeveelheid, t.eenheid)].join("\t")).join("\n") + "\n";
+export function lastenboekTSV(lb: Lastenboek, prijzen: Prijzen = {}): string {
+  const metPrijs = lb.totalen.some((t) => prijzen[t.code] !== undefined);
+  return lb.totalen.map((t) => {
+    const basis = [t.code, t.omschrijving, t.eenheid, getal(t.hoeveelheid, t.eenheid)];
+    if (!metPrijs) return basis.join("\t");
+    const p = prijzen[t.code];
+    const bedrag = p === undefined ? "" : (Math.round(t.hoeveelheid * p * 100) / 100).toFixed(2).replace(".", ",");
+    return [...basis, p === undefined ? "" : p.toFixed(2).replace(".", ","), bedrag].join("\t");
+  }).join("\n") + "\n";
 }

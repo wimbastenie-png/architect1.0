@@ -10,3 +10,6 @@ export * from "./maatvoering.ts";
 export * from "./openingen.ts";
 export * from "./lastenboek.ts";
 export * from "./verdiepingen.ts";
+export * from "./bewerken.ts";
+export * from "./prijzen.ts";
+export * from "./hoekpunten.ts";

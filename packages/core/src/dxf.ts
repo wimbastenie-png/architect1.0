@@ -3,12 +3,13 @@
  * AutoCAD, BricsCAD, DraftSight, LibreCAD, QCAD).
  * Eenheden: millimeter. Lagen: MUREN, OPENINGEN, RUIMTES, MATEN, TEKST.
  */
+import { vloerNetto } from "./bewerken.ts";
 import { maatketens } from "./maatvoering.ts";
 import { openingLabelPunt, openingLabels } from "./openingen.ts";
 import { binnenmaten, m2Tekst, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import type { Punt, Verdieping } from "./schema.ts";
 
-const LAGEN: Record<string, number> = { MUREN: 7, OPENINGEN: 4, RUIMTES: 8, MATEN: 1, TEKST: 3 };
+const LAGEN: Record<string, number> = { MUREN: 7, OPENINGEN: 4, RUIMTES: 8, MATEN: 1, TEKST: 3, SPARINGEN: 5 };
 
 class Dxf {
   private r: string[] = [];
@@ -110,11 +111,20 @@ export function verdiepingNaarDXF(v: Verdieping, opties: { tekstHoogte?: number;
   for (const r of v.ruimtes) {
     d.polylijn("RUIMTES", r.contour);
     const c = zwaartepunt(r.contour);
-    const m2 = m2Tekst(oppervlakte(r.contour));
+    const m2 = m2Tekst(vloerNetto(r, v));
     const bm = binnenmaten(r);
     d.tekst("TEKST", { x: c.x, y: c.y + th * 1.2 }, th * 1.3, r.naam);
     d.tekst("TEKST", { x: c.x, y: c.y - th * 0.4 }, th, `${m2} m²`);
     if (bm) d.tekst("TEKST", { x: c.x, y: c.y - th * 1.8 }, th, `${bm.breedte} x ${bm.diepte}`);
+  }
+
+  for (const sp of v.sparingen ?? []) {
+    d.polylijn("SPARINGEN", sp.contour);
+    if (sp.contour.length === 4) {
+      d.lijn("SPARINGEN", sp.contour[0]!, sp.contour[2]!);
+      d.lijn("SPARINGEN", sp.contour[1]!, sp.contour[3]!);
+    }
+    d.tekst("SPARINGEN", zwaartepunt(sp.contour), th * 0.8, sp.soort);
   }
 
   d.g(0, "ENDSEC");

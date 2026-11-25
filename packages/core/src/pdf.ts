@@ -9,6 +9,8 @@
  */
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { LASTENBOEK_AANNAMES, lastenboek } from "./lastenboek.ts";
+import { euro, raming, type Prijzen } from "./prijzen.ts";
+import { vloerNetto } from "./bewerken.ts";
 import { maatketens, tekstBreedte } from "./maatvoering.ts";
 import { openingLabelPunt, openingenLijst, openingLabel } from "./openingen.ts";
 import { peilTekst } from "./verdiepingen.ts";
@@ -27,6 +29,10 @@ export interface PdfOpties {
   datum?: string;
   /** Naam van wie opmat (bv. bedrijfsnaam). */
   opgemetenDoor?: string;
+  /** Eenheidsprijzen per post: dan komt er een raming op het lijstenblad. */
+  prijzen?: Prijzen;
+  /** Btw-tarief voor de raming (%). */
+  btwPct?: number;
 }
 
 /** Papiermaten liggend, in mm. */
@@ -141,6 +147,20 @@ function tekenBlad(
 
   // --- ruimtes, muren, openingen
   for (const r of v.ruimtes) veelhoek(r.contour, VLOER);
+  for (const sp of v.sparingen ?? []) {
+    veelhoek(sp.contour, WIT);
+    const c = sp.contour;
+    for (let k = 0; k < c.length; k++) {
+      // streeplijn: 2 mm streep, 1 mm wit
+      const a = c[k]!, e = c[(k + 1) % c.length]!;
+      const L = Math.hypot(e.x - a.x, e.y - a.y), stap = 3 * schaal;
+      for (let d = 0; d < L; d += stap) {
+        const d2 = Math.min(L, d + 2 * schaal);
+        lijnPlan({ x: a.x + ((e.x - a.x) * d) / L, y: a.y + ((e.y - a.y) * d) / L }, { x: a.x + ((e.x - a.x) * d2) / L, y: a.y + ((e.y - a.y) * d2) / L }, GRIJS, 0.25);
+      }
+    }
+    if (c.length === 4) { lijnPlan(c[0]!, c[2]!, HULP, 0.13); lijnPlan(c[1]!, c[3]!, HULP, 0.13); }
+  }
   for (const m of v.muren) veelhoek(muurVorm(m, v.muren), ZWART);
   const muren = new Map(v.muren.map((m) => [m.id, m]));
   for (const o of v.openingen) {
@@ -190,10 +210,12 @@ function tekenBlad(
     tekstGecentreerd(page, tekst, midden, klein ? 1.7 : 2.2, ml.rij === 2 ? f.vet : f.gewoon, kleur, hoek);
   }
 
+  for (const sp of v.sparingen ?? []) tekstGecentreerd(page, sp.soort, naar(zwaartepunt(sp.contour)), 1.8, f.gewoon, GRIJS);
+
   // --- ruimtelabels
   for (const r of v.ruimtes) {
     const c = naar(zwaartepunt(r.contour));
-    const m2 = m2Tekst(oppervlakte(r.contour));
+    const m2 = m2Tekst(vloerNetto(r, v));
     tekstGecentreerd(page, r.naam, { x: c.x, y: c.y + 5.5 * PT }, 3.2, f.vet, ZWART);
     tekstGecentreerd(page, `${m2} m²`, c, 2.5, f.gewoon, GRIJS);
     const bm = binnenmaten(r);
@@ -395,7 +417,7 @@ function tekenLijsten(doc: PDFDocument, f: Fonts, p: Project, opties: PdfOpties 
 
   const openingen = openingenLijst(p);
   const lb = lastenboek(p);
-  if (!openingen.length && !lb.regels.length) return [];
+  if (!openingen.length && !lb.regels.length && !p.notities?.trim()) return [];
   nieuweBlad();
 
   if (openingen.length) {
@@ -414,18 +436,51 @@ function tekenLijsten(doc: PDFDocument, f: Fonts, p: Project, opties: PdfOpties 
     ]));
   }
 
-  if (lb.totalen.length) {
+  const metPrijzen = opties.prijzen && lb.totalen.some((t) => opties.prijzen![t.code] !== undefined);
+  if (lb.totalen.length && metPrijzen) {
+    const r = raming(lb, opties.prijzen!, opties.btwPct ?? 21);
+    kop("Raming per post (excl. btw)");
+    const k: Kolom[] = [
+      { kop: "Post", breedte: 10 }, { kop: "Omschrijving", breedte: 52 }, { kop: "Eenh.", breedte: 11 },
+      { kop: "Hoev.", breedte: 17, rechts: true }, { kop: "Prijs", breedte: 20, rechts: true }, { kop: "Bedrag", breedte: 24, rechts: true },
+    ];
+    tabel(k, r.regels.map((x) => [
+      x.code, x.omschrijving, x.eenheid, x.eenheid === "st" ? String(x.hoeveelheid) : getal(x.hoeveelheid),
+      x.eenheidsprijs === undefined ? "–" : euro(x.eenheidsprijs), x.bedrag === undefined ? "–" : euro(x.bedrag),
+    ]));
+    rij(k, ["", "Totaal excl. btw", "", "", "", euro(r.exclBtw)], true);
+    rij(k, ["", `Btw ${r.btwPct} %`, "", "", "", euro(r.btw)]);
+    rij(k, ["", "Totaal incl. btw", "", "", "", euro(r.inclBtw)], true);
+    if (r.zonderPrijs.length) rij(k, ["", `Zonder prijs: post ${r.zonderPrijs.join(", ")}`, "", "", "", ""]);
+  } else if (lb.totalen.length) {
     kop("Meetstaat per post (totalen)");
     tabel(
       [{ kop: "Post", breedte: 12 }, { kop: "Omschrijving", breedte: 80 }, { kop: "Eenh.", breedte: 14 }, { kop: "Hoeveelheid", breedte: 26, rechts: true }],
       lb.totalen.map((t) => [t.code, t.omschrijving, t.eenheid, t.eenheid === "st" ? String(t.hoeveelheid) : getal(t.hoeveelheid)]),
     );
+  }
+  if (lb.totalen.length) {
     kop("Detail per ruimte");
     const meerdere = p.verdiepingen.length > 1;
     tabel(
       [{ kop: "Ruimte", breedte: meerdere ? 44 : 44 }, { kop: "Post", breedte: 62 }, { kop: "Eenh.", breedte: 12 }, { kop: "Hoev.", breedte: 14, rechts: true }],
       lb.regels.map((r) => [meerdere ? `${r.ruimte} (${r.verdieping})` : r.ruimte, `${r.code} ${r.omschrijving}`, r.eenheid, r.eenheid === "st" ? String(r.hoeveelheid) : getal(r.hoeveelheid)]),
     );
+  }
+
+  // notities van de werf
+  const notities: Array<[string, string]> = [];
+  if (p.notities?.trim()) notities.push(["Project", p.notities.trim()]);
+  for (const v of p.verdiepingen) for (const r of v.ruimtes) if (r.notities?.trim()) notities.push([p.verdiepingen.length > 1 ? `${r.naam} (${v.naam})` : r.naam, r.notities.trim()]);
+  if (notities.length) {
+    kop("Notities van de werf");
+    for (const [wie, wat] of notities) {
+      const lijnen = wat.split("\n").flatMap((l) => regels(l, f.gewoon, 7.5, kolB - 32));
+      plaats(lijnen.length * 3.6 + 2);
+      y -= 4.2;
+      tekst(afkappen(wie, f.vet, 7.5, 30), x0(), y + 1.2, 7.5, f.vet);
+      lijnen.forEach((l, i) => { if (i) { plaats(3.6); y -= 3.6; } tekst(l, x0() + 32, y + 1.2, 7.5, f.gewoon); });
+    }
   }
 
   // aannames

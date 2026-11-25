@@ -22,7 +22,14 @@ import {
   volgendPeil,
   zetPeil,
   zetBinnenLengte,
+  breekMuurUit,
+  verschuifMuur,
+  verschuifRichtingen,
+  leesPrijzen,
+  verwijderOpening,
+  wijzigOpening,
   type Dragend,
+  type Prijzen,
   type Muur,
   type Opening,
   type Project,
@@ -30,6 +37,10 @@ import {
 } from "@scanapp/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { appartement } from "../../core/examples/appartement.ts";
+import { ArOpmeting, ArResultaat, DEMO_PUNTEN, arOndersteund } from "./ArOpmeting.tsx";
+import { LastenboekWeergave } from "./Lastenboek.tsx";
+import { RuimtePaneel } from "./RuimtePaneel.tsx";
+import { Veld, getal, leesOpslag, schrijfOpslag } from "./ui.tsx";
 
 const OPSLAG = "architect1.0:project";
 type Selectie = { soort: "muur" | "ruimte"; id: string } | null;
@@ -56,7 +67,8 @@ function download(naam: string, inhoud: BlobPart, type: string) {
 }
 
 const bestandsnaam = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
-const getal = (x: number) => x.toFixed(2).replace(".", ",");
+const PRIJZEN = "architect1.0:prijzen";
+const BTW = "architect1.0:btw";
 
 export function App() {
   const [project, zetProject] = useState<Project | null>(laadOpgeslagen);
@@ -168,8 +180,29 @@ function NieuwProject({ onMaak, onVoorbeeld }: { onMaak: (p: Project) => void; o
   const [f, zetF] = useState({ naam: "", ruimteNaam: "Leefruimte", breedte: "", diepte: "", hoogte: "2600", dikte: "300", methode: "manueel" as "manueel" | "laser" });
   const zet = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => zetF({ ...f, [k]: e.target.value });
   const ok = f.naam.trim() && +f.breedte > 0 && +f.diepte > 0 && +f.hoogte > 0 && +f.dikte > 0;
+  const demo = typeof location !== "undefined" && new URLSearchParams(location.search).has("ar-demo");
+  const [ar, zetAr] = useState<boolean | null>(null);
+  const [stap, zetStap] = useState<"formulier" | "camera" | "resultaat">("formulier");
+  const [punten, zetPunten] = useState<{ x: number; y: number }[]>([]);
+  useEffect(() => { void arOndersteund().then(zetAr); }, []);
+  if (stap === "camera") return <main className="start"><ArOpmeting onPunten={(p) => { zetPunten(p); zetStap("resultaat"); }} onStop={() => zetStap("formulier")} /></main>;
+  if (stap === "resultaat") return <main className="start"><ArResultaat punten={punten} onMaak={onMaak} onOpnieuw={() => zetStap(demo ? "formulier" : "camera")} /></main>;
   return (
     <main className="start">
+      <section className="kaart">
+        <h1>Opmeten met de camera</h1>
+        {ar ? (
+          <>
+            <p className="uitleg">Tik de hoeken van de vloer aan met je gsm-camera. Je krijgt meteen een plan dat je daarna met rolmeter of laser kan nameten.</p>
+            <button className="primair" onClick={() => zetStap("camera")}>Camera-opmeting starten</button>
+          </>
+        ) : (
+          <p className="uitleg">
+            {ar === null ? "Controleren of dit toestel AR ondersteunt…" : "Niet beschikbaar op dit toestel. Werkt in Chrome op Android-toestellen met ARCore (niet op iPhone of pc). Je kan hieronder de maten ook ingeven."}
+          </p>
+        )}
+        {demo && <div className="acties"><button onClick={() => { zetPunten(DEMO_PUNTEN); zetStap("resultaat"); }}>AR-demo met testpunten</button></div>}
+      </section>
       <section className="kaart">
         <h1>Nieuw project</h1>
         <p className="uitleg">Geef de binnenmaten in die je met rolmeter of laser gemeten hebt (in mm). Daarna klik je op een muur om maten aan te passen en ramen of deuren toe te voegen.</p>
@@ -198,9 +231,6 @@ function NieuwProject({ onMaak, onVoorbeeld }: { onMaak: (p: Project) => void; o
   );
 }
 
-function Veld({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="veld"><span>{label}</span>{children}</label>;
-}
 
 interface WerkbladProps {
   project: Project;
@@ -221,6 +251,14 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     [v, selectie, labels],
   );
   const lb = useMemo(() => lastenboek(project), [project]);
+  const [prijzen, zetPrijzen] = useState<Prijzen>(() => leesOpslag(PRIJZEN, leesPrijzen, {}));
+  const [btw, zetBtw] = useState<number>(() => leesOpslag(BTW, (x) => (typeof x === "number" && [0, 6, 12, 21].includes(x) ? x : 21), 21));
+  const zetPrijs = (code: string, prijs: number | undefined) => {
+    const n = { ...prijzen };
+    if (prijs === undefined || !Number.isFinite(prijs)) delete n[code]; else n[code] = Math.round(prijs * 100) / 100;
+    zetPrijzen(n);
+    schrijfOpslag(PRIJZEN, n);
+  };
   const [nieuweVerdieping, zetNieuweVerdieping] = useState(false);
   const [weergave, zetWeergave] = useState<"ruimtes" | "lastenboek">("ruimtes");
   const meerdere = project.verdiepingen.length > 1;
@@ -239,7 +277,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   };
   const kopieer = async () => {
     try {
-      await navigator.clipboard.writeText(lastenboekTSV(lb));
+      await navigator.clipboard.writeText(lastenboekTSV(lb, prijzen));
       zetMelding(null);
       alertKort("Lastenboek gekopieerd: plak het in je offerte of in Excel.");
     } catch {
@@ -263,9 +301,9 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
   const exporteer = async (soort: "pdf" | "dxf" | "csv" | "lastenboek" | "json") => {
     try {
-      if (soort === "pdf") download(`${naam}.pdf`, await projectNaarPDF(project) as BlobPart, "application/pdf");
+      if (soort === "pdf") download(`${naam}.pdf`, await projectNaarPDF(project, { prijzen, btwPct: btw }) as BlobPart, "application/pdf");
       if (soort === "dxf") download(`${naam}-${bestandsnaam(v.naam)}.dxf`, verdiepingNaarDXF(v, { labels }), "application/dxf");
-      if (soort === "lastenboek") download(`${naam}-lastenboek.csv`, lastenboekCSV(lb, project.naam), "text/csv;charset=utf-8");
+      if (soort === "lastenboek") download(`${naam}-lastenboek.csv`, lastenboekCSV(lb, project.naam, prijzen, btw), "text/csv;charset=utf-8");
       if (soort === "csv") download(`${naam}-meetstaat.csv`, meetstaatCSV(rijen), "text/csv;charset=utf-8");
       if (soort === "json") download(`${naam}.json`, JSON.stringify(project, null, 2), "application/json");
     } catch (e) {
@@ -320,23 +358,18 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         ) : muur ? (
           <MuurPaneel key={muur.id} muur={muur} v={v} wijzig={wijzig} sluit={() => zetSelectie(null)} meld={zetMelding} />
         ) : ruimte ? (
-          <section className="kaart">
-            <h2>Ruimte</h2>
-            <Veld label="Naam">
-              <input defaultValue={ruimte.naam} key={ruimte.id + ruimte.naam} onBlur={(e) => e.target.value.trim() && e.target.value !== ruimte.naam && wijzig((x) => ({ ...x, ruimtes: x.ruimtes.map((r) => (r.id === ruimte.id ? { ...r, naam: e.target.value.trim() } : r)) }))} />
-            </Veld>
-            <Veld label="Plafondhoogte (mm)">
-              <input type="number" inputMode="numeric" defaultValue={ruimte.plafondhoogte} key={ruimte.id + ruimte.plafondhoogte} onBlur={(e) => { const h = Math.round(+e.target.value); if (h > 0 && h !== ruimte.plafondhoogte) wijzig((x) => ({ ...x, ruimtes: x.ruimtes.map((r) => (r.id === ruimte.id ? { ...r, plafondhoogte: h } : r)) })); }} />
-            </Veld>
-            <button onClick={() => zetSelectie(null)}>Sluiten</button>
-          </section>
+          <RuimtePaneel key={ruimte.id} ruimte={ruimte} v={v} wijzig={wijzig} sluit={() => zetSelectie(null)} />
         ) : (
           <section className="kaart">
             <h2>Project</h2>
             <Veld label="Projectnaam">
               <input defaultValue={project.naam} key={project.naam} onBlur={(e) => e.target.value.trim() && e.target.value !== project.naam && wijzigProject({ ...project, naam: e.target.value.trim() })} />
             </Veld>
-            <p className="uitleg">Selecteer een muur in het plan om de binnenmaat te wijzigen of een raam of deur toe te voegen.</p>
+            <p className="uitleg">Selecteer een muur in het plan om de binnenmaat te wijzigen of een raam of deur toe te voegen, of een ruimte voor notities en een trapgat.</p>
+            <Veld label="Notities project (werf)">
+              <textarea rows={3} defaultValue={project.notities ?? ""} key={project.id + "-n"} placeholder="bv. sleutel bij buren, parkeren achteraan, asbestattest gevraagd"
+                onBlur={(e) => { const t = e.target.value.trim(); if (t !== (project.notities ?? "")) wijzigProject({ ...project, notities: t || undefined }); }} />
+            </Veld>
             <h3>Verdieping</h3>
             <div className="rij">
               <Veld label="Naam verdieping">
@@ -363,20 +396,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
             </div>
           </div>
           {weergave === "lastenboek" ? (
-            <>
-              <div className="tabel-wrap">
-                <table>
-                  <thead><tr><th>Post</th><th>Eenh.</th><th>Hoeveelheid</th></tr></thead>
-                  <tbody>
-                    {lb.totalen.map((t) => (
-                      <tr key={t.code}><td>{t.code} {t.omschrijving}</td><td>{t.eenheid}</td><td>{t.eenheid === "st" ? t.hoeveelheid : getal(t.hoeveelheid)}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="acties"><button onClick={kopieer}>Kopiëren voor offerte</button></div>
-              <p className="uitleg klein">Ter indicatie. Eigen postindeling (niet Standaardbestek 250). Dagkanten in lopende meter, zonder diepte. Detail per ruimte in de Excel-export.</p>
-            </>
+            <LastenboekWeergave lb={lb} prijzen={prijzen} zetPrijs={zetPrijs} btw={btw} zetBtw={(b) => { zetBtw(b); schrijfOpslag(BTW, b); }} kopieer={kopieer} />
           ) : (
           <div className="tabel-wrap">
             <table>
@@ -405,6 +425,7 @@ const STANDAARD: Record<Opening["soort"], { breedte: number; hoogte: number; bor
 
 function MuurPaneel({ muur, v, wijzig, sluit, meld }: { muur: Muur; v: Verdieping; wijzig: (f: (v: Verdieping) => Verdieping) => boolean; sluit: () => void; meld: (s: string | null) => void }) {
   const binnen = Math.round(binnenLengte(muur, v.muren));
+  const [bewerkId, zetBewerkId] = useState<string | null>(null);
   const aans = aansluitingen(muur, v.muren);
   const [maat, zetMaat] = useState(String(binnen));
   const [methode, zetMethode] = useState<Methode>("manueel");
@@ -475,13 +496,39 @@ function MuurPaneel({ muur, v, wijzig, sluit, meld }: { muur: Muur; v: Verdiepin
         </select>
       </Veld>
 
+      <PositieCorrigeren muur={muur} wijzig={wijzig} />
+
       <h3>Ramen en deuren</h3>
       {openingen.length === 0 && <p className="uitleg">Nog geen openingen in deze muur.</p>}
       <ul className="openingen">
-        {openingen.map((o) => (
+        {openingen.map((o) => bewerkId === o.id ? (
+          <li key={o.id} className="bewerk">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const d = new FormData(e.currentTarget);
+              const ok = wijzig((x) => wijzigOpening(x, o.id, {
+                offset: +d.get("afstand")! + Math.round(aans.start), breedte: +d.get("breedte")!, hoogte: +d.get("hoogte")!, borstwering: +d.get("borstwering")!,
+              }));
+              if (ok) zetBewerkId(null);
+            }}>
+              <div className="rij">
+                <Veld label={`${o.soort}: van A`}><input name="afstand" type="number" inputMode="numeric" min={0} defaultValue={Math.round(o.offset - aans.start)} /></Veld>
+                <Veld label="Breedte"><input name="breedte" type="number" inputMode="numeric" min={1} defaultValue={o.breedte} /></Veld>
+              </div>
+              <div className="rij">
+                <Veld label="Hoogte"><input name="hoogte" type="number" inputMode="numeric" min={1} defaultValue={o.hoogte} /></Veld>
+                <Veld label="Borstwering"><input name="borstwering" type="number" inputMode="numeric" min={0} defaultValue={o.borstwering} /></Veld>
+              </div>
+              <div className="acties"><button className="primair" type="submit">Opslaan</button><button type="button" onClick={() => zetBewerkId(null)}>Annuleren</button></div>
+            </form>
+          </li>
+        ) : (
           <li key={o.id}>
             <span>{o.soort} {o.breedte} × {o.hoogte}{o.borstwering ? `, borstwering ${o.borstwering}` : ""} — op {Math.round(o.offset - aans.start)} mm van A</span>
-            <button onClick={() => wijzig((x) => ({ ...x, openingen: x.openingen.filter((y) => y.id !== o.id) }))} aria-label="Verwijderen">Verwijder</button>
+            <span className="knopjes">
+              <button onClick={() => zetBewerkId(o.id)}>Wijzig</button>
+              <button onClick={() => wijzig((x) => verwijderOpening(x, o.id))} aria-label="Verwijderen">Verwijder</button>
+            </span>
           </li>
         ))}
       </ul>
@@ -504,8 +551,19 @@ function MuurPaneel({ muur, v, wijzig, sluit, meld }: { muur: Muur; v: Verdiepin
         <button type="submit">Opening toevoegen</button>
       </form>
 
-      {v.ruimtes.filter((r) => r.muurIds.includes(muur.id)).length < 2 && (
+      {v.ruimtes.filter((r) => r.muurIds.includes(muur.id)).length < 2 ? (
         <RuimteErnaast muur={muur} v={v} binnen={binnen} wijzig={wijzig} klaar={sluit} />
+      ) : (
+        <>
+          <h3>Muur uitbreken</h3>
+          <p className="uitleg">De twee ruimtes worden één ruimte, ook als ze niet even breed zijn (bv. een L-vorm). Ramen en deuren in deze muur verdwijnen. Muurstukken die daarna recht doorlopen, worden terug één muur.</p>
+          <button className="gevaar" onClick={() => {
+            const waarschuwing = muur.dragend === "niet-dragend"
+              ? "Deze muur is aangeduid als niet-dragend. Toch uitbreken?"
+              : `LET OP: deze muur is ${muur.dragend === "bevestigd" ? "DRAGEND" : muur.dragend === "vermoeden" ? "vermoedelijk dragend" : "mogelijk dragend (onbekend)"}.\n\nEen dragende muur wegnemen vraagt een stabiliteitsstudie door een ingenieur (stalen ligger, kolommen, tijdelijke stutten) en meestal een omgevingsvergunning met architect. Dit plan is enkel een voorstel.\n\nToch uitbreken in het plan?`;
+            if (confirm(waarschuwing) && wijzig((x) => breekMuurUit(x, muur.id))) sluit();
+          }}>Muur uitbreken</button>
+        </>
       )}
     </section>
   );
@@ -612,5 +670,35 @@ function NieuweVerdieping({ project, huidige, maak, annuleer }: {
         </div>
       </form>
     </section>
+  );
+}
+
+function PositieCorrigeren({ muur, wijzig }: { muur: Muur; wijzig: (f: (v: Verdieping) => Verdieping) => boolean }) {
+  const [afstand, zetAfstand] = useState("");
+  const [methode, zetMethode] = useState<"gecorrigeerd" | "manueel" | "laser">("gecorrigeerd");
+  const richtingen = verschuifRichtingen(muur);
+  const mm = Math.round(+afstand);
+  return (
+    <div className="positie">
+      <h3>Positie corrigeren</h3>
+      <p className="uitleg">Staat de muur in werkelijkheid elders dan op het plan? Verschuif ze. Aansluitende muren en ruimtes passen zich aan; ramen in andere muren blijven op hun plaats.</p>
+      <div className="rij">
+        <Veld label="Verschuiven over (mm)"><input type="number" inputMode="numeric" min={1} value={afstand} onChange={(e) => zetAfstand(e.target.value)} placeholder="bv. 50" /></Veld>
+        <Veld label="Meetwijze verschuiving">
+          <select value={methode} onChange={(e) => zetMethode(e.target.value as typeof methode)}>
+            <option value="gecorrigeerd">Correctie</option>
+            <option value="manueel">Rolmeter</option>
+            <option value="laser">Laser</option>
+          </select>
+        </Veld>
+      </div>
+      <div className="acties">
+        {richtingen.map((r) => (
+          <button key={r.teken} type="button" disabled={!(mm > 0)} onClick={() => { if (wijzig((x) => verschuifMuur(x, muur.id, mm * r.teken, methode))) zetAfstand(""); }}>
+            Verschuif {r.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
