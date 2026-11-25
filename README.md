@@ -13,7 +13,7 @@ exportbestanden (PDF/DXF/IFC) van maakt. Zie het plan in het document
 - **Ruimte hiernaast toevoegen**: klik een buitenmuur, geef binnenbreedte, diepte en startpunt (vanaf hoek A). De muur wordt tussenmuur; is de nieuwe ruimte smaller, dan wordt de muur gesplitst en verhuizen ramen/deuren mee. Zo bouw je een verdieping kamer per kamer op.
 - Ruimte aanklikken: naam en plafondhoogte.
 - **Verdiepingen**: tabbladen per verdieping met peil; "+ Verdieping" als kopie van de indeling (muren en ruimtes, grijs = overgenomen tot nagemeten) of als nieuwe rechthoek; hernoemen, peil aanpassen, verwijderen.
-- **Bewerken**: ramen/deuren wijzigen en verplaatsen; tussenmuur uitbreken (twee rechthoekige ruimtes → één, met waarschuwing over stabiliteit); ruimte verwijderen; sparing in de vloer (trapgat, vide, schacht), afgetrokken van die vloer en van het plafond eronder; notities per ruimte en per project (op het lijstenblad van de PDF).
+- **Bewerken**: ramen/deuren wijzigen en verplaatsen; tussenmuur uitbreken (twee ruimtes van elke haakse vorm → één, bv. L-vorm, met waarschuwing over stabiliteit); muur verschuiven (positie corrigeren); ruimte verwijderen; muurstukken die recht doorlopen worden automatisch terug één muur; sparing in de vloer (trapgat, vide, schacht) toevoegen, verplaatsen, vergroten, afgetrokken van die vloer en van het plafond eronder; notities per ruimte en per project (op het lijstenblad van de PDF).
 - **Prijzen**: eenheidsprijs per post, onthouden op het toestel; raming met btw-tarief naar keuze (21/12/6/0 %); prijzen mee in Excel, kopie en PDF.
 - **Opmeten met de camera** (Chrome op Android met ARCore, via WebXR): hoeken van de vloer aantikken → haaks maken → plan. Op iPhone en pc niet beschikbaar. Demo zonder camera: `?ar-demo` achter het webadres.
 - **Lastenboek-meetstaat**: posten per ruimte (vloer, plinten, pleister- en schilderwerk wanden/plafond, dagkanten, vensterbanken, buitenschrijnwerk, binnendeuren); "Kopiëren voor offerte" (plakken in offerte of Excel) en export naar Excel met kolommen eenheidsprijs en totaal.
@@ -40,7 +40,7 @@ Daarna publiceert elke wijziging op `main` de app op
 | `src/openingen.ts` | Codes per opening (R1, D1, O1 …, over het hele project) en openingenlijst; labels op het plan, binnendeuren met breedte. |
 | `src/lastenboek.ts` | Lastenboek-meetstaat per post en per ruimte, CSV (met formules, zonder taalgebonden functies) en tab-tekst om te plakken. |
 | `src/verdiepingen.ts` | Verdieping toevoegen (kopie of rechthoek), hernoemen, peil, verwijderen. |
-| `src/bewerken.ts` | Openingen wijzigen/verwijderen, muur uitbreken, ruimte verwijderen, sparingen; netto vloer en plafond. |
+| `src/bewerken.ts` | Openingen wijzigen/verwijderen, muur uitbreken (haakse vereniging van ruimtes), muur verschuiven, muurstukken samenvoegen, ruimte verwijderen, sparingen toevoegen/wijzigen; netto vloer en plafond. |
 | `src/prijzen.ts` | Eenheidsprijzen, raming excl./incl. btw, euro-notatie. |
 | `src/hoekpunten.ts` | Aangetikte hoekpunten → haaks plan → muren en ruimte. |
 | `src/uitbreiden.ts` | Ruimte tegen een bestaande muur zetten: muur splitsen, openingen verhuizen, gedeelde muren hergebruiken, overlap weigeren. |
@@ -55,7 +55,7 @@ Daarna publiceert elke wijziging op `main` de app op
 
 ```bash
 npm install
-npm test            # 67 tests
+npm test            # 76 tests
 npm run web         # webapp lokaal starten
 npm run voorbeeld   # voorbeelduitvoer
 ```
@@ -68,7 +68,8 @@ npm run voorbeeld   # voorbeelduitvoer
 - Lastenboek: eigen postindeling, niet de nummering van Standaardbestek 250. Dagkanten in lopende meter zonder diepte; plafond = vloer (geen schuine plafonds); geen trappen, gevels, daken of buitenwerk.
 - Verdiepingen: geen controle dat muren boven elkaar staan; een kopie neemt geen ramen/deuren en sparingen over.
 - Sparingen zijn rechthoekig en liggen volledig in één ruimte; een trapgat over twee ruimtes kan niet.
-- Muur uitbreken kan enkel tussen twee rechthoekige ruimtes die samen een rechthoek vormen. Muren verschuiven gebeurt via de binnenmaat van een haakse muur; vrij slepen kan niet.
+- Muur uitbreken en verschuiven: enkel bij haakse plannen (geen schuine muren). Een muur die recht doorloopt in een andere muur kan niet apart verschuiven (dat zou een knik geven). Vrij slepen met de vinger of muis kan nog niet; je geeft een afstand in.
+- Een raam of deur naar een andere muur verplaatsen: verwijderen en opnieuw toevoegen.
 - Camera-opmeting: **niet getest op een echt toestel**; alleen de verwerking van de punten is getest (unit- en browsertests met testpunten). Hoogte wordt niet gemeten (zelf ingeven). Enkel haakse ruimtes; schuine muren worden geweigerd. Werkt niet op iPhone (Safari ondersteunt WebXR AR niet).
 - Prijzen staan alleen op het toestel waarop je ze ingaf (geen account/synchronisatie).
 - Ruimtes zijn rechthoekig en worden haaks tegen een bestaande muur gezet. Schuine muren, L-vormige ruimtes en een ruimte die tegen twee bestaande ruimtes tegelijk komt (bv. een hoek opvullen) kunnen nog niet.

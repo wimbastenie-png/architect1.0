@@ -23,6 +23,8 @@ import {
   zetPeil,
   zetBinnenLengte,
   breekMuurUit,
+  verschuifMuur,
+  verschuifRichtingen,
   leesPrijzen,
   verwijderOpening,
   wijzigOpening,
@@ -494,6 +496,8 @@ function MuurPaneel({ muur, v, wijzig, sluit, meld }: { muur: Muur; v: Verdiepin
         </select>
       </Veld>
 
+      <PositieCorrigeren muur={muur} wijzig={wijzig} />
+
       <h3>Ramen en deuren</h3>
       {openingen.length === 0 && <p className="uitleg">Nog geen openingen in deze muur.</p>}
       <ul className="openingen">
@@ -552,7 +556,7 @@ function MuurPaneel({ muur, v, wijzig, sluit, meld }: { muur: Muur; v: Verdiepin
       ) : (
         <>
           <h3>Muur uitbreken</h3>
-          <p className="uitleg">De twee ruimtes worden één ruimte. Ramen en deuren in deze muur verdwijnen.</p>
+          <p className="uitleg">De twee ruimtes worden één ruimte, ook als ze niet even breed zijn (bv. een L-vorm). Ramen en deuren in deze muur verdwijnen. Muurstukken die daarna recht doorlopen, worden terug één muur.</p>
           <button className="gevaar" onClick={() => {
             const waarschuwing = muur.dragend === "niet-dragend"
               ? "Deze muur is aangeduid als niet-dragend. Toch uitbreken?"
@@ -666,5 +670,35 @@ function NieuweVerdieping({ project, huidige, maak, annuleer }: {
         </div>
       </form>
     </section>
+  );
+}
+
+function PositieCorrigeren({ muur, wijzig }: { muur: Muur; wijzig: (f: (v: Verdieping) => Verdieping) => boolean }) {
+  const [afstand, zetAfstand] = useState("");
+  const [methode, zetMethode] = useState<"gecorrigeerd" | "manueel" | "laser">("gecorrigeerd");
+  const richtingen = verschuifRichtingen(muur);
+  const mm = Math.round(+afstand);
+  return (
+    <div className="positie">
+      <h3>Positie corrigeren</h3>
+      <p className="uitleg">Staat de muur in werkelijkheid elders dan op het plan? Verschuif ze. Aansluitende muren en ruimtes passen zich aan; ramen in andere muren blijven op hun plaats.</p>
+      <div className="rij">
+        <Veld label="Verschuiven over (mm)"><input type="number" inputMode="numeric" min={1} value={afstand} onChange={(e) => zetAfstand(e.target.value)} placeholder="bv. 50" /></Veld>
+        <Veld label="Meetwijze verschuiving">
+          <select value={methode} onChange={(e) => zetMethode(e.target.value as typeof methode)}>
+            <option value="gecorrigeerd">Correctie</option>
+            <option value="manueel">Rolmeter</option>
+            <option value="laser">Laser</option>
+          </select>
+        </Veld>
+      </div>
+      <div className="acties">
+        {richtingen.map((r) => (
+          <button key={r.teken} type="button" disabled={!(mm > 0)} onClick={() => { if (wijzig((x) => verschuifMuur(x, muur.id, mm * r.teken, methode))) zetAfstand(""); }}>
+            Verschuif {r.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

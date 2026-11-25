@@ -1,4 +1,4 @@
-import { sparingenIn, verwijderRuimte, verwijderSparing, voegSparingToe, oppervlakte, type Ruimte, type Sparing, type Verdieping } from "@scanapp/core";
+import { sparingenIn, sparingMaten, verwijderRuimte, verwijderSparing, voegSparingToe, wijzigSparing, oppervlakte, type Ruimte, type Sparing, type Verdieping } from "@scanapp/core";
 import { useState } from "react";
 import { Veld, getal } from "./ui.tsx";
 
@@ -7,6 +7,7 @@ type Wijzig = (f: (v: Verdieping) => Verdieping) => boolean;
 export function RuimtePaneel({ ruimte, v, wijzig, sluit }: { ruimte: Ruimte; v: Verdieping; wijzig: Wijzig; sluit: () => void }) {
   const zetRuimte = (f: (r: Ruimte) => Ruimte) => wijzig((x) => ({ ...x, ruimtes: x.ruimtes.map((r) => (r.id === ruimte.id ? f(r) : r)) }));
   const sparingen = sparingenIn(ruimte, v);
+  const [bewerkId, zetBewerkId] = useState<string | null>(null);
   const [sp, zetSp] = useState({ soort: "trapgat" as Sparing["soort"], x: "0", y: "0", breedte: "1000", lengte: "2800", open: false });
   const zet = (k: keyof typeof sp) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => zetSp({ ...sp, [k]: e.target.value });
 
@@ -28,11 +29,37 @@ export function RuimtePaneel({ ruimte, v, wijzig, sluit }: { ruimte: Ruimte; v: 
       {sparingen.length === 0 && <p className="uitleg">Geen sparingen in de vloer van deze ruimte.</p>}
       <ul className="openingen">
         {sparingen.map((s) => {
-          const xs = s.contour.map((p) => p.x), ys = s.contour.map((p) => p.y);
+          const mt = sparingMaten(s, ruimte);
+          if (bewerkId === s.id) return (
+            <li key={s.id} className="bewerk">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const d = new FormData(e.currentTarget);
+                const ok = wijzig((x) => wijzigSparing(x, s.id, {
+                  soort: d.get("soort") as Sparing["soort"], x: +d.get("x")!, y: +d.get("y")!, breedte: +d.get("breedte")!, lengte: +d.get("lengte")!,
+                }));
+                if (ok) zetBewerkId(null);
+              }}>
+                <Veld label="Soort"><select name="soort" defaultValue={s.soort}><option value="trapgat">Trapgat</option><option value="vide">Vide</option><option value="schacht">Schacht</option></select></Veld>
+                <div className="rij">
+                  <Veld label="Van links"><input name="x" type="number" inputMode="numeric" min={0} defaultValue={mt.x} /></Veld>
+                  <Veld label="Van onder"><input name="y" type="number" inputMode="numeric" min={0} defaultValue={mt.y} /></Veld>
+                </div>
+                <div className="rij">
+                  <Veld label="Breedte"><input name="breedte" type="number" inputMode="numeric" min={1} defaultValue={mt.breedte} /></Veld>
+                  <Veld label="Lengte"><input name="lengte" type="number" inputMode="numeric" min={1} defaultValue={mt.lengte} /></Veld>
+                </div>
+                <div className="acties"><button className="primair" type="submit">Opslaan</button><button type="button" onClick={() => zetBewerkId(null)}>Annuleren</button></div>
+              </form>
+            </li>
+          );
           return (
             <li key={s.id}>
-              <span>{s.soort} {Math.max(...xs) - Math.min(...xs)} × {Math.max(...ys) - Math.min(...ys)} ({getal(oppervlakte(s.contour) / 1e6)} m²)</span>
-              <button onClick={() => wijzig((x) => verwijderSparing(x, s.id))}>Verwijder</button>
+              <span>{s.soort} {mt.breedte} × {mt.lengte}, op {mt.x} van links en {mt.y} van onder ({getal(oppervlakte(s.contour) / 1e6)} m²)</span>
+              <span className="knopjes">
+                <button onClick={() => zetBewerkId(s.id)}>Wijzig</button>
+                <button onClick={() => wijzig((x) => verwijderSparing(x, s.id))}>Verwijder</button>
+              </span>
             </li>
           );
         })}

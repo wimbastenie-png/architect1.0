@@ -26,6 +26,13 @@ import {
   voegSparingToe,
   voegVerdiepingToe,
   wijzigOpening,
+  haakseVereniging,
+  maatketens,
+  muurLengte,
+  sparingMaten,
+  verschuifMuur,
+  verschuifRichtingen,
+  wijzigSparing,
   type Project,
   type Verdieping,
 } from "../src/index.ts";
@@ -65,11 +72,40 @@ describe("muur uitbreken", () => {
     // wandoppervlak: omtrek 2 × (9300 + 4500) × 2,7 − ramen − voordeur
     expect(meetstaat(metV(v))[0]!.wandBrutoM2).toBe(74.52);
   });
-  it("weigert buitenmuren en ongelijke ruimtes", () => {
+  it("weigert buitenmuren", () => {
     expect(() => breekMuurUit(v0, "m-links")).toThrow(/tussen twee ruimtes/);
-    const v = voegRuimteToe(v0, { muurId: "m-onder-links", naam: "Berging", breedte: 1000, diepte: 1500, afstandVanafA: 0, plafondhoogte: 2500 });
-    const tussen = v.ruimtes.find((r) => r.naam === "Berging")!.muurIds.find((id) => v.ruimtes.filter((r) => r.muurIds.includes(id)).length === 2)!;
-    expect(() => breekMuurUit(v, tussen)).toThrow(/even breed/);
+  });
+  it("gevel is na het uitbreken terug één muur (geen spookmaat in de ketting)", () => {
+    const v = breekMuurUit(v0, "m-binnen");
+    expect(v.muren).toHaveLength(4);
+    const onder = v.muren.find((m) => m.start.y === 0 && m.eind.y === 0)!;
+    expect(muurLengte(onder)).toBe(9600);
+    // raam van de slaapkamer staat op dezelfde plaats (x = 6000 + 900)
+    const raam = v.openingen.find((o) => o.id === "o-raam-slaap")!;
+    expect(raam.muurId).toBe(onder.id);
+    expect(onder.start.x + raam.offset).toBe(6900);
+    const gevel = maatketens(v).filter((k) => k.rij === 1 && k.a.y === k.b.y && k.a.y < 0);
+    expect(gevel.map((k) => Math.round(k.lengte))).toEqual([9900]);
+    expect(maatketens(v).some((k) => k.rij === 2 && k.a.y < 0)).toBe(false);
+    expect(controleerSamenhang(metV(v))).toEqual([]);
+  });
+  it("ongelijke ruimtes worden een L-vormige ruimte", () => {
+    const v1 = voegRuimteToe(v0, { muurId: "m-rechts", naam: "Berging", breedte: 2000, diepte: 1500, afstandVanafA: 1000, muurdikte: 200, plafondhoogte: 2400 });
+    const tussen = v1.ruimtes.find((r) => r.naam === "Berging")!.muurIds.find((id) => v1.ruimtes.filter((r) => r.muurIds.includes(id)).length === 2)!;
+    const v = breekMuurUit(v1, tussen);
+    expect(v.ruimtes).toHaveLength(2);
+    const l = v.ruimtes.find((r) => r.naam === "Slaapkamer + Berging")!;
+    expect(l.contour).toHaveLength(8);
+    // 3400 × 4500 + 1500 × 2000 + brug over de gevel 300 × 2000
+    expect(oppervlakte(l.contour)).toBe(3400 * 4500 + 1500 * 2000 + 300 * 2000);
+    expect(l.plafondhoogte).toBe(2400);
+    expect(controleerSamenhang(metV(v))).toEqual([]);
+    expect(meetstaat(metV(v)).find((r) => r.ruimte === "Slaapkamer + Berging")!.vloerM2).toBe(18.9);
+  });
+  it("vereniging weigert losse stukken", () => {
+    const r = (x: number) => [{ x, y: 0 }, { x: x + 10, y: 0 }, { x: x + 10, y: 10 }, { x, y: 10 }];
+    expect(() => haakseVereniging([r(0), r(20)])).toThrow(/losse stukken/);
+    expect(haakseVereniging([r(0), r(10)])).toHaveLength(4);
   });
 });
 
@@ -79,7 +115,9 @@ describe("ruimte verwijderen", () => {
     const berging = v1.ruimtes.find((r) => r.naam === "Berging")!;
     const v = verwijderRuimte(v1, berging.id);
     expect(v.ruimtes).toHaveLength(2);
-    expect(v.muren.length).toBe(v1.muren.length - 3); // 3 eigen muren weg, gesplitste gevel blijft
+    // 3 eigen muren weg, en de gesplitste gevel (3 stukken) is terug één muur
+    expect(v.muren.length).toBe(v0.muren.length);
+    expect(muurLengte(v.muren.find((m) => m.id === "m-rechts")!)).toBe(4800);
     expect(controleerSamenhang(metV(v))).toEqual([]);
     expect(meetstaat(metV(v)).map((r) => r.vloerM2)).toEqual([26.1, 15.3]);
   });
@@ -123,6 +161,54 @@ describe("sparingen", () => {
     const oud = JSON.parse(JSON.stringify(appartement));
     delete oud.verdiepingen[0].sparingen;
     expect(leesProject(oud).ok).toBe(true);
+  });
+});
+
+describe("muur verschuiven", () => {
+  it("tussenmuur 200 mm naar rechts: ruimtes passen zich aan, raam blijft staan", () => {
+    const m = v0.muren.find((x) => x.id === "m-binnen")!;
+    const rechts = verschuifRichtingen(m).find((r) => r.label === "naar rechts")!;
+    const v = verschuifMuur(v0, "m-binnen", 200 * rechts.teken);
+    expect(oppervlakte(v.ruimtes.find((r) => r.id === "r-leef")!.contour)).toBe(6000 * 4500);
+    expect(oppervlakte(v.ruimtes.find((r) => r.id === "r-slaap")!.contour)).toBe(3200 * 4500);
+    const onderRechts = v.muren.find((x) => x.id === "m-onder-rechts")!;
+    const raam = v.openingen.find((o) => o.id === "o-raam-slaap")!;
+    expect(onderRechts.start.x + raam.offset).toBe(6900);
+    expect(controleerSamenhang(metV(v))).toEqual([]);
+    expect(v.muren.find((x) => x.id === "m-binnen")!.bron.methode).toBe("gecorrigeerd");
+  });
+  it("buitenmuur 100 mm naar links: ramen in de aansluitende gevel blijven op hun plaats", () => {
+    const m = v0.muren.find((x) => x.id === "m-links")!;
+    const links = verschuifRichtingen(m).find((r) => r.label === "naar links")!;
+    const v = verschuifMuur(v0, "m-links", 100 * links.teken, "laser");
+    expect(oppervlakte(v.ruimtes.find((r) => r.id === "r-leef")!.contour)).toBe(5900 * 4500);
+    const onderLinks = v.muren.find((x) => x.id === "m-onder-links")!;
+    expect(onderLinks.start.x).toBe(-100);
+    expect(onderLinks.start.x + v.openingen.find((o) => o.id === "o-raam-leef")!.offset).toBe(1500);
+    expect(v.openingen.find((o) => o.id === "o-voordeur")!.offset).toBe(1000); // in de verschoven muur zelf
+    expect(controleerSamenhang(metV(v))).toEqual([]);
+  });
+  it("weigert te ver, en muren die recht doorlopen", () => {
+    expect(() => verschuifMuur(v0, "m-binnen", -3500)).toThrow(/te kort|door ruimte|past niet/);
+    const v1 = voegRuimteToe(v0, { muurId: "m-rechts", naam: "Berging", breedte: 2000, diepte: 1500, afstandVanafA: 1000, plafondhoogte: 2400 });
+    const stuk = v1.muren.find((x) => x.id === "m-rechts")!;
+    expect(() => verschuifMuur(v1, stuk.id, 100)).toThrow(/recht door/);
+  });
+});
+
+describe("sparing wijzigen", () => {
+  const leef = v0.ruimtes.find((r) => r.id === "r-leef")!;
+  const met = voegSparingToe(v0, { ruimteId: "r-leef", soort: "trapgat", x: 0, y: 0, breedte: 1000, lengte: 2800 });
+  const id = met.sparingen[0]!.id;
+  it("verplaatsen en vergroten, id blijft", () => {
+    const v = wijzigSparing(met, id, { soort: "trapgat", x: 500, y: 200, breedte: 1100, lengte: 3000 });
+    const s = v.sparingen.find((x) => x.id === id)!;
+    expect(sparingMaten(s, leef)).toEqual({ x: 500, y: 200, breedte: 1100, lengte: 3000 });
+    expect(v.sparingen).toHaveLength(1);
+  });
+  it("weigert buiten de ruimte en laat het origineel ongemoeid", () => {
+    expect(() => wijzigSparing(met, id, { soort: "trapgat", x: 5000, y: 0, breedte: 1000, lengte: 1000 })).toThrow(/buiten/);
+    expect(met.sparingen[0]!.contour[0]).toEqual({ x: 150, y: 150 });
   });
 });
 
@@ -193,5 +279,13 @@ describe("hoekpunten (camera)", () => {
     // de buitenmaat van een muur = binnen + 2 × 100
     const breedte = Math.max(...h.punten.map((q) => q.x));
     expect(v.muren.map((m) => Math.round(binnenLengte(m, v.muren))).sort((a, b) => a - b)).toContain(breedte);
+  });
+});
+
+describe("meldingen", () => {
+  it("juist lidwoord: het trapgat, de vide", () => {
+    const v0b = appartement.verdiepingen[0]!;
+    expect(() => voegSparingToe(v0b, { ruimteId: "r-leef", soort: "trapgat", x: 9000, y: 0, breedte: 100, lengte: 100 })).toThrow(/^Het trapgat valt/);
+    expect(() => voegSparingToe(v0b, { ruimteId: "r-leef", soort: "vide", x: 9000, y: 0, breedte: 100, lengte: 100 })).toThrow(/^De vide valt/);
   });
 });

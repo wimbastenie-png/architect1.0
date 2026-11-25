@@ -5,8 +5,8 @@
  * Alle functies geven een nieuwe verdieping terug; bij een fout: Error met
  * een melding die je zo aan de gebruiker kunt tonen.
  */
-import { aansluitingen, binnenmaten, muurLengte, oppervlakte, zwaartepunt } from "./geometrie.ts";
-import type { Bron, Opening, Project, Punt, Ruimte, Sparing, Verdieping } from "./schema.ts";
+import { aansluitingen, muurLengte, oppervlakte, zwaartepunt } from "./geometrie.ts";
+import type { Bron, Muur, Opening, Project, Punt, Ruimte, Sparing, Verdieping } from "./schema.ts";
 
 // ---------------------------------------------------------------- openingen
 
@@ -42,9 +42,10 @@ export function verwijderOpening(v: Verdieping, id: string): Verdieping {
 
 /**
  * Breekt een tussenmuur uit: de muur verdwijnt en de twee ruimtes aan
- * weerszijden worden één ruimte. Kan voorlopig enkel als beide ruimtes
- * rechthoekig zijn en samen weer een rechthoek vormen (dezelfde breedte
- * langs de muur).
+ * weerszijden worden één ruimte — ook als ze verschillend van vorm of
+ * breedte zijn (bv. slaapkamer + smallere berging → L-vormige ruimte).
+ * Werkt voor haakse plannen (muren evenwijdig aan de assen). Gesplitste
+ * muurstukken die daarna recht doorlopen, worden terug één muur.
  *
  * LET OP: of de muur dragend is, kan de app niet vaststellen. Een dragende
  * muur wegnemen vraagt een stabiliteitsstudie (ingenieur) en meestal een
@@ -56,46 +57,271 @@ export function breekMuurUit(v: Verdieping, muurId: string): Verdieping {
   const buren = v.ruimtes.filter((r) => r.muurIds.includes(muurId));
   if (buren.length !== 2) throw new Error("Alleen een muur tussen twee ruimtes kan uitgebroken worden (geen buitenmuur).");
   const [a, b] = buren as [Ruimte, Ruimte];
-  if (!binnenmaten(a) || !binnenmaten(b))
-    throw new Error("Uitbreken kan voorlopig enkel tussen twee rechthoekige ruimtes.");
-  const alle = [...a.contour, ...b.contour];
-  const minX = Math.min(...alle.map((p) => p.x)), maxX = Math.max(...alle.map((p) => p.x));
-  const minY = Math.min(...alle.map((p) => p.y)), maxY = Math.max(...alle.map((p) => p.y));
-  const samen = (maxX - minX) * (maxY - minY);
-  // Vormen ze samen (met de muur ertussen) een rechthoek?
-  const overspanning = muurOverlap(a, b, m.dikte);
-  if (overspanning === null || Math.abs(samen - (oppervlakte(a.contour) + oppervlakte(b.contour) + overspanning * m.dikte)) > 1)
-    throw new Error("Beide ruimtes moeten even breed zijn langs deze muur, zodat er één rechthoekige ruimte overblijft.");
+  const horizontaal = m.start.y === m.eind.y, verticaal = m.start.x === m.eind.x;
+  if (!horizontaal && !verticaal) throw new Error("Uitbreken kan voorlopig enkel bij muren evenwijdig aan het plan (geen schuine muren).");
+  if (![a, b].every((r) => isHaaks(r.contour))) throw new Error("Uitbreken kan voorlopig enkel tussen ruimtes met haakse hoeken.");
+
+  // Langs de muur: welke stukken rand van a en b liggen tegen de muur? Daar komt een "brug" over de muurdikte.
+  const as = horizontaal ? "y" : "x", langs = horizontaal ? "x" : "y";
+  const midden = m.start[as];
+  const randen = (r: Ruimte) => {
+    const uit: Array<{ van: number; tot: number; op: number }> = [];
+    r.contour.forEach((p, k) => {
+      const q = r.contour[(k + 1) % r.contour.length]!;
+      if (p[as] !== q[as] || Math.abs(Math.abs(p[as] - midden) - m.dikte / 2) > 1) return;
+      uit.push({ van: Math.min(p[langs], q[langs]), tot: Math.max(p[langs], q[langs]), op: p[as] });
+    });
+    return uit;
+  };
+  const lo = Math.min(m.start[langs], m.eind[langs]), hi = Math.max(m.start[langs], m.eind[langs]);
+  const bruggen: Punt[][] = [];
+  for (const ra of randen(a)) for (const rb of randen(b)) {
+    if (Math.sign(ra.op - midden) === Math.sign(rb.op - midden)) continue; // zelfde kant
+    const van = Math.max(ra.van, rb.van, lo), tot = Math.min(ra.tot, rb.tot, hi);
+    if (tot - van < 1) continue;
+    const y1 = Math.min(ra.op, rb.op), y2 = Math.max(ra.op, rb.op);
+    const P = (t: number, o: number): Punt => (horizontaal ? { x: t, y: o } : { x: o, y: t });
+    bruggen.push([P(van, y1), P(tot, y1), P(tot, y2), P(van, y2)]);
+  }
+  if (!bruggen.length) throw new Error("De twee ruimtes liggen niet tegenover elkaar langs deze muur.");
+  const contour = haakseVereniging([a.contour, b.contour, ...bruggen]);
 
   const groot = oppervlakte(a.contour) >= oppervlakte(b.contour) ? a : b;
   const klein = groot === a ? b : a;
-  const nieuw: Ruimte = {
+  const samen: Ruimte = {
     ...groot,
     naam: `${groot.naam} + ${klein.naam}`,
-    contour: [{ x: minX, y: minY }, { x: maxX, y: minY }, { x: maxX, y: maxY }, { x: minX, y: maxY }],
+    contour,
     plafondhoogte: Math.min(a.plafondhoogte, b.plafondhoogte),
     muurIds: [...new Set([...a.muurIds, ...b.muurIds])].filter((id) => id !== muurId),
     notities: [a.notities, b.notities].filter(Boolean).join("\n") || undefined,
   };
-  return {
+  return voegMurenSamen({
     ...v,
     muren: v.muren.filter((x) => x.id !== muurId),
     openingen: v.openingen.filter((o) => o.muurId !== muurId),
-    ruimtes: v.ruimtes.filter((r) => r !== klein).map((r) => (r === groot ? nieuw : r)),
-  };
+    ruimtes: v.ruimtes.filter((r) => r !== klein).map((r) => (r === groot ? samen : r)),
+  });
 }
 
-/** Lengte waarover twee rechthoekige ruimtes tegenover elkaar liggen, gescheiden door een muur van `dikte`. */
-function muurOverlap(a: Ruimte, b: Ruimte, dikte: number): number | null {
-  const box = (r: Ruimte) => ({
-    x1: Math.min(...r.contour.map((p) => p.x)), x2: Math.max(...r.contour.map((p) => p.x)),
-    y1: Math.min(...r.contour.map((p) => p.y)), y2: Math.max(...r.contour.map((p) => p.y)),
+function isHaaks(c: Punt[]): boolean {
+  return c.every((p, k) => {
+    const q = c[(k + 1) % c.length]!;
+    return p.x === q.x || p.y === q.y;
   });
-  const A = box(a), B = box(b);
-  const naast = (p: number, q: number) => Math.abs(q - p - dikte) <= 1;
-  if (naast(A.x2, B.x1) || naast(B.x2, A.x1)) return A.y1 === B.y1 && A.y2 === B.y2 ? A.y2 - A.y1 : null;
-  if (naast(A.y2, B.y1) || naast(B.y2, A.y1)) return A.x1 === B.x1 && A.x2 === B.x2 ? A.x2 - A.x1 : null;
+}
+
+/**
+ * Vereniging van haakse veelhoeken (randen evenwijdig aan de assen) tot één
+ * veelhoek, tegen de klok in, zonder overbodige tussenpunten. Werkt met een
+ * rooster over alle coördinaten: elk vakje is binnen of buiten, de rand
+ * tussen binnen en buiten wordt gevolgd. Fout als het resultaat uit losse
+ * stukken bestaat of een gat heeft.
+ */
+export function haakseVereniging(veelhoeken: Punt[][]): Punt[] {
+  if (!veelhoeken.every(isHaaks)) throw new Error("Alleen haakse vormen kunnen samengevoegd worden.");
+  const xs = [...new Set(veelhoeken.flat().map((p) => p.x))].sort((a, b) => a - b);
+  const ys = [...new Set(veelhoeken.flat().map((p) => p.y))].sort((a, b) => a - b);
+  const nx = xs.length - 1, ny = ys.length - 1;
+  const binnen: boolean[][] = [];
+  for (let i = 0; i < nx; i++) {
+    binnen.push([]);
+    for (let j = 0; j < ny; j++) {
+      const c = { x: (xs[i]! + xs[i + 1]!) / 2, y: (ys[j]! + ys[j + 1]!) / 2 };
+      binnen[i]!.push(veelhoeken.some((v) => binnenVeelhoek(c, v)));
+    }
+  }
+  const b = (i: number, j: number) => i >= 0 && j >= 0 && i < nx && j < ny && binnen[i]![j]!;
+  // gerichte randen, binnenkant links
+  const randen = new Map<string, Punt[]>();
+  const sleutel = (p: Punt) => `${p.x},${p.y}`;
+  const voeg = (p: Punt, q: Punt) => randen.set(sleutel(p), [...(randen.get(sleutel(p)) ?? []), q]);
+  let aantal = 0;
+  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+    if (!b(i, j)) continue;
+    const x0 = xs[i]!, x1 = xs[i + 1]!, y0 = ys[j]!, y1 = ys[j + 1]!;
+    if (!b(i, j - 1)) { voeg({ x: x0, y: y0 }, { x: x1, y: y0 }); aantal++; }
+    if (!b(i + 1, j)) { voeg({ x: x1, y: y0 }, { x: x1, y: y1 }); aantal++; }
+    if (!b(i, j + 1)) { voeg({ x: x1, y: y1 }, { x: x0, y: y1 }); aantal++; }
+    if (!b(i - 1, j)) { voeg({ x: x0, y: y1 }, { x: x0, y: y0 }); aantal++; }
+  }
+  if (!aantal) throw new Error("Lege vorm.");
+  for (const lijst of randen.values()) if (lijst.length > 1) throw new Error("De samengevoegde ruimte raakt zichzelf in één punt; dat kan niet.");
+  const start = [...randen.keys()][0]!;
+  const pad: Punt[] = [];
+  let huidig = start, stappen = 0;
+  do {
+    const [x, y] = huidig.split(",").map(Number) as [number, number];
+    pad.push({ x, y });
+    huidig = sleutel(randen.get(huidig)![0]!);
+    stappen++;
+  } while (huidig !== start && stappen <= aantal);
+  if (stappen !== aantal) throw new Error("De samengevoegde ruimte bestaat uit losse stukken of heeft een gat.");
+  // tussenpunten op een rechte lijn weglaten
+  return pad.filter((p, k) => {
+    const a = pad[(k - 1 + pad.length) % pad.length]!, c = pad[(k + 1) % pad.length]!;
+    return !((a.x === p.x && p.x === c.x) || (a.y === p.y && p.y === c.y));
+  });
+}
+
+// ---------------------------------------------------------------- muurstukken samenvoegen
+
+const BETROUWBAARHEID: Bron["methode"][] = ["overgenomen", "gescand", "gecorrigeerd", "manueel", "laser"];
+
+/**
+ * Voegt muurstukken die recht doorlopen terug samen tot één muur: waar
+ * precies twee muren elkaar raken, in elkaars verlengde liggen, even dik en
+ * hoog zijn en bij dezelfde ruimtes horen. Zo verdwijnen tussenmaten in de
+ * maatketting op plaatsen waar geen muur meer aansluit. Ramen en deuren
+ * houden hun plaats. De zwakste meetbron van de stukken blijft behouden.
+ */
+export function voegMurenSamen(v: Verdieping): Verdieping {
+  let huidig = v;
+  for (let ronde = 0; ronde < 1000; ronde++) {
+    const volgende = eenSamenvoeging(huidig);
+    if (!volgende) return huidig;
+    huidig = volgende;
+  }
+  return huidig;
+}
+
+function eenSamenvoeging(v: Verdieping): Verdieping | null {
+  const sleutel = (p: Punt) => `${p.x},${p.y}`;
+  const raakt = new Map<string, Muur[]>();
+  for (const m of v.muren) for (const p of [m.start, m.eind]) raakt.set(sleutel(p), [...(raakt.get(sleutel(p)) ?? []), m]);
+  const ruimtesVan = (id: string) => v.ruimtes.filter((r) => r.muurIds.includes(id)).map((r) => r.id).sort().join("|");
+  for (const [k, muren] of raakt) {
+    if (muren.length !== 2) continue;
+    const [a, b] = muren as [Muur, Muur];
+    if (a.dikte !== b.dikte || a.hoogte !== b.hoogte || a.dragend !== b.dragend) continue;
+    if (ruimtesVan(a.id) !== ruimtesVan(b.id)) continue;
+    const La = muurLengte(a), Lb = muurLengte(b);
+    const ua = { x: (a.eind.x - a.start.x) / La, y: (a.eind.y - a.start.y) / La };
+    const ub = { x: (b.eind.x - b.start.x) / Lb, y: (b.eind.y - b.start.y) / Lb };
+    if (Math.abs(ua.x * ub.y - ua.y * ub.x) > 1e-9) continue;
+    const p = sleutel(a.eind) === k ? a.eind : a.start;
+    const verB = sleutel(b.start) === k ? b.eind : b.start;
+    // nieuwe muur in de richting van a
+    const start = sleutel(a.eind) === k ? a.start : verB;
+    const eind = sleutel(a.eind) === k ? verB : a.eind;
+    if (sleutel(start) === sleutel(eind)) continue;
+    void p;
+    const proj = (q: Punt) => (q.x - start.x) * ua.x + (q.y - start.y) * ua.y;
+    const zwakste = [a.bron, b.bron].sort((x, y) => BETROUWBAARHEID.indexOf(x.methode) - BETROUWBAARHEID.indexOf(y.methode))[0]!;
+    const nieuw: Muur = { ...a, start, eind, bron: zwakste };
+    const openingen = v.openingen.map((o) => {
+      if (o.muurId !== a.id && o.muurId !== b.id) return o;
+      const w = o.muurId === a.id ? a : b, uw = o.muurId === a.id ? ua : ub;
+      const p1 = { x: w.start.x + uw.x * o.offset, y: w.start.y + uw.y * o.offset };
+      const p2 = { x: w.start.x + uw.x * (o.offset + o.breedte), y: w.start.y + uw.y * (o.offset + o.breedte) };
+      return { ...o, muurId: a.id, offset: Math.round(Math.min(proj(p1), proj(p2))) };
+    });
+    return {
+      ...v,
+      muren: v.muren.filter((x) => x.id !== b.id).map((x) => (x.id === a.id ? nieuw : x)),
+      openingen,
+      ruimtes: v.ruimtes.map((r) => (r.muurIds.includes(b.id) ? { ...r, muurIds: [...new Set(r.muurIds.map((id) => (id === b.id ? a.id : id)))] } : r)),
+    };
+  }
   return null;
+}
+
+// ---------------------------------------------------------------- muur verschuiven
+
+/** De twee richtingen waarin een muur verschoven kan worden, met een leesbaar label. */
+export function verschuifRichtingen(m: Muur): Array<{ teken: 1 | -1; label: string }> {
+  const L = muurLengte(m);
+  const n = { x: -(m.eind.y - m.start.y) / L, y: (m.eind.x - m.start.x) / L };
+  const naam = (x: number, y: number) =>
+    Math.abs(x) > 0.9 ? (x > 0 ? "naar rechts" : "naar links") : Math.abs(y) > 0.9 ? (y > 0 ? "naar boven" : "naar onder") : x + y > 0 ? "naar kant 1" : "naar kant 2";
+  return [
+    { teken: 1, label: naam(n.x, n.y) },
+    { teken: -1, label: naam(-n.x, -n.y) },
+  ];
+}
+
+/**
+ * Verschuift een muur haaks op zichzelf over `afstand` mm (positief = naar
+ * links van de richting A→B; gebruik verschuifRichtingen voor labels).
+ * Aansluitende muren rekken mee of worden korter, ruimtes passen zich aan,
+ * ramen en deuren in aansluitende muren blijven op hun plaats. Bedoeld om de
+ * opmeting te corrigeren (de muur staat elders dan gescand).
+ */
+export function verschuifMuur(v: Verdieping, muurId: string, afstand: number, methode: "gecorrigeerd" | "manueel" | "laser" = "gecorrigeerd"): Verdieping {
+  const m = v.muren.find((x) => x.id === muurId);
+  if (!m) throw new Error(`Muur '${muurId}' bestaat niet.`);
+  const d = Math.round(afstand);
+  if (!d) return v;
+  const L = muurLengte(m);
+  const u = { x: (m.eind.x - m.start.x) / L, y: (m.eind.y - m.start.y) / L };
+  const n = { x: -u.y, y: u.x };
+  const dx = Math.round(n.x * d), dy = Math.round(n.y * d);
+  const zelfde = (p: Punt, q: Punt) => p.x === q.x && p.y === q.y;
+  for (const p of [m.start, m.eind]) {
+    const rechtdoor = v.muren.some((w) => w.id !== m.id && (zelfde(w.start, p) || zelfde(w.eind, p)) &&
+      Math.abs(((w.eind.x - w.start.x) * u.y - (w.eind.y - w.start.y) * u.x) / muurLengte(w)) < 1e-9);
+    if (rechtdoor) throw new Error("Deze muur loopt recht door in een andere muur. Verschuiven zou een knik geven; pas de maten van de ruimte aan.");
+  }
+  const schuif = (p: Punt): Punt => (zelfde(p, m.start) || zelfde(p, m.eind) ? { x: p.x + dx, y: p.y + dy } : p);
+  const bron: Bron = { methode, ...(methode === "laser" ? { nauwkeurigheidMm: 2 } : {}) };
+
+  const muren = v.muren.map((w) => {
+    if (w.id === m.id) return { ...w, start: schuif(w.start), eind: schuif(w.eind), bron };
+    const s = schuif(w.start), e = schuif(w.eind);
+    return s === w.start && e === w.eind ? w : { ...w, start: s, eind: e, bron };
+  });
+  const nieuw = new Map(muren.map((w) => [w.id, w]));
+  // openingen in aansluitende muren op dezelfde plaats houden
+  const openingen = v.openingen.map((o) => {
+    const oud = v.muren.find((w) => w.id === o.muurId)!, w = nieuw.get(o.muurId)!;
+    if (o.muurId === m.id || zelfde(oud.start, w.start)) return o;
+    const Lo = muurLengte(oud), Lw = muurLengte(w);
+    const uo = { x: (oud.eind.x - oud.start.x) / Lo, y: (oud.eind.y - oud.start.y) / Lo };
+    const uw = { x: (w.eind.x - w.start.x) / Lw, y: (w.eind.y - w.start.y) / Lw };
+    const p = { x: oud.start.x + uo.x * o.offset, y: oud.start.y + uo.y * o.offset };
+    return { ...o, offset: Math.round((p.x - w.start.x) * uw.x + (p.y - w.start.y) * uw.y) };
+  });
+  // ruimtecontouren: hoekpunten tegen een muurvlak van deze muur schuiven mee
+  const aans = aansluitingen(m, v.muren);
+  const tegenMuur = (q: Punt) => {
+    const t = (q.x - m.start.x) * u.x + (q.y - m.start.y) * u.y;
+    const afst = Math.abs((q.x - m.start.x) * n.x + (q.y - m.start.y) * n.y);
+    return Math.abs(afst - m.dikte / 2) <= 1 && t >= -aans.start - 1 && t <= L + aans.eind + 1;
+  };
+  const ruimtes = v.ruimtes.map((r) => ({ ...r, contour: r.contour.map((q) => (tegenMuur(q) ? { x: q.x + dx, y: q.y + dy } : q)) }));
+  const uit: Verdieping = { ...v, muren, openingen, ruimtes };
+
+  // controles
+  for (const w of muren) {
+    if (muurLengte(w) < 1) throw new Error("Zo ver verschuiven laat een muur verdwijnen.");
+    if (w.id !== m.id && w !== v.muren.find((x) => x.id === w.id) && muurLengte(w) - aansluitingen(w, muren).start - aansluitingen(w, muren).eind <= 0)
+      throw new Error("Zo ver verschuiven maakt een aansluitende muur te kort.");
+  }
+  for (const r of ruimtes) {
+    const oud = v.ruimtes.find((x) => x.id === r.id)!;
+    if (Math.sign(getekend(r.contour)) !== Math.sign(getekend(oud.contour)) || oppervlakte(r.contour) < 1)
+      throw new Error(`Zo ver verschuiven gaat door ruimte '${r.naam}'.`);
+  }
+  for (const o of openingen) {
+    const w = nieuw.get(o.muurId)!;
+    const a = aansluitingen(w, muren);
+    if (o.offset < a.start - 0.5 || o.offset + o.breedte > muurLengte(w) - a.eind + 0.5)
+      throw new Error(`Na het verschuiven past een ${o.soort} niet meer in zijn muur. Verplaats of verwijder die eerst.`);
+  }
+  for (const s of v.sparingen ?? []) {
+    if (!ruimtes.some((r) => s.contour.every((p) => binnenVeelhoek({ x: p.x + Math.sign(zwaartepunt(s.contour).x - p.x), y: p.y + Math.sign(zwaartepunt(s.contour).y - p.y) }, r.contour))))
+      throw new Error(`Na het verschuiven valt een ${s.soort} buiten zijn ruimte.`);
+  }
+  return uit;
+}
+
+function getekend(c: Punt[]): number {
+  let s = 0;
+  for (let k = 0; k < c.length; k++) {
+    const a = c[k]!, b = c[(k + 1) % c.length]!;
+    s += a.x * b.y - b.x * a.y;
+  }
+  return s / 2;
 }
 
 // ---------------------------------------------------------------- ruimte verwijderen
@@ -112,13 +338,13 @@ export function verwijderRuimte(v: Verdieping, ruimteId: string): Verdieping {
   const gebruik = new Map<string, number>();
   for (const x of v.ruimtes) for (const id of x.muurIds) gebruik.set(id, (gebruik.get(id) ?? 0) + 1);
   const weg = new Set(r.muurIds.filter((id) => (gebruik.get(id) ?? 0) <= 1));
-  return {
+  return voegMurenSamen({
     ...v,
     muren: v.muren.filter((m) => !weg.has(m.id)),
     openingen: v.openingen.filter((o) => !weg.has(o.muurId)),
     ruimtes: v.ruimtes.filter((x) => x.id !== ruimteId),
     sparingen: (v.sparingen ?? []).filter((s) => !binnenVeelhoek(zwaartepunt(s.contour), r.contour)),
-  };
+  });
 }
 
 // ---------------------------------------------------------------- sparingen
@@ -146,7 +372,7 @@ export function voegSparingToe(v: Verdieping, i: NieuweSparing): Verdieping {
   const z = zwaartepunt(contour);
   // hoeken 1 mm naar binnen getrokken: een sparing tegen de muur is toegelaten
   const binnen = contour.every((p) => binnenVeelhoek({ x: p.x + Math.sign(z.x - p.x), y: p.y + Math.sign(z.y - p.y) }, r.contour));
-  if (!binnen) throw new Error(`De ${i.soort} valt (deels) buiten '${r.naam}'.`);
+  if (!binnen) throw new Error(`${lidwoord(i.soort)} ${i.soort} valt (deels) buiten '${r.naam}'.`);
   for (const s of v.sparingen ?? []) {
     if (contour.some((p) => binnenVeelhoek({ x: p.x + Math.sign(z.x - p.x), y: p.y + Math.sign(z.y - p.y) }, s.contour)) || binnenVeelhoek(zwaartepunt(s.contour), contour))
       throw new Error("Deze sparing overlapt met een bestaande sparing.");
@@ -156,6 +382,34 @@ export function voegSparingToe(v: Verdieping, i: NieuweSparing): Verdieping {
   while (ids.has(`s-${k}@${v.id}`)) k++;
   const bron: Bron = { methode: i.methode ?? "manueel", nauwkeurigheidMm: i.methode === "laser" ? 2 : 5 };
   return { ...v, sparingen: [...(v.sparingen ?? []), { id: `s-${k}@${v.id}`, soort: i.soort, contour, bron }] };
+}
+
+/** Maten van een sparing t.o.v. haar ruimte (zoals bij toevoegen): van links, van onder, breedte, lengte. */
+export function sparingMaten(s: Sparing, r: Ruimte): { x: number; y: number; breedte: number; lengte: number } {
+  const xs = s.contour.map((p) => p.x), ys = s.contour.map((p) => p.y);
+  return {
+    x: Math.min(...xs) - Math.min(...r.contour.map((p) => p.x)),
+    y: Math.min(...ys) - Math.min(...r.contour.map((p) => p.y)),
+    breedte: Math.max(...xs) - Math.min(...xs),
+    lengte: Math.max(...ys) - Math.min(...ys),
+  };
+}
+
+/** Verplaatst of vergroot een sparing (zelfde controles als bij toevoegen); het id blijft. */
+export function wijzigSparing(v: Verdieping, id: string, i: Omit<NieuweSparing, "ruimteId">): Verdieping {
+  const s = (v.sparingen ?? []).find((x) => x.id === id);
+  if (!s) throw new Error(`Sparing '${id}' bestaat niet.`);
+  const r = v.ruimtes.find((x) => binnenVeelhoek(zwaartepunt(s.contour), x.contour));
+  if (!r) throw new Error("Deze sparing ligt in geen enkele ruimte.");
+  const zonder = verwijderSparing(v, id);
+  const met = voegSparingToe(zonder, { ...i, ruimteId: r.id });
+  const nieuw = met.sparingen!.find((x) => !zonder.sparingen!.some((y) => y.id === x.id))!;
+  return { ...met, sparingen: met.sparingen!.map((x) => (x === nieuw ? { ...x, id } : x)) };
+}
+
+/** Bepaald lidwoord: "het trapgat", "de vide", "de schacht". */
+function lidwoord(soort: Sparing["soort"]): string {
+  return soort === "trapgat" ? "Het" : "De";
 }
 
 export function verwijderSparing(v: Verdieping, id: string): Verdieping {
