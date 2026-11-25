@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { geenHorizontaleScroll, openVoorbeeld, schaal, start, vloer } from "./hulp.ts";
+import { geenHorizontaleScroll, kader, openVoorbeeld, schaal, start, vloer } from "./hulp.ts";
 
 /**
  * Echte aanraking (touchStart/Move/End) via het Chrome DevTools-protocol.
@@ -155,6 +155,73 @@ test.describe("gsm (Android)", () => {
     await vingerSleep(page, bb.x + bb.width / 2, bb.y + bb.height / 2, 200 * s1);
     await expect(await vloer(page, "Leefruimte")).toHaveText("27,00");
     expect(fouten).toEqual([]);
+  });
+
+  test.describe("ingezoomd verschuiven", () => {
+    const minX = (page: Page) => page.evaluate(() => Number((document.querySelector(".plan svg") as SVGSVGElement).dataset.minX));
+    async function veeg(page: Page, punten: Array<[number, number]>, dx: number, dy: number, vasthouden = 0) {
+      const cdp = await page.context().newCDPSession(page);
+      const pt = (k: number) => punten.map(([x, y], i) => ({ x: x + (dx * k) / 10, y: y + (dy * k) / 10, id: i + 1 }));
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: pt(0) });
+      if (vasthouden) await page.waitForTimeout(vasthouden);
+      for (let k = 1; k <= 10; k++) {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: pt(k) });
+        await page.waitForTimeout(20);
+      }
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    }
+    async function ingezoomd(page: Page) {
+      await start(page);
+      await openVoorbeeld(page);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Inzoomen" }).click();
+      const b = await kader(page, ".plan svg");
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    }
+
+    test("één vinger verschuift het beeld, de pagina scrolt niet", async ({ page }) => {
+      const m = await ingezoomd(page);
+      const x0 = await minX(page);
+      await veeg(page, [[m.x, m.y]], -120, 0);
+      expect(await minX(page)).toBeGreaterThan(x0 + 500); // vinger naar links = verder naar rechts in het plan
+      const y0 = await page.evaluate(() => Number((document.querySelector(".plan svg") as SVGSVGElement).dataset.maxY));
+      await veeg(page, [[m.x, m.y]], 0, 120); // vinger naar beneden: beeld schuift, pagina niet
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+      expect(await page.evaluate(() => Number((document.querySelector(".plan svg") as SVGSVGElement).dataset.maxY))).toBeGreaterThan(y0);
+    });
+
+    test("twee vingers verschuiven het beeld", async ({ page }) => {
+      const m = await ingezoomd(page);
+      const x0 = await minX(page);
+      await veeg(page, [[m.x - 30, m.y], [m.x + 30, m.y]], -120, 0);
+      expect(await minX(page)).toBeGreaterThan(x0 + 500);
+    });
+
+    test("ingedrukt houden op een muur sleept de muur, niet het beeld", async ({ page }) => {
+      const fouten = await start(page);
+      await openVoorbeeld(page);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Inzoomen" }).click();
+      // muur in beeld brengen: m-binnen ligt rechts van het midden
+      const s = await schaal(page);
+      const bb = await kader(page, 'polygon[data-muur="m-binnen"]');
+      const svg = await kader(page, ".plan svg");
+      const x = Math.min(bb.x + bb.width / 2, svg.x + svg.width - 20), y = svg.y + svg.height / 2;
+      const x0 = await minX(page);
+      await veeg(page, [[x, y]], 200 * s, 0, 600);
+      expect(await minX(page)).toBe(x0); // beeld niet verschoven
+      await expect(await vloer(page, "Leefruimte")).toHaveText("27,00");
+      expect(fouten).toEqual([]);
+    });
+
+    test("niet ingezoomd: één vinger scrolt de pagina zoals vroeger", async ({ page }) => {
+      await start(page);
+      await openVoorbeeld(page);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const b = await kader(page, ".plan svg");
+      await veeg(page, [[b.x + b.width / 2, b.y + b.height / 2]], 0, -150);
+      expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(50);
+    });
   });
 });
 

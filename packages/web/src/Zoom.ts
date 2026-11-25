@@ -2,8 +2,9 @@
  * Inzoomen in het plan.
  * - knoppen: +, −, passend (alles in beeld)
  * - gsm: knijpen met twee vingers (zoomen rond het punt tussen de vingers)
- *   en met twee vingers schuiven (verplaatsen). Eén vinger blijft: vegen =
- *   pagina scrollen, ingedrukt houden = slepen (zie Slepen.ts).
+ *   en met twee vingers schuiven (verplaatsen). Ingezoomd verschuift ook één
+ *   vinger het beeld (zoals in een kaart-app); ingedrukt houden tot de gsm
+ *   trilt blijft slepen (Slepen.ts). Niet ingezoomd: één vinger scrolt de pagina.
  * - pc: Ctrl + muiswiel of knijpen op het touchpad, en het beeld verschuiven
  *   door op een lege plek of een ruimte te slepen.
  *
@@ -12,6 +13,7 @@
  */
 import { tekenKader, type Verdieping } from "@scanapp/core";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { INGEDRUKT_MS } from "./Slepen.ts";
 
 export const MAX_ZOOM = 20;
 const STAP = 1.5; // per klik op + of −
@@ -116,47 +118,79 @@ export function useZoom(opties: { v: Verdieping; houder: RefObject<HTMLDivElemen
   useEffect(() => {
     const houder = opties.houder.current;
     if (!houder) return;
-    let knijp: { afstand: number; plan: { x: number; y: number }; z: number; doel: EventTarget | null } | null = null;
+    type Gemerkt = TouchEvent & { _zoom?: boolean };
+    let knijp: { afstand: number; plan: { x: number; y: number }; z: number } | null = null;
+    // één vinger, ingezoomd: het beeld verschuiven (zoals in een kaart-app)
+    let veeg: { x: number; y: number; t: number; zicht: Zicht; opElement: boolean; bezig: boolean } | null = null;
+    let gevolgd: EventTarget | null = null;
     const midden = (t: TouchList) => ({ x: (t[0]!.clientX + t[1]!.clientX) / 2, y: (t[0]!.clientY + t[1]!.clientY) / 2 });
     const afstand = (t: TouchList) => Math.hypot(t[0]!.clientX - t[1]!.clientX, t[0]!.clientY - t[1]!.clientY);
+
+    // Elke zoom- of verschuifstap tekent het plan opnieuw: het element onder de vinger
+    // verdwijnt dan uit de pagina, en mobiele browsers sturen de volgende bewegingen naar
+    // dat element (niet meer naar het plan). Daarom luisteren we ook op dat element zelf.
+    const volg = (doel: EventTarget | null) => {
+      if (!doel || doel === houder || doel === gevolgd) return;
+      laat();
+      gevolgd = doel;
+      doel.addEventListener("touchmove", beweging as EventListener, { passive: false });
+      doel.addEventListener("touchend", einde as EventListener);
+      doel.addEventListener("touchcancel", einde as EventListener);
+    };
+    const laat = () => {
+      if (!gevolgd) return;
+      gevolgd.removeEventListener("touchmove", beweging as EventListener);
+      gevolgd.removeEventListener("touchend", einde as EventListener);
+      gevolgd.removeEventListener("touchcancel", einde as EventListener);
+      gevolgd = null;
+    };
+
     const start = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return;
       const svg = houder.querySelector("svg"), ctm = svg?.getScreenCTM();
       if (!svg || !ctm) return;
-      const m = midden(e.touches);
-      // Elke zoomstap tekent het plan opnieuw: het element onder de vingers verdwijnt dan
-      // uit de pagina, en mobiele browsers sturen de volgende bewegingen naar dat element
-      // (niet meer naar het plan). Daarom luisteren we op dat element zelf.
-      const doel = e.touches[0]!.target;
-      knijp = {
-        afstand: Math.max(1, afstand(e.touches)),
-        plan: { x: Number(svg.dataset.minX) + (m.x - ctm.e) / ctm.a, y: Number(svg.dataset.maxY) - (m.y - ctm.f) / ctm.a },
-        z: (laatst.current.zicht?.z ?? 1),
-        doel,
-      };
-      if (doel && doel !== houder) {
-        doel.addEventListener("touchmove", beweging as EventListener, { passive: false });
-        doel.addEventListener("touchend", einde as EventListener);
-        doel.addEventListener("touchcancel", einde as EventListener);
+      if (e.touches.length === 2) {
+        veeg = null;
+        const m = midden(e.touches);
+        knijp = {
+          afstand: Math.max(1, afstand(e.touches)),
+          plan: { x: Number(svg.dataset.minX) + (m.x - ctm.e) / ctm.a, y: Number(svg.dataset.maxY) - (m.y - ctm.f) / ctm.a },
+          z: (laatst.current.zicht?.z ?? 1),
+        };
+        volg(e.touches[0]!.target);
+      } else if (e.touches.length === 1 && laatst.current.zicht) {
+        const t = e.touches[0]!;
+        const opElement = t.target instanceof Element && !!t.target.closest("[data-raak], [data-hoek], polygon[data-muur], polygon[data-opening]");
+        veeg = { x: t.clientX, y: t.clientY, t: performance.now(), zicht: laatst.current.zicht, opElement, bezig: false };
+        volg(t.target);
       }
     };
     const beweging = (e: TouchEvent) => {
-      if (!knijp || e.touches.length !== 2 || (e as TouchEvent & { _zoom?: boolean })._zoom) return;
-      (e as TouchEvent & { _zoom?: boolean })._zoom = true; // niet dubbel verwerken (doel + plan)
-      if (e.cancelable) e.preventDefault(); // niet de hele pagina zoomen of scrollen
-      const m = midden(e.touches);
-      // hetzelfde planpunt onder het (verschoven) midden houden: zoomen én schuiven
-      zoomRond(knijp.z * (afstand(e.touches) / knijp.afstand), m.x, m.y, knijp.plan);
+      if ((e as Gemerkt)._zoom) return; // al verwerkt (komt op het element én op het plan aan)
+      (e as Gemerkt)._zoom = true;
+      if (knijp && e.touches.length === 2) {
+        if (e.cancelable) e.preventDefault(); // niet de hele pagina zoomen of scrollen
+        const m = midden(e.touches);
+        // hetzelfde planpunt onder het (verschoven) midden houden: zoomen én schuiven
+        zoomRond(knijp.z * (afstand(e.touches) / knijp.afstand), m.x, m.y, knijp.plan);
+        return;
+      }
+      if (!veeg || e.touches.length !== 1) return;
+      const t = e.touches[0]!;
+      const dx = t.clientX - veeg.x, dy = t.clientY - veeg.y;
+      if (!veeg.bezig) {
+        if (Math.hypot(dx, dy) <= 10) return;
+        // Op een muur/raam/hoek: na ± 0,4 s stilhouden is het slepen (Slepen.ts), geen verschuiven.
+        if (veeg.opElement && performance.now() - veeg.t >= INGEDRUKT_MS) { veeg = null; return; }
+        veeg.bezig = true;
+      }
+      if (e.cancelable) e.preventDefault();
+      const a = houder.querySelector("svg")?.getScreenCTM()?.a;
+      if (!a) return;
+      zet(binnen(veeg.zicht.z, veeg.zicht.cx - dx / a, veeg.zicht.cy + dy / a, laatst.current.vol));
     };
     const einde = (e: TouchEvent) => {
-      if (e.touches.length >= 2 || !knijp) return;
-      const d = knijp.doel;
-      if (d && d !== houder) {
-        d.removeEventListener("touchmove", beweging as EventListener);
-        d.removeEventListener("touchend", einde as EventListener);
-        d.removeEventListener("touchcancel", einde as EventListener);
-      }
-      knijp = null;
+      if (e.touches.length < 2) knijp = null;
+      if (e.touches.length === 0) { veeg = null; laat(); }
     };
     const wiel = (e: WheelEvent) => {
       if (!e.ctrlKey) return; // gewoon scrollen blijft scrollen; Ctrl + wiel of knijpen op het touchpad zoomt
@@ -169,6 +203,7 @@ export function useZoom(opties: { v: Verdieping; houder: RefObject<HTMLDivElemen
     houder.addEventListener("touchcancel", einde);
     houder.addEventListener("wheel", wiel, { passive: false });
     return () => {
+      laat();
       houder.removeEventListener("touchstart", start);
       houder.removeEventListener("touchmove", beweging);
       houder.removeEventListener("touchend", einde);
