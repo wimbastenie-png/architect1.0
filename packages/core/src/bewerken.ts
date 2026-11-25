@@ -10,14 +10,18 @@ import type { Bron, Muur, Opening, Project, Punt, Ruimte, Sparing, Verdieping } 
 
 // ---------------------------------------------------------------- openingen
 
-export type OpeningWijziging = Partial<Pick<Opening, "soort" | "offset" | "breedte" | "hoogte" | "borstwering">>;
+export type OpeningWijziging = Partial<Pick<Opening, "soort" | "offset" | "breedte" | "hoogte" | "borstwering" | "muurId">>;
 
-/** Wijzigt een opening (ook verplaatsen: `offset`). Controleert dat ze in de muur past en niet overlapt. */
+/**
+ * Wijzigt een opening: maten, soort, plaats (`offset`, gemeten vanaf de
+ * hartlijnstart van de muur) en eventueel een andere muur (`muurId`).
+ * Controleert dat ze in de (nieuwe) muur past en niet overlapt.
+ */
 export function wijzigOpening(v: Verdieping, id: string, w: OpeningWijziging): Verdieping {
   const o = v.openingen.find((x) => x.id === id);
   if (!o) throw new Error(`Opening '${id}' bestaat niet.`);
-  const m = v.muren.find((x) => x.id === o.muurId);
-  if (!m) throw new Error(`Muur '${o.muurId}' bestaat niet.`);
+  const m = v.muren.find((x) => x.id === (w.muurId ?? o.muurId));
+  if (!m) throw new Error(`Muur '${w.muurId ?? o.muurId}' bestaat niet.`);
   const n: Opening = { ...o, ...w, bron: { methode: "manueel", nauwkeurigheidMm: 5 } };
   for (const k of ["offset", "breedte", "hoogte", "borstwering"] as const) n[k] = Math.round(n[k]);
   if (!(n.breedte > 0 && n.hoogte > 0) || n.offset < 0 || n.borstwering < 0) throw new Error("Maten van de opening moeten positief zijn.");
@@ -31,6 +35,68 @@ export function wijzigOpening(v: Verdieping, id: string, w: OpeningWijziging): V
   );
   if (botsing) throw new Error(`De opening overlapt met een andere ${botsing.soort} in deze muur.`);
   return { ...v, openingen: v.openingen.map((x) => (x.id === id ? n : x)) };
+}
+
+/**
+ * Verplaatst een raam of deur naar een andere muur van dezelfde verdieping.
+ * `afstandVanafA` = afstand van binnenhoek A van de nieuwe muur tot de
+ * opening (zoals met de rolmeter gemeten); zonder: midden van de muur.
+ */
+export function verplaatsOpening(v: Verdieping, id: string, naarMuurId: string, afstandVanafA?: number): Verdieping {
+  const o = v.openingen.find((x) => x.id === id);
+  if (!o) throw new Error(`Opening '${id}' bestaat niet.`);
+  const m = v.muren.find((x) => x.id === naarMuurId);
+  if (!m) throw new Error(`Muur '${naarMuurId}' bestaat niet.`);
+  const a = aansluitingen(m, v.muren);
+  const binnen = muurLengte(m) - a.start - a.eind;
+  if (o.breedte > binnen + 0.5) throw new Error(`Deze ${o.soort} (${o.breedte} mm) is breder dan de muur (${Math.round(binnen)} mm).`);
+  const afstand = afstandVanafA ?? Math.round((binnen - o.breedte) / 2);
+  return wijzigOpening(v, id, { muurId: naarMuurId, offset: Math.round(a.start + afstand) });
+}
+
+/** Afstand van binnenhoek A van haar muur tot de opening (zoals op de werf gemeten). */
+export function afstandVanafA(v: Verdieping, o: Opening): number {
+  const m = v.muren.find((x) => x.id === o.muurId);
+  return m ? Math.round(o.offset - aansluitingen(m, v.muren).start) : o.offset;
+}
+
+/**
+ * Leesbare naam van een muur, voor keuzelijsten: "Leefruimte — linkse muur",
+ * "Tussenmuur Leefruimte / Slaapkamer", met de binnenmaat erbij.
+ */
+export function muurOmschrijving(v: Verdieping, muurId: string): string {
+  const m = v.muren.find((x) => x.id === muurId);
+  if (!m) return muurId;
+  const binnen = Math.round(muurLengte(m) - aansluitingen(m, v.muren).start - aansluitingen(m, v.muren).eind);
+  const buren = v.ruimtes.filter((r) => r.muurIds.includes(m.id));
+  if (buren.length >= 2) return `Tussenmuur ${buren.map((r) => r.naam).join(" / ")} · ${binnen} mm`;
+  const r = buren[0];
+  if (!r) return `Losse muur · ${binnen} mm`;
+  const mid = { x: (m.start.x + m.eind.x) / 2, y: (m.start.y + m.eind.y) / 2 };
+  const z = zwaartepunt(r.contour);
+  const dx = mid.x - z.x, dy = mid.y - z.y;
+  const schuin = m.start.x !== m.eind.x && m.start.y !== m.eind.y;
+  const kant = schuin ? "schuine" : m.start.x === m.eind.x ? (dx < 0 ? "linkse" : "rechtse") : dy < 0 ? "onderste" : "bovenste";
+  return `${r.naam} — ${kant} muur · ${binnen} mm`;
+}
+
+/**
+ * Dichtstbijzijnde muur bij een punt (bv. waar de vinger of muis is), met de
+ * plaats langs die muur (`t`, vanaf de hartlijnstart). `null` als geen muur
+ * dichter ligt dan `marge` mm van het muurvlak.
+ */
+export function muurBijPunt(v: Verdieping, p: Punt, marge = 400): { muurId: string; t: number; afstand: number } | null {
+  let beste: { muurId: string; t: number; afstand: number } | null = null;
+  for (const m of v.muren) {
+    const L = muurLengte(m);
+    const u = { x: (m.eind.x - m.start.x) / L, y: (m.eind.y - m.start.y) / L };
+    const t = (p.x - m.start.x) * u.x + (p.y - m.start.y) * u.y;
+    if (t < 0 || t > L) continue;
+    const afstand = Math.abs((p.x - m.start.x) * -u.y + (p.y - m.start.y) * u.x) - m.dikte / 2;
+    if (afstand > marge) continue;
+    if (!beste || afstand < beste.afstand) beste = { muurId: m.id, t, afstand };
+  }
+  return beste;
 }
 
 export function verwijderOpening(v: Verdieping, id: string): Verdieping {
