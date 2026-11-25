@@ -1,6 +1,14 @@
 /** Rekenfuncties op het projectformaat. Invoer en uitvoer in mm tenzij anders vermeld. */
 import type { Muur, Opening, Punt, Ruimte, Verdieping } from "./schema.ts";
 
+/**
+ * Twee muren liggen "in elkaars verlengde" als hun richtingen minder dan
+ * ± 0,57° verschillen (|sin| < 0,01). Niet exact 0: splitsingspunten van een
+ * schuine muur worden op hele mm afgerond, waardoor de stukken een heel klein
+ * hoekje maken. Bij haakse plannen verandert dit niets.
+ */
+export const RECHTDOOR = 0.01;
+
 export function afstand(a: Punt, b: Punt): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
 }
@@ -122,7 +130,7 @@ export function zetMuurLengte(
     const ander = sleutel(w.start) === sleutel(oud) ? w.eind : sleutel(w.eind) === sleutel(oud) ? w.start : null;
     if (!ander) continue;
     const kruis = dir.x * (ander.y - oud.y) - dir.y * (ander.x - oud.x);
-    if (Math.abs(kruis) > 1e-6) verschoven.set(sleutel(ander), { punt: ander, dikte: w.dikte });
+    if (Math.abs(kruis) > RECHTDOOR) verschoven.set(sleutel(ander), { punt: ander, dikte: w.dikte });
   }
   // Zoekstraal per verschoven punt = dikste muur die er aansluit (een
   // binnenhoek ligt op hoogstens ~0,71 × die dikte van het hartlijnpunt).
@@ -180,7 +188,7 @@ function aanPunt(m: Muur, p: Punt, alle: Muur[]): { schuin: Muur[]; rechtdoor: M
   for (const w of alle) {
     if (w.id === m.id || !(zelfdePt(w.start, p) || zelfdePt(w.eind, p))) continue;
     const d = richting(w);
-    (Math.abs(u.x * d.y - u.y * d.x) > 1e-6 ? schuin : rechtdoor).push(w);
+    (Math.abs(u.x * d.y - u.y * d.x) > RECHTDOOR ? schuin : rechtdoor).push(w);
   }
   return { schuin, rechtdoor };
 }
@@ -342,7 +350,7 @@ export function maatlijnen(v: Verdieping, afstandMm = 450): Maatlijn[] {
           const raakt = (w.start.x === p.x && w.start.y === p.y) || (w.eind.x === p.x && w.eind.y === p.y);
           if (!raakt) return false;
           const wl = muurLengte(w);
-          return Math.abs((u.x * (w.eind.y - w.start.y)) / wl - (u.y * (w.eind.x - w.start.x)) / wl) < 1e-6;
+          return Math.abs((u.x * (w.eind.y - w.start.y)) / wl - (u.y * (w.eind.x - w.start.x)) / wl) < RECHTDOOR;
         });
       // Uiteinde van de gevelmaat, op het buitenvlak van de muur:
       // - een aansluitende muur steekt naar buiten (aanbouw, doorlopende muur):
