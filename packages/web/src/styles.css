@@ -65,7 +65,7 @@ h3 { font-size: 14px; margin: 18px 0 8px; }
 .werkblad { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 16px; padding: 16px; align-items: start; }
 @media (max-width: 900px) { .werkblad { grid-template-columns: minmax(0, 1fr); } }
 .plan { background: #fff; border: 1px solid var(--lijn); border-radius: 12px; padding: 8px; }
-.plan svg { width: 100%; height: auto; max-height: 70vh; display: block; }
+.plan svg { width: 100%; height: auto; max-height: 70vh; display: block; overflow: hidden; }
 .hint { color: var(--zacht); font-size: 13px; margin: 8px 2px; }
 .k-scan { color: var(--scan); font-weight: 600; } .k-corr { color: var(--corr); font-weight: 600; } .k-laser { color: var(--laser); font-weight: 600; }
 .export { display: flex; gap: 8px; flex-wrap: wrap; }

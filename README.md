@@ -13,7 +13,7 @@ exportbestanden (PDF/DXF/IFC) van maakt. Zie het plan in het document
 - **Ruimte hiernaast toevoegen**: klik een buitenmuur, geef binnenbreedte, diepte en startpunt (vanaf hoek A). De muur wordt tussenmuur; is de nieuwe ruimte smaller, dan wordt de muur gesplitst en verhuizen ramen/deuren mee. Zo bouw je een verdieping kamer per kamer op.
 - Ruimte aanklikken: naam en plafondhoogte.
 - **Verdiepingen**: tabbladen per verdieping met peil; "+ Verdieping" als kopie van de indeling (muren en ruimtes, grijs = overgenomen tot nagemeten) of als nieuwe rechthoek; hernoemen, peil aanpassen, verwijderen.
-- **Bewerken**: ramen/deuren wijzigen en verplaatsen, ook naar een andere muur (keuzelijst met leesbare muurnamen); **slepen** in het plan: een muur haaks verschuiven of een raam/deur naar een andere plaats of muur (stappen van 10 mm, live voorbeeld; op de gsm eerst de muur aantikken); tussenmuur uitbreken (twee ruimtes van elke haakse vorm → één, bv. L-vorm, met waarschuwing over stabiliteit); muur verschuiven (positie corrigeren); ruimte verwijderen; muurstukken die recht doorlopen worden automatisch terug één muur; sparing in de vloer (trapgat, vide, schacht) toevoegen, verplaatsen, vergroten, afgetrokken van die vloer en van het plafond eronder; notities per ruimte en per project (op het lijstenblad van de PDF).
+- **Bewerken**: ramen/deuren wijzigen en verplaatsen, ook naar een andere muur (keuzelijst met leesbare muurnamen); **slepen** in het plan: een muur haaks verschuiven of een raam/deur naar een andere plaats of muur (stappen van 10 mm, live voorbeeld; op de gsm eerst de muur aantikken); tussenmuur uitbreken (twee ruimtes van elke haakse vorm → één, bv. L-vorm, met waarschuwing over stabiliteit); muur verschuiven (positie corrigeren); **hoek verplaatsen** (hoek A/B slepen of dx/dy ingeven) om schuine muren te maken, met verstekhoeken en maatkettingen evenwijdig aan schuine gevels; ruimte verwijderen; muurstukken die recht doorlopen worden automatisch terug één muur; sparing in de vloer (trapgat, vide, schacht) toevoegen, verplaatsen, vergroten, afgetrokken van die vloer en van het plafond eronder; notities per ruimte en per project (op het lijstenblad van de PDF).
 - **Prijzen**: eenheidsprijs per post, onthouden op het toestel; raming met btw-tarief naar keuze (21/12/6/0 %); prijzen mee in Excel, kopie en PDF.
 - **Opmeten met de camera** (Chrome op Android met ARCore, via WebXR): hoeken van de vloer aantikken → haaks maken → plan. Op iPhone en pc niet beschikbaar. Demo zonder camera: `?ar-demo` achter het webadres.
 - **Lastenboek-meetstaat**: posten per ruimte (vloer, plinten, pleister- en schilderwerk wanden/plafond, dagkanten, vensterbanken, buitenschrijnwerk, binnendeuren); "Kopiëren voor offerte" (plakken in offerte of Excel) en export naar Excel met kolommen eenheidsprijs en totaal.
@@ -55,7 +55,7 @@ Daarna publiceert elke wijziging op `main` de app op
 
 ```bash
 npm install
-npm test            # 83 tests
+npm test            # 96 tests
 npm run web         # webapp lokaal starten
 npm run e2e         # browsertests (pc + gsm) met Playwright
 npm run voorbeeld   # voorbeelduitvoer
@@ -69,7 +69,7 @@ npm run voorbeeld   # voorbeelduitvoer
 - Lastenboek: eigen postindeling, niet de nummering van Standaardbestek 250. Dagkanten in lopende meter zonder diepte; plafond = vloer (geen schuine plafonds); geen trappen, gevels, daken of buitenwerk.
 - Verdiepingen: geen controle dat muren boven elkaar staan; een kopie neemt geen ramen/deuren en sparingen over.
 - Sparingen zijn rechthoekig en liggen volledig in één ruimte; een trapgat over twee ruimtes kan niet.
-- Muur uitbreken en verschuiven: enkel bij haakse plannen (geen schuine muren). Een muur die recht doorloopt in een andere muur kan niet apart verschuiven (dat zou een knik geven). Slepen gaat in stappen van 10 mm; voor een exacte maat geef je de afstand in.
+- Schuine muren: een hoek verplaatsen kan niet waar drie of meer muren samenkomen (dat zou een doorlopende muur knikken). Uitbreken bij schuine muren vraagt dat elke ruimte één rand tegen de muur heeft. Verstek onder ±10° wordt niet getekend (te spitse hoek). De camera-opmeting maakt nog altijd een haaks plan. Een muur die recht doorloopt in een andere muur kan niet apart verschuiven (dat zou een knik geven). Slepen gaat in stappen van 10 mm; voor een exacte maat geef je de afstand in.
 - Camera-opmeting: **niet getest op een echt toestel**; alleen de verwerking van de punten is getest (unit- en browsertests met testpunten). Hoogte wordt niet gemeten (zelf ingeven). Enkel haakse ruimtes; schuine muren worden geweigerd. Werkt niet op iPhone (Safari ondersteunt WebXR AR niet).
 - Prijzen staan alleen op het toestel waarop je ze ingaf (geen account/synchronisatie).
 - Ruimtes zijn rechthoekig en worden haaks tegen een bestaande muur gezet. Schuine muren, L-vormige ruimtes en een ruimte die tegen twee bestaande ruimtes tegelijk komt (bv. een hoek opvullen) kunnen nog niet.

@@ -66,7 +66,7 @@ describe("SVG voor slepen", () => {
   it("openingen herkenbaar, coördinaten terug te rekenen, geselecteerde muur sleepbaar", () => {
     const svg = verdiepingNaarSVG(v0, { interactief: true, geselecteerd: "m-onder-links", opening: "o-raam-leef" });
     expect(svg).toContain('data-opening="o-raam-leef"');
-    expect(svg).toMatch(/data-min-x="-?\d+(\.\d+)?" data-max-y="-?\d+(\.\d+)?"/);
+    for (const k of ["data-min-x", "data-max-x", "data-min-y", "data-max-y"]) expect(svg).toMatch(new RegExp(`${k}="-?\\d+(\\.\\d+)?"`));
     expect(svg).toContain("touch-action:none");
     expect(svg).toContain("#fde68a"); // gemarkeerde opening
     expect(verdiepingNaarSVG(v0, { interactief: true })).not.toContain("touch-action:none");

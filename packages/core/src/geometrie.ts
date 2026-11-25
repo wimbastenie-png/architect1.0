@@ -146,25 +146,93 @@ export function zetMuurLengte(
   };
 }
 
+// ---------------------------------------------------------------- hoeken en vlakken
+
+interface Lijn { p: Punt; d: Punt }
+
+const richting = (m: Muur): Punt => {
+  const L = muurLengte(m);
+  return { x: (m.eind.x - m.start.x) / L, y: (m.eind.y - m.start.y) / L };
+};
+const zelfdePt = (a: Punt, b: Punt) => a.x === b.x && a.y === b.y;
+/** Het andere uiteinde van w, gezien vanuit punt p. */
+const anderEind = (w: Muur, p: Punt) => (zelfdePt(w.start, p) ? w.eind : w.start);
+
+/** Muurvlak van w aan de kant van punt `naar` (lijn evenwijdig aan de hartlijn op dikte/2). */
+function vlak(w: Muur, naar: Punt): Lijn {
+  const u = richting(w), n = { x: -u.y, y: u.x };
+  const s = (naar.x - w.start.x) * n.x + (naar.y - w.start.y) * n.y >= 0 ? 1 : -1;
+  return { p: { x: w.start.x + n.x * s * (w.dikte / 2), y: w.start.y + n.y * s * (w.dikte / 2) }, d: u };
+}
+
+/** Snijpunt van twee lijnen; null als ze (bijna) evenwijdig zijn (< ±10°): dan geen verstek. */
+function snijpunt(a: Lijn, b: Lijn): Punt | null {
+  const kruis = a.d.x * b.d.y - a.d.y * b.d.x;
+  if (Math.abs(kruis) < 0.17) return null;
+  const t = ((b.p.x - a.p.x) * b.d.y - (b.p.y - a.p.y) * b.d.x) / kruis;
+  return { x: a.p.x + a.d.x * t, y: a.p.y + a.d.y * t };
+}
+
+/** Muren die in punt p aan m raken: niet in het verlengde (haaks of schuin) en in het verlengde. */
+function aanPunt(m: Muur, p: Punt, alle: Muur[]): { schuin: Muur[]; rechtdoor: Muur[] } {
+  const u = richting(m);
+  const schuin: Muur[] = [], rechtdoor: Muur[] = [];
+  for (const w of alle) {
+    if (w.id === m.id || !(zelfdePt(w.start, p) || zelfdePt(w.eind, p))) continue;
+    const d = richting(w);
+    (Math.abs(u.x * d.y - u.y * d.x) > 1e-6 ? schuin : rechtdoor).push(w);
+  }
+  return { schuin, rechtdoor };
+}
+
 /**
- * Halve dikte van de dikste haakse muur die aan elk uiteinde aansluit.
+ * Hoe ver (mm, langs de muur, positief = voorbij het hartlijnpunt p naar
+ * buiten) het vlak `kant` van m eindigt tegen de aansluitende muren in p.
+ * - één aansluitende muur (hoek): verstek, het snijpunt van de vlakken
+ *   (binnenvlak met binnenvlak, buitenvlak met buitenvlak)
+ * - een doorlopende muur (T): het vlak stopt tegen het vlak van die muur
+ * Bij haakse muren geeft dit ±dikte/2, zoals vroeger.
+ */
+function vlakEinde(m: Muur, p: Punt, kant: Lijn, binnenKant: boolean | null, alle: Muur[]): number | null {
+  const { schuin } = aanPunt(m, p, alle);
+  if (!schuin.length) return null;
+  const uit = zelfdePt(p, m.eind) ? richting(m) : { x: -richting(m).x, y: -richting(m).y };
+  const mAnder = anderEind(m, p);
+  const kandidaten: number[] = [];
+  for (const w of schuin) {
+    // T of binnenkant van een hoek: vlak van w naar m toe; buitenkant van een hoek: vlak van w weg van m
+    const naarM = schuin.length > 1 || binnenKant !== false;
+    const wVlak = naarM ? vlak(w, mAnder) : vlak(w, { x: 2 * p.x - mAnder.x, y: 2 * p.y - mAnder.y });
+    const q = snijpunt(kant, wVlak);
+    if (q) kandidaten.push((q.x - p.x) * uit.x + (q.y - p.y) * uit.y);
+  }
+  if (!kandidaten.length) return null;
+  return schuin.length > 1 ? Math.max(...kandidaten) : kandidaten[0]!;
+}
+
+/**
+ * Afstand van het hartlijnpunt tot de binnenhoek, aan elk uiteinde (mm).
  * Daarmee rekenen we tussen hartlijnlengte en binnenmaat:
  * binnenmaat = hartlijn − aansluiting.start − aansluiting.eind.
+ * Haaks: de halve dikte van de aansluitende muur. Schuin: via het snijpunt
+ * van de binnenvlakken.
  */
 export function aansluitingen(m: Muur, alle: Muur[]): { start: number; eind: number } {
-  const L = muurLengte(m);
-  const ux = (m.eind.x - m.start.x) / L, uy = (m.eind.y - m.start.y) / L;
   const bij = (p: Punt) => {
-    let d = 0;
-    for (const w of alle) {
-      if (w.id === m.id) continue;
-      const raakt = (w.start.x === p.x && w.start.y === p.y) || (w.eind.x === p.x && w.eind.y === p.y);
-      if (!raakt) continue;
-      const wl = muurLengte(w);
-      const kruis = Math.abs((ux * (w.eind.y - w.start.y)) / wl - (uy * (w.eind.x - w.start.x)) / wl);
-      if (kruis > 1e-6) d = Math.max(d, w.dikte / 2);
+    const { schuin } = aanPunt(m, p, alle);
+    if (!schuin.length) return 0;
+    if (schuin.length === 1) {
+      // binnenvlak van m = kant waar de aansluitende muur heen gaat
+      const binnen = vlak(m, anderEind(schuin[0]!, p));
+      const e = vlakEinde(m, p, binnen, true, alle);
+      if (e !== null) return -e;
+    } else {
+      // T: tot het vlak van de doorlopende muur, langs de hartlijn gemeten
+      const as: Lijn = { p: m.start, d: richting(m) };
+      const e = vlakEinde(m, p, as, true, alle);
+      if (e !== null) return -e;
     }
-    return d;
+    return Math.max(...schuin.map((w) => w.dikte / 2));
   };
   return { start: bij(m.start), eind: bij(m.eind) };
 }
@@ -190,19 +258,31 @@ export function zetBinnenLengte(
 }
 
 /**
- * Muurvorm voor tekenen: rechthoek rond de hartlijn, aan elk uiteinde
- * verlengd met de halve dikte van de dikste haakse muur die daar aansluit,
- * zodat hoeken dicht zijn (geen "kerf" in de tekening).
+ * Muurvorm voor tekenen: de vier hoekpunten van de muur.
+ * - hoek met één andere muur: verstek (snijpunt van de vlakken), ook schuin
+ * - T-aansluiting op een doorlopende muur: tegen het vlak van die muur
+ * - gevel die recht doorloopt (stuk in het verlengde): recht afgeknipt op de as
+ * - vrij uiteinde: recht afgeknipt
+ * Zo zijn hoeken dicht (geen kerf) en overlappen muren niet.
  */
 export function muurVorm(m: Muur, alle: Muur[]): [Punt, Punt, Punt, Punt] {
-  const L = muurLengte(m);
-  const ux = (m.eind.x - m.start.x) / L, uy = (m.eind.y - m.start.y) / L;
-  const { start: a, eind: b } = aansluitingen(m, alle);
-  return muurRechthoek({
-    ...m,
-    start: { x: m.start.x - ux * a, y: m.start.y - uy * a },
-    eind: { x: m.eind.x + ux * b, y: m.eind.y + uy * b },
-  });
+  const u = richting(m), n = { x: -u.y, y: u.x }, h = m.dikte / 2;
+  const links: Lijn = { p: { x: m.start.x + n.x * h, y: m.start.y + n.y * h }, d: u };
+  const rechts: Lijn = { p: { x: m.start.x - n.x * h, y: m.start.y - n.y * h }, d: u };
+  const einde = (p: Punt, kant: Lijn, teken: 1 | -1): Punt => {
+    const { schuin, rechtdoor } = aanPunt(m, p, alle);
+    const uit = zelfdePt(p, m.eind) ? u : { x: -u.x, y: -u.y };
+    let e = 0;
+    if (schuin.length && !rechtdoor.length) {
+      const binnenKant = schuin.length === 1 ? (() => {
+        const o = anderEind(schuin[0]!, p);
+        return Math.sign((o.x - p.x) * n.x + (o.y - p.y) * n.y) === teken;
+      })() : null;
+      e = vlakEinde(m, p, kant, binnenKant, alle) ?? Math.max(...schuin.map((w) => w.dikte / 2));
+    }
+    return { x: p.x + n.x * teken * h + uit.x * e, y: p.y + n.y * teken * h + uit.y * e };
+  };
+  return [einde(m.start, links, 1), einde(m.eind, links, 1), einde(m.eind, rechts, -1), einde(m.start, rechts, -1)];
 }
 
 /** Zwaartepunt van alle muurhartlijnen: om te bepalen wat "buiten" is. */
@@ -264,26 +344,25 @@ export function maatlijnen(v: Verdieping, afstandMm = 450): Maatlijn[] {
           const wl = muurLengte(w);
           return Math.abs((u.x * (w.eind.y - w.start.y)) / wl - (u.y * (w.eind.x - w.start.x)) / wl) < 1e-6;
         });
-      // Uiteinde van de gevelmaat, volgens waar de gevel heen gaat:
-      // - een haakse muur steekt naar buiten (aanbouw, doorlopende muur):
-      //   stop aan het vlak van die muur  → −dikte/2
-      // - alleen haakse muren naar binnen (gewone buitenhoek):
-      //   loop door tot de buitenkant van de hoek → +dikte/2
+      // Uiteinde van de gevelmaat, op het buitenvlak van de muur:
+      // - een aansluitende muur steekt naar buiten (aanbouw, doorlopende muur):
+      //   stop tegen het vlak van die muur (haaks: −dikte/2)
+      // - alleen muren naar binnen (gewone buitenhoek): tot de buitenhoek
+      //   (haaks: +dikte/2; schuin: het verstekpunt)
+      const buitenvlak = { p: { x: m.start.x + n.x * (m.dikte / 2), y: m.start.y + n.y * (m.dikte / 2) }, d: u };
       const uiteinde = (p: Punt): number => {
-        const haaks = v.muren.filter((w) => {
-          if (w.id === m.id) return false;
-          const raakt = (w.start.x === p.x && w.start.y === p.y) || (w.eind.x === p.x && w.eind.y === p.y);
-          if (!raakt) return false;
-          const wl = muurLengte(w);
-          return Math.abs((u.x * (w.eind.y - w.start.y)) / wl - (u.y * (w.eind.x - w.start.x)) / wl) > 1e-6;
-        });
-        if (!haaks.length) return 0;
-        const dikte = Math.max(...haaks.map((w) => w.dikte)) / 2;
-        const naarBuiten = haaks.some((w) => {
-          const ander = w.start.x === p.x && w.start.y === p.y ? w.eind : w.start;
+        const { schuin } = aanPunt(m, p, v.muren);
+        if (!schuin.length) return 0;
+        const naarBuiten = schuin.filter((w) => {
+          const ander = anderEind(w, p);
           return (ander.x - p.x) * n.x + (ander.y - p.y) * n.y > 1e-6;
         });
-        return naarBuiten ? -dikte : dikte;
+        if (naarBuiten.length) {
+          const e = vlakEinde(m, p, buitenvlak, true, naarBuiten.length === 1 ? [m, naarBuiten[0]!] : [m, ...naarBuiten]);
+          return e ?? -Math.max(...naarBuiten.map((w) => w.dikte)) / 2;
+        }
+        const e = vlakEinde(m, p, buitenvlak, false, [m, ...schuin]);
+        return e ?? Math.max(...schuin.map((w) => w.dikte)) / 2;
       };
       const es = loopDoor(m.start) ? 0 : uiteinde(m.start);
       const ee = loopDoor(m.eind) ? 0 : uiteinde(m.eind);

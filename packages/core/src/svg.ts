@@ -23,6 +23,11 @@ export interface SvgOpties {
   opening?: string;
   /** Labels per opening-id (codes over het hele project); standaard per verdieping genummerd. */
   labels?: Map<string, string>;
+  /**
+   * Vast tekenkader (plan-mm) i.p.v. het automatisch berekende: tijdens het
+   * slepen, zodat de tekening niet in- of uitzoomt onder de vinger.
+   */
+  kader?: { minX: number; maxX: number; minY: number; maxY: number };
 }
 
 export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string {
@@ -31,8 +36,9 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
   const ketens = maatketens(v);
   const alle = [...v.muren.flatMap((m) => muurVorm(m, v.muren)), ...ketens.flatMap((k) => [k.a, k.b].map((p) => ({ x: p.x + k.n.x * 300, y: p.y + k.n.y * 300 })))];
   const xs = alle.map((p) => p.x), ys = alle.map((p) => p.y);
-  const minX = Math.min(...xs) - marge, maxX = Math.max(...xs) + marge;
-  const minY = Math.min(...ys) - marge, maxY = Math.max(...ys) + marge;
+  const k = opties.kader;
+  const minX = k ? k.minX : Math.min(...xs) - marge, maxX = k ? k.maxX : Math.max(...xs) + marge;
+  const minY = k ? k.minY : Math.min(...ys) - marge, maxY = k ? k.maxY : Math.max(...ys) + marge;
   // SVG-y loopt naar beneden; plan-y naar boven → spiegelen.
   const t = (p: Punt) => `${(p.x - minX).toFixed(0)},${(maxY - p.y).toFixed(0)}`;
   const w = maxX - minX, h = maxY - minY;
@@ -123,13 +129,15 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
   if (sel) {
     for (const [p, letter] of [[sel.start, "A"], [sel.eind, "B"]] as const) {
       const [x, y] = t(p).split(",");
-      el.push(`<circle cx="${x}" cy="${y}" r="200" fill="#fff" stroke="#dc2626" stroke-width="30" pointer-events="none"/>`);
+      // in de webapp: hoek A/B versleepbaar (maakt de muur schuin)
+      const hoek = ia ? ` data-hoek="${p.x},${p.y}" style="cursor:move;touch-action:none"` : ` pointer-events="none"`;
+      el.push(`<circle cx="${x}" cy="${y}" r="200" fill="#fff" stroke="#dc2626" stroke-width="30"${hoek}/>`);
       el.push(`<text x="${x}" y="${y}" font-size="220" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#dc2626" pointer-events="none">${letter}</text>`);
     }
   }
 
   // data-min-x / data-max-y: om schermcoördinaten terug te rekenen naar plan-mm (slepen)
-  return `<svg xmlns="http://www.w3.org/2000/svg" data-min-x="${minX}" data-max-y="${maxY}" viewBox="0 0 ${w} ${h}" font-family="Helvetica, Arial, sans-serif" style="background:#fff">\n${el.join("\n")}\n</svg>\n`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" data-min-x="${minX}" data-max-x="${maxX}" data-min-y="${minY}" data-max-y="${maxY}" viewBox="0 0 ${w} ${h}" font-family="Helvetica, Arial, sans-serif" style="background:#fff">\n${el.join("\n")}\n</svg>\n`;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);

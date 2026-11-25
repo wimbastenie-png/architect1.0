@@ -25,6 +25,7 @@ import {
   breekMuurUit,
   verschuifMuur,
   verschuifRichtingen,
+  verplaatsHoek,
   muurOmschrijving,
   leesPrijzen,
   verwijderOpening,
@@ -256,8 +257,8 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   });
   const toon = slepen.voorbeeld ?? v;
   const svg = useMemo(
-    () => verdiepingNaarSVG(toon, { interactief: true, labels, opening: slepen.actieveOpening, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
-    [toon, selectie, labels, slepen.actieveOpening],
+    () => verdiepingNaarSVG(toon, { interactief: true, labels, kader: slepen.kader, opening: slepen.actieveOpening, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
+    [toon, selectie, labels, slepen.actieveOpening, slepen.kader],
   );
   const lb = useMemo(() => lastenboek(project), [project]);
   const [prijzen, zetPrijzen] = useState<Prijzen>(() => leesOpslag(PRIJZEN, leesPrijzen, {}));
@@ -336,7 +337,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           <div className="plan" onClick={klik} {...slepen.handlers} dangerouslySetInnerHTML={{ __html: svg }} />
           {slepen.info && <div className={`sleep-info${slepen.info.fout ? " fout" : ""}`} role="status">{slepen.info.tekst}</div>}
         </div>
-        <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. <strong>Slepen:</strong> een muur haaks verschuiven, of een raam of deur naar een andere plaats of muur (op de gsm: tik de muur eerst aan). Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>
+        <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. <strong>Slepen:</strong> een muur haaks verschuiven, een raam of deur naar een andere plaats of muur, of de hoek A of B van een geselecteerde muur (maakt de muur schuin). Op de gsm: tik de muur eerst aan. Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>
         <div className="export">
           <button className="primair" onClick={() => exporteer("pdf")}>PDF-plan</button>
           <button onClick={() => exporteer("dxf")}>DXF (CAD)</button>
@@ -510,6 +511,7 @@ function MuurPaneel({ muur, v, wijzig, sluit, meld, kiesMuur }: { muur: Muur; v:
       </Veld>
 
       <PositieCorrigeren muur={muur} wijzig={wijzig} />
+      <HoekVerplaatsen muur={muur} wijzig={wijzig} />
 
       <h3>Ramen en deuren</h3>
       {openingen.length === 0 && <p className="uitleg">Nog geen openingen in deze muur.</p>}
@@ -724,6 +726,31 @@ function PositieCorrigeren({ muur, wijzig }: { muur: Muur; wijzig: (f: (v: Verdi
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function HoekVerplaatsen({ muur, wijzig }: { muur: Muur; wijzig: (f: (v: Verdieping) => Verdieping) => boolean }) {
+  const [f, zetF] = useState({ hoek: "start" as "start" | "eind", dx: "", dy: "" });
+  const dx = Math.round(+f.dx || 0), dy = Math.round(+f.dy || 0);
+  return (
+    <div className="positie">
+      <h3>Hoek verplaatsen</h3>
+      <p className="uitleg">Verplaats hoek A of B om de muur schuin te zetten (of sleep het rondje in het plan). Aansluitende muren en de ruimte passen zich aan. Kan niet waar drie muren samenkomen.</p>
+      <div className="rij">
+        <Veld label="Welke hoek">
+          <select value={f.hoek} onChange={(e) => zetF({ ...f, hoek: e.target.value as "start" | "eind" })}>
+            <option value="start">Hoek A</option>
+            <option value="eind">Hoek B</option>
+          </select>
+        </Veld>
+        <Veld label="Naar rechts (mm)"><input type="number" inputMode="numeric" value={f.dx} onChange={(e) => zetF({ ...f, dx: e.target.value })} placeholder="− = links" /></Veld>
+        <Veld label="Naar boven (mm)"><input type="number" inputMode="numeric" value={f.dy} onChange={(e) => zetF({ ...f, dy: e.target.value })} placeholder="− = onder" /></Veld>
+      </div>
+      <button type="button" disabled={!dx && !dy} onClick={() => {
+        const p = f.hoek === "start" ? muur.start : muur.eind;
+        if (wijzig((x) => verplaatsHoek(x, p, { x: p.x + dx, y: p.y + dy }))) zetF({ ...f, dx: "", dy: "" });
+      }}>Hoek verplaatsen</button>
     </div>
   );
 }

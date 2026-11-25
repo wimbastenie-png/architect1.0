@@ -5,7 +5,8 @@
  *   rij 1 — gevel: elk gevelstuk (ook verspringingen en aanbouwen)
  *   rij 2 — totaal: de totale buitenmaat van die zijde
  * Omdat alle maten op lijnen buiten het gebouw geprojecteerd worden, kruisen
- * ze nooit een aanbouw. Schuine muren houden hun eigen maatlijn.
+ * ze nooit een aanbouw. Een schuine gevel krijgt zijn eigen zijde met rijen
+ * evenwijdig aan die gevel.
  */
 import { maatlijnen, muurLengte, muurVorm, type Maatlijn } from "./geometrie.ts";
 import type { MeetMethode, Muur, Punt, Verdieping } from "./schema.ts";
@@ -17,11 +18,16 @@ export interface MaatOpties {
   tussen?: number;
 }
 
-type Zijde = "onder" | "boven" | "links" | "rechts";
-const NORMAAL: Record<Zijde, Punt> = { onder: { x: 0, y: -1 }, boven: { x: 0, y: 1 }, links: { x: -1, y: 0 }, rechts: { x: 1, y: 0 } };
 const ZWAKSTE: MeetMethode[] = ["overgenomen", "gescand", "gecorrigeerd", "manueel", "laser"];
 
 interface Stuk { lo: number; hi: number; muur: Muur }
+
+/** Richting langs een zijde: voor haakse zijden altijd +x of +y (zoals vroeger). */
+function langs(n: Punt): Punt {
+  let u = { x: -n.y, y: n.x };
+  if (u.x < -1e-9 || (Math.abs(u.x) <= 1e-9 && u.y < 0)) u = { x: -u.x, y: -u.y };
+  return u;
+}
 
 export function maatketens(v: Verdieping, opties: MaatOpties = {}): Maatlijn[] {
   const afstand = opties.afstand ?? 600, tussen = opties.tussen ?? 450;
@@ -29,47 +35,43 @@ export function maatketens(v: Verdieping, opties: MaatOpties = {}): Maatlijn[] {
   if (!basis.length) return [];
   const muren = new Map(v.muren.map((m) => [m.id, m]));
   const hoeken = v.muren.flatMap((m) => muurVorm(m, v.muren));
-  const omh = {
-    minX: Math.min(...hoeken.map((p) => p.x)), maxX: Math.max(...hoeken.map((p) => p.x)),
-    minY: Math.min(...hoeken.map((p) => p.y)), maxY: Math.max(...hoeken.map((p) => p.y)),
-  };
+  const dot = (p: Punt, q: Punt) => p.x * q.x + p.y * q.y;
 
-  const uit: Maatlijn[] = [];
-  const perZijde = new Map<Zijde, Stuk[]>();
+  // Zijden = gevels met dezelfde buitenrichting (afgerond op 0,1°): de vier
+  // haakse zijden, plus één zijde per schuine gevelrichting.
+  const zijden = new Map<string, { n: Punt; stukken: Stuk[] }>();
   for (const ml of basis) {
-    const z = zijdeVan(ml.n);
-    const m = muren.get(ml.muurId)!;
-    if (!z || !ml.van || !ml.tot) {
-      uit.push({ ...ml, rij: 1 }); // schuine muur: eigen maatlijn
-      continue;
-    }
-    const as = z === "onder" || z === "boven" ? "x" : "y";
-    const [lo, hi] = [ml.van[as], ml.tot[as]].sort((a, b) => a - b) as [number, number];
-    perZijde.set(z, [...(perZijde.get(z) ?? []), { lo, hi, muur: m }]);
+    if (!ml.van || !ml.tot) continue;
+    const graden = Math.round(((Math.atan2(ml.n.y, ml.n.x) * 180) / Math.PI) * 10) / 10;
+    const sleutel = String(graden === -180 ? 180 : graden);
+    const z = zijden.get(sleutel) ?? { n: ml.n, stukken: [] };
+    const u = langs(z.n);
+    const [lo, hi] = [dot(ml.van, u), dot(ml.tot, u)].sort((a, b) => a - b) as [number, number];
+    z.stukken.push({ lo, hi, muur: muren.get(ml.muurId)! });
+    zijden.set(sleutel, z);
   }
 
-  for (const [z, stukken] of perZijde) {
-    const n = NORMAAL[z];
-    const horizontaal = z === "onder" || z === "boven";
-    const rand = z === "onder" ? omh.minY : z === "boven" ? omh.maxY : z === "links" ? omh.minX : omh.maxX;
-    const lijnOp = (k: number) => rand + (z === "onder" || z === "links" ? -1 : 1) * (afstand + k * tussen);
-    const punt = (t: number, pos: number): Punt => (horizontaal ? { x: t, y: pos } : { x: pos, y: t });
-    const teken = z === "onder" || z === "links" ? -1 : 1;
-    // gevelvlak bij positie t langs de zijde: het meest naar buiten liggende muurvlak daar
+  const uit: Maatlijn[] = [];
+  for (const { n, stukken } of zijden.values()) {
+    const u = langs(n);
+    // de rijen liggen voorbij het verste punt van het gebouw in deze richting
+    const rand = Math.max(...hoeken.map((p) => dot(p, n)));
+    const lijnOp = (k: number) => rand + afstand + k * tussen;
+    const punt = (t: number, pos: number): Punt => ({ x: u.x * t + n.x * pos, y: u.y * t + n.y * pos });
+    // gevelvlak bij positie t: het meest naar buiten liggende muurvlak daar
     const gevel = (t: number, kandidaten: Stuk[]): Punt => {
       let best = -Infinity;
       for (const s of kandidaten) {
         if (t < s.lo - 1 || t > s.hi + 1) continue;
-        const as = horizontaal ? s.muur.start.y : s.muur.start.x;
-        best = Math.max(best, teken * (as + teken * (s.muur.dikte / 2)));
+        best = Math.max(best, dot(s.muur.start, n) + s.muur.dikte / 2);
       }
-      return punt(t, best === -Infinity ? rand : teken * best);
+      return punt(t, best === -Infinity ? rand : best);
     };
     let rij = 0;
-    const leg = (bps: number[], gedekt: Stuk[], soort: number, methode?: MeetMethode) => {
+    const leg = (bps: number[], gedekt: Stuk[], soort: number) => {
       const pos = lijnOp(rij);
       const sorted = [...new Set(bps.map((x) => Math.round(x)))].sort((a, b) => a - b);
-      let n0 = 0;
+      let aantal = 0;
       for (let k = 0; k < sorted.length - 1; k++) {
         const a = sorted[k]!, b = sorted[k + 1]!;
         const mid = (a + b) / 2;
@@ -77,13 +79,13 @@ export function maatketens(v: Verdieping, opties: MaatOpties = {}): Maatlijn[] {
         if (!dek || b - a < 1) continue;
         uit.push({
           muurId: dek.muur.id, a: punt(a, pos), b: punt(b, pos), n, lengte: b - a,
-          methode: methode ?? dek.muur.bron.methode, rij: soort,
+          methode: dek.muur.bron.methode, rij: soort,
           hulpA: gevel(a, gedekt), hulpB: gevel(b, gedekt),
         });
-        n0++;
+        aantal++;
       }
-      if (n0) rij++;
-      return n0;
+      if (aantal) rij++;
+      return aantal;
     };
 
     // rij 0: openingen (alleen gevelstukken met ramen/deuren)
@@ -92,9 +94,9 @@ export function maatketens(v: Verdieping, opties: MaatOpties = {}): Maatlijn[] {
       const bps = metOpening.flatMap((s) => [s.lo, s.hi]);
       for (const s of metOpening) {
         const m = s.muur, L = muurLengte(m);
-        const u = { x: (m.eind.x - m.start.x) / L, y: (m.eind.y - m.start.y) / L };
+        const um = { x: (m.eind.x - m.start.x) / L, y: (m.eind.y - m.start.y) / L };
         for (const o of v.openingen.filter((x) => x.muurId === m.id)) {
-          for (const d of [o.offset, o.offset + o.breedte]) bps.push(horizontaal ? m.start.x + u.x * d : m.start.y + u.y * d);
+          for (const d of [o.offset, o.offset + o.breedte]) bps.push(dot({ x: m.start.x + um.x * d, y: m.start.y + um.y * d }, u));
         }
       }
       leg(bps, metOpening, 0);
@@ -113,12 +115,6 @@ export function maatketens(v: Verdieping, opties: MaatOpties = {}): Maatlijn[] {
     }
   }
   return uit;
-}
-
-function zijdeVan(n: Punt): Zijde | null {
-  if (Math.abs(n.x) < 1e-9) return n.y > 0 ? "boven" : "onder";
-  if (Math.abs(n.y) < 1e-9) return n.x > 0 ? "rechts" : "links";
-  return null;
 }
 
 /** Geschatte breedte van een maatgetal in dezelfde eenheid als `hoogte`. */
