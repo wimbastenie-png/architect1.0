@@ -25,6 +25,7 @@ import {
   breekMuurUit,
   verschuifMuur,
   verschuifRichtingen,
+  muurOmschrijving,
   leesPrijzen,
   verwijderOpening,
   wijzigOpening,
@@ -40,6 +41,7 @@ import { appartement } from "../../core/examples/appartement.ts";
 import { ArOpmeting, ArResultaat, DEMO_PUNTEN, arOndersteund } from "./ArOpmeting.tsx";
 import { LastenboekWeergave } from "./Lastenboek.tsx";
 import { RuimtePaneel } from "./RuimtePaneel.tsx";
+import { useSlepen } from "./Slepen.ts";
 import { Veld, getal, leesOpslag, schrijfOpslag } from "./ui.tsx";
 
 const OPSLAG = "architect1.0:project";
@@ -246,9 +248,16 @@ interface WerkbladProps {
 function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigProject, zetMelding }: WerkbladProps) {
   const v = project.verdiepingen[vi] ?? project.verdiepingen[0]!;
   const labels = useMemo(() => openingLabels(project), [project]);
+  const slepen = useSlepen({
+    v,
+    geselecteerdeMuur: selectie?.soort === "muur" ? selectie.id : undefined,
+    wijzig,
+    kiesMuur: (id) => zetSelectie({ soort: "muur", id }),
+  });
+  const toon = slepen.voorbeeld ?? v;
   const svg = useMemo(
-    () => verdiepingNaarSVG(v, { interactief: true, labels, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
-    [v, selectie, labels],
+    () => verdiepingNaarSVG(toon, { interactief: true, labels, opening: slepen.actieveOpening, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
+    [toon, selectie, labels, slepen.actieveOpening],
   );
   const lb = useMemo(() => lastenboek(project), [project]);
   const [prijzen, zetPrijzen] = useState<Prijzen>(() => leesOpslag(PRIJZEN, leesPrijzen, {}));
@@ -293,6 +302,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const naam = bestandsnaam(project.naam);
 
   const klik = (e: React.MouseEvent) => {
+    if (slepen.klikNegeren()) return;
     const el = (e.target as Element).closest("[data-muur],[data-ruimte]");
     if (!el) return zetSelectie(null);
     const m = el.getAttribute("data-muur");
@@ -322,8 +332,11 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           ))}
           <button className="tab-nieuw" onClick={() => { zetNieuweVerdieping(true); zetSelectie(null); }}>+ Verdieping</button>
         </div>
-        <div className="plan" onClick={klik} dangerouslySetInnerHTML={{ __html: svg }} />
-        <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>
+        <div className="plan-houder">
+          <div className="plan" onClick={klik} {...slepen.handlers} dangerouslySetInnerHTML={{ __html: svg }} />
+          {slepen.info && <div className={`sleep-info${slepen.info.fout ? " fout" : ""}`} role="status">{slepen.info.tekst}</div>}
+        </div>
+        <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. <strong>Slepen:</strong> een muur haaks verschuiven, of een raam of deur naar een andere plaats of muur (op de gsm: tik de muur eerst aan). Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>
         <div className="export">
           <button className="primair" onClick={() => exporteer("pdf")}>PDF-plan</button>
           <button onClick={() => exporteer("dxf")}>DXF (CAD)</button>
@@ -356,7 +369,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
             }}
           />
         ) : muur ? (
-          <MuurPaneel key={muur.id} muur={muur} v={v} wijzig={wijzig} sluit={() => zetSelectie(null)} meld={zetMelding} />
+          <MuurPaneel key={muur.id} muur={muur} v={v} wijzig={wijzig} sluit={() => zetSelectie(null)} meld={zetMelding} kiesMuur={(id) => zetSelectie({ soort: "muur", id })} />
         ) : ruimte ? (
           <RuimtePaneel key={ruimte.id} ruimte={ruimte} v={v} wijzig={wijzig} sluit={() => zetSelectie(null)} />
         ) : (
@@ -423,7 +436,7 @@ const STANDAARD: Record<Opening["soort"], { breedte: number; hoogte: number; bor
   doorgang: { breedte: 900, hoogte: 2115, borstwering: 0 },
 };
 
-function MuurPaneel({ muur, v, wijzig, sluit, meld }: { muur: Muur; v: Verdieping; wijzig: (f: (v: Verdieping) => Verdieping) => boolean; sluit: () => void; meld: (s: string | null) => void }) {
+function MuurPaneel({ muur, v, wijzig, sluit, meld, kiesMuur }: { muur: Muur; v: Verdieping; wijzig: (f: (v: Verdieping) => Verdieping) => boolean; sluit: () => void; meld: (s: string | null) => void; kiesMuur: (id: string) => void }) {
   const binnen = Math.round(binnenLengte(muur, v.muren));
   const [bewerkId, zetBewerkId] = useState<string | null>(null);
   const aans = aansluitingen(muur, v.muren);
@@ -506,13 +519,25 @@ function MuurPaneel({ muur, v, wijzig, sluit, meld }: { muur: Muur; v: Verdiepin
             <form onSubmit={(e) => {
               e.preventDefault();
               const d = new FormData(e.currentTarget);
-              const ok = wijzig((x) => wijzigOpening(x, o.id, {
-                offset: +d.get("afstand")! + Math.round(aans.start), breedte: +d.get("breedte")!, hoogte: +d.get("hoogte")!, borstwering: +d.get("borstwering")!,
-              }));
-              if (ok) zetBewerkId(null);
+              const naar = String(d.get("muur"));
+              const ok = wijzig((x) => {
+                const doel = x.muren.find((w) => w.id === naar)!;
+                return wijzigOpening(x, o.id, {
+                  muurId: naar, offset: +d.get("afstand")! + Math.round(aansluitingen(doel, x.muren).start),
+                  breedte: +d.get("breedte")!, hoogte: +d.get("hoogte")!, borstwering: +d.get("borstwering")!,
+                });
+              });
+              if (ok) { zetBewerkId(null); if (naar !== muur.id) kiesMuur(naar); }
             }}>
+              <Veld label="Muur">
+                <select name="muur" defaultValue={muur.id}>
+                  {v.muren.map((w) => ({ id: w.id, naam: muurOmschrijving(v, w.id) })).sort((a, b) => a.naam.localeCompare(b.naam, "nl")).map((w) => (
+                    <option key={w.id} value={w.id}>{w.id === muur.id ? `${w.naam} (huidige)` : w.naam}</option>
+                  ))}
+                </select>
+              </Veld>
               <div className="rij">
-                <Veld label={`${o.soort}: van A`}><input name="afstand" type="number" inputMode="numeric" min={0} defaultValue={Math.round(o.offset - aans.start)} /></Veld>
+                <Veld label={`${o.soort}: van hoek A`}><input name="afstand" type="number" inputMode="numeric" min={0} defaultValue={Math.round(o.offset - aans.start)} /></Veld>
                 <Veld label="Breedte"><input name="breedte" type="number" inputMode="numeric" min={1} defaultValue={o.breedte} /></Veld>
               </div>
               <div className="rij">

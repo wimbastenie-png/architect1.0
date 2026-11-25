@@ -19,6 +19,8 @@ export interface SvgOpties {
   geselecteerd?: string;
   /** Voegt `data-muur` / `data-ruimte` toe zodat de webapp klikken kan opvangen. */
   interactief?: boolean;
+  /** Opening die gemarkeerd wordt (bv. tijdens het slepen). */
+  opening?: string;
   /** Labels per opening-id (codes over het hele project); standaard per verdieping genummerd. */
   labels?: Map<string, string>;
 }
@@ -59,14 +61,18 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
   }
   for (const m of v.muren) {
     const sel = m.id === opties.geselecteerd;
-    el.push(`<polygon points="${muurVorm(m, v.muren).map(t).join(" ")}" fill="${sel ? "#dc2626" : "#292524"}"${ia ? ` data-muur="${esc(m.id)}" style="cursor:pointer"` : ""}/>`);
+    // geselecteerde muur: slepen met de vinger mag (touch-action none), anders scrollt de pagina
+    const stijl = sel ? "cursor:grab;touch-action:none" : "cursor:pointer";
+    el.push(`<polygon points="${muurVorm(m, v.muren).map(t).join(" ")}" fill="${sel ? "#dc2626" : "#292524"}"${ia ? ` data-muur="${esc(m.id)}" style="${stijl}"` : ""}/>`);
   }
   const muren = new Map(v.muren.map((m) => [m.id, m]));
   for (const o of v.openingen) {
     const m = muren.get(o.muurId);
     if (!m) continue;
     const deel = { ...m, start: puntLangsMuur(m, o.offset), eind: puntLangsMuur(m, o.offset + o.breedte) };
-    el.push(`<polygon points="${muurRechthoek(deel).map(t).join(" ")}" fill="#fff" stroke="#0e7490" stroke-width="20"${ia ? ` data-muur="${esc(m.id)}" style="cursor:pointer"` : ""}/>`);
+    const actief = o.id === opties.opening;
+    const stijl = m.id === opties.geselecteerd ? "cursor:grab;touch-action:none" : "cursor:pointer";
+    el.push(`<polygon points="${muurRechthoek(deel).map(t).join(" ")}" fill="${actief ? "#fde68a" : "#fff"}" stroke="${actief ? "#b45309" : "#0e7490"}" stroke-width="${actief ? 40 : 20}"${ia ? ` data-muur="${esc(m.id)}" data-opening="${esc(o.id)}" style="${stijl}"` : ""}/>`);
     if (o.soort === "raam") el.push(`<line pointer-events="none" x1="${t(deel.start).split(",")[0]}" y1="${t(deel.start).split(",")[1]}" x2="${t(deel.eind).split(",")[0]}" y2="${t(deel.eind).split(",")[1]}" stroke="#0e7490" stroke-width="20"/>`);
   }
   // hulplijnen
@@ -122,7 +128,8 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     }
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" font-family="Helvetica, Arial, sans-serif" style="background:#fff">\n${el.join("\n")}\n</svg>\n`;
+  // data-min-x / data-max-y: om schermcoördinaten terug te rekenen naar plan-mm (slepen)
+  return `<svg xmlns="http://www.w3.org/2000/svg" data-min-x="${minX}" data-max-y="${maxY}" viewBox="0 0 ${w} ${h}" font-family="Helvetica, Arial, sans-serif" style="background:#fff">\n${el.join("\n")}\n</svg>\n`;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
