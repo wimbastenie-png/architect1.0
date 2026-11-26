@@ -4,6 +4,7 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
+  projectNaarIFC,
   codeNaarProject,
   codeUitLink,
   projectNaarCode,
@@ -425,9 +426,10 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     }
   };
 
-  const exporteer = async (soort: "pdf" | "dxf" | "csv" | "lastenboek" | "json") => {
+  const exporteer = async (soort: "pdf" | "dxf" | "ifc" | "csv" | "lastenboek" | "json") => {
     try {
       if (soort === "pdf") download(`${naam}.pdf`, await projectNaarPDF(project, { prijzen, btwPct: btw }) as BlobPart, "application/pdf");
+      if (soort === "ifc") download(`${naam}.ifc`, projectNaarIFC(project), "application/x-step");
       if (soort === "dxf") download(`${naam}-${bestandsnaam(v.naam)}.dxf`, verdiepingNaarDXF(v, { labels }), "application/dxf");
       if (soort === "lastenboek") download(`${naam}-lastenboek.csv`, lastenboekCSV(lb, project.naam, prijzen, btw), "text/csv;charset=utf-8");
       if (soort === "csv") download(`${naam}-meetstaat.csv`, meetstaatCSV(rijen), "text/csv;charset=utf-8");
@@ -471,6 +473,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         <div className="export">
           <button className="primair" onClick={() => exporteer("pdf")}>PDF-plan</button>
           <button onClick={() => exporteer("dxf")}>DXF (CAD)</button>
+          <button onClick={() => exporteer("ifc")}>IFC (BIM)</button>
           <button onClick={() => exporteer("csv")}>Meetstaat (Excel)</button>
           <button onClick={() => exporteer("lastenboek")}>Lastenboek (Excel)</button>
           <button onClick={() => exporteer("json")}>Projectbestand</button>
