@@ -19,6 +19,7 @@ exportbestanden (PDF/DXF/IFC) van maakt. Zie het plan in het document
 - **Lastenboek-meetstaat**: posten per ruimte (vloer, plinten, pleister- en schilderwerk wanden/plafond, dagkanten, vensterbanken, buitenschrijnwerk, binnendeuren); "Kopiëren voor offerte" (plakken in offerte of Excel) en export naar Excel met kolommen eenheidsprijs en totaal.
 - Meetstaat live; export naar PDF, DXF, CSV (Excel) en projectbestand (JSON).
 - Ongedaan maken (ook Ctrl+Z) en automatisch bewaren in de browser.
+- **Delen (link)**: één knop maakt een link met het hele project erin, om het van de gsm naar de desktop te brengen (of omgekeerd). Op de gsm opent het deelmenu (mail, WhatsApp …), op de pc wordt de link gekopieerd. Open je de link op het andere toestel, dan vraagt de app eerst of het huidige project daar vervangen mag worden (ongedaan maken kan). Geen live synchronisatie: na wijzigingen opnieuw delen. Privacy: het project zit achter het `#` in de link en wordt niet naar een server gestuurd, maar **wie de link heeft, kan het project openen** — deel hem dus enkel met wie het mag zien. Zeer grote projecten geven een lange link; lukt die niet, gebruik dan het projectbestand.
 
 Online via GitHub Pages zodra dat aan staat (zie onder). Lokaal: `npm run web`.
 
@@ -71,7 +72,7 @@ npm run voorbeeld   # voorbeelduitvoer
 - Sparingen zijn rechthoekig en liggen volledig in één ruimte; een trapgat over twee ruimtes kan niet.
 - Schuine muren: een hoek verplaatsen kan niet waar drie of meer muren samenkomen (dat zou een doorlopende muur knikken). Ook niet als het een knik zou maken in een muur op een plaats waar de ruimte geen hoek heeft (bv. een muur die gesplitst is door een ruimte aan de andere kant). Zeer korte muurstukjes (korter dan twee keer de muurdikte), die ontstaan als een aangrenzende ruimte vlak bij een hoek begint, volgen niet altijd correct. Vloeren die hun muren niet raken (bv. uit een vorige versie) worden bij het openen automatisch rechtgezet; lukt dat niet, dan meldt de app het en kan je **Vloeren rechtzetten** in het controleblok gebruiken. Uitbreken bij schuine muren vraagt dat elke ruimte één rand tegen de muur heeft. Verstek onder ±10° wordt niet getekend (te spitse hoek). De camera-opmeting maakt nog altijd een haaks plan. Een muur die recht doorloopt in een andere muur kan niet apart verschuiven (dat zou een knik geven). Slepen gaat in stappen van 10 mm; voor een exacte maat geef je de afstand in.
 - Camera-opmeting: **niet getest op een echt toestel**; alleen de verwerking van de punten is getest (unit- en browsertests met testpunten). Hoogte wordt niet gemeten (zelf ingeven). Enkel haakse ruimtes; schuine muren worden geweigerd. Werkt niet op iPhone (Safari ondersteunt WebXR AR niet).
-- Prijzen staan alleen op het toestel waarop je ze ingaf (geen account/synchronisatie).
+- Prijzen staan alleen op het toestel waarop je ze ingaf en gaan niet mee in een deellink. Gsm en desktop lopen nog niet vanzelf gelijk: de deellink is een kopie van dat moment (echte synchronisatie: stap 8 van de roadmap).
 - Ruimtes zijn rechthoekig en worden haaks tegen een bestaande muur gezet. Schuine muren, L-vormige ruimtes en een ruimte die tegen twee bestaande ruimtes tegelijk komt (bv. een hoek opvullen) kunnen nog niet.
 - Bij een aanbouw tegen een gevel kunnen gevelmaten en maten van de aanbouw elkaar kruisen; maatlijnen worden nog niet automatisch in rijen geschikt.
 - Nog geen IFC-export.
@@ -98,7 +99,7 @@ De MVP staat online: opmeten (rolmeter, laser, camera op Android), plannen op sc
 | 5. Installaties | Elektriciteit, sanitair en gas op het plan, met schema's, materiaallijsten en aandachtspunten (zie hieronder) | Installateur; keuring waar verplicht. De app vervangt die niet |
 | 6. Ontwerp | Nieuwe toestand naast de bestaande, aanzichten en doorsneden | Architect waar de wet dat vraagt |
 | 7. Voordimensionering stalen liggers | Samen met een ingenieur uitgewerkt: rekennota met alle aannames, ter controle en aftekening. Fundering blijft buiten bereik: enkel voorbereiding | Ingenieur tekent af |
-| 8. Accounts en cloudopslag | Projecten bewaren en delen tussen gsm en pc, met klant, architect en ingenieur | – |
+| 8. Accounts en cloudopslag | Projecten bewaren en automatisch gelijk houden tussen gsm en pc (Supabase, servers in de EU), en delen met klant, architect en ingenieur. Tot dan: de deellink | – |
 | 9. Inrichting en renders | Meubels en materialen, fotorealistische beelden | – |
 
 ### Installaties in detail

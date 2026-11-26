@@ -144,3 +144,4 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--lijn); border
 .zoom-knoppen .zoom-passend { font-size: 13px; }
 /* Ingezoomd: één vinger verschuift het beeld (zoals een kaart), de browser scrolt niet op het plan */
 .plan.ingezoomd { touch-action: none; }
+.melding.bericht { background: var(--kaart); color: var(--laser); border: 1px solid var(--laser); }

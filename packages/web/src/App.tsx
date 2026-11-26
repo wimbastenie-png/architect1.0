@@ -4,6 +4,11 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
+  codeNaarProject,
+  codeUitLink,
+  projectNaarCode,
+  DEEL_PREFIX,
+  LANGE_LINK,
   leesProject,
   meetstaat,
   meetstaatCSV,
@@ -104,7 +109,37 @@ export function App() {
   const [geschiedenis, zetGeschiedenis] = useState<Project[]>([]);
   const [vi, zetVi] = useState(0);
   const [selectie, zetSelectie] = useState<Selectie>(null);
-  const [melding, zetMelding] = useState<string | null>(begin.bericht);
+  const [melding, zetMelding] = useState<string | null>(null);
+  // informatieve melding (groen), bv. "project geopend via deellink" of "vloer rechtgezet"
+  const [bericht, zetBericht] = useState<string | null>(begin.bericht);
+  const projectRef = useRef(project);
+  projectRef.current = project;
+
+  // Deellink openen: '#p=…' in het adres (bij het laden, of als het adres verandert)
+  useEffect(() => {
+    const verwerk = async () => {
+      const code = codeUitLink(window.location.hash);
+      if (!code) return;
+      // meteen uit de adresbalk halen: niet opnieuw openen bij vernieuwen (of dubbel)
+      try { window.history.replaceState(null, "", window.location.pathname + window.location.search); } catch { /* oude browser */ }
+      const r = await codeNaarProject(code);
+      if (!r.ok) {
+        zetMelding(`Deze deellink kan niet geopend worden: ${r.fouten[0]?.melding ?? "onbekende fout"} Vraag een nieuwe link, of gebruik 'Projectbestand'.`);
+        return;
+      }
+      const huidig = projectRef.current;
+      if (huidig && !window.confirm(`Project '${r.project.naam}' openen?\n\nJe huidige project '${huidig.naam}' op dit toestel wordt vervangen. Met 'Ongedaan maken' krijg je het terug.`)) return;
+      const recht = zetVloerenRecht(r.project);
+      if (huidig) zetGeschiedenis((g) => [...g.slice(-49), huidig]);
+      zetProject(recht.project);
+      zetVi(0);
+      zetSelectie(null);
+      zetBericht([`Project '${r.project.naam}' geopend via deellink.`, recht.bericht].filter(Boolean).join(" "));
+    };
+    void verwerk();
+    window.addEventListener("hashchange", verwerk);
+    return () => window.removeEventListener("hashchange", verwerk);
+  }, []);
 
   useEffect(() => {
     try {
@@ -163,7 +198,7 @@ export function App() {
       if (!r.ok) return zetMelding(`Bestand niet geldig: ${r.fouten.slice(0, 3).map((x) => `${x.pad} ${x.melding}`).join("; ")}`);
       const recht = zetVloerenRecht(r.project);
       nieuwProject(recht.project);
-      zetMelding(recht.bericht);
+      zetBericht(recht.bericht);
     } catch {
       zetMelding("Dit is geen geldig projectbestand (JSON).");
     }
@@ -187,6 +222,7 @@ export function App() {
       </header>
 
       {melding && <div className="melding" role="alert">{melding}<button onClick={() => zetMelding(null)} aria-label="Sluiten">×</button></div>}
+      {bericht && <div className="melding bericht" role="status">{bericht}<button onClick={() => zetBericht(null)} aria-label="Sluiten">×</button></div>}
 
       {!project ? (
         <NieuwProject onMaak={nieuwProject} onVoorbeeld={() => nieuwProject(appartement)} />
@@ -367,6 +403,28 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     zetSelectie(m ? { soort: "muur", id: m } : { soort: "ruimte", id: el.getAttribute("data-ruimte")! });
   };
 
+  /** Deellink: het hele project in een link (achter '#', gaat niet naar een server). */
+  const deel = async () => {
+    try {
+      const code = await projectNaarCode(project);
+      const url = `${window.location.origin}${window.location.pathname}#${DEEL_PREFIX}${code}`;
+      if (url.length > LANGE_LINK) zetMelding(`Deze link is lang (${url.length} tekens). Sommige apps korten zo'n link in; lukt openen niet, gebruik dan 'Projectbestand'.`);
+      const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string; url?: string }) => Promise<void> };
+      if (nav.share) {
+        try {
+          await nav.share({ title: project.naam, text: `Opmeting '${project.naam}' (architect1.0). Wie deze link heeft, kan het project openen.`, url });
+          return;
+        } catch (e) {
+          if ((e as Error).name === "AbortError") return; // gebruiker annuleerde
+        }
+      }
+      await navigator.clipboard.writeText(url);
+      alertKort("Link gekopieerd. Stuur hem naar je ander toestel (bv. mail of WhatsApp) en open hem daar. Wie de link heeft, kan het project openen.");
+    } catch {
+      zetMelding("Delen lukt niet in deze browser. Gebruik 'Projectbestand'.");
+    }
+  };
+
   const exporteer = async (soort: "pdf" | "dxf" | "csv" | "lastenboek" | "json") => {
     try {
       if (soort === "pdf") download(`${naam}.pdf`, await projectNaarPDF(project, { prijzen, btwPct: btw }) as BlobPart, "application/pdf");
@@ -416,6 +474,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           <button onClick={() => exporteer("csv")}>Meetstaat (Excel)</button>
           <button onClick={() => exporteer("lastenboek")}>Lastenboek (Excel)</button>
           <button onClick={() => exporteer("json")}>Projectbestand</button>
+          <button onClick={deel}>Delen (link)</button>
         </div>
         {(fouten.length > 0 || vloerProblemen.length > 0) && (
           <div className="fouten">
