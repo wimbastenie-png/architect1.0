@@ -3,6 +3,8 @@
  * aanpassen; kringen, eendraadschema, aandachtspunten en materiaallijst.
  */
 import {
+  FUNCTIES, SYSTEMEN, systeemVan, ventilatieAandachtspunten, ventilatieDebieten, ventilatieMateriaal, VENTILATIE_DISCLAIMER,
+  type Functie, type Systeem,
   aandachtspunten, eendraadschemaSVG, GAS_WAARSCHUWING, INSTALLATIE_DISCLAIMER, kringenVoorstel, materiaallijst,
   SOORTEN, soortDef, verwijderInstallatiepunt, wijzigInstallatiepunt,
   type Net, type Project, type Verdieping,
@@ -14,6 +16,7 @@ export const NETTEN: Array<{ net: Net; naam: string }> = [
   { net: "elektriciteit", naam: "Elektriciteit" },
   { net: "sanitair", naam: "Sanitair" },
   { net: "gas", naam: "Gas" },
+  { net: "ventilatie", naam: "Ventilatie" },
 ];
 
 export function InstallatiePaneel(props: {
@@ -29,12 +32,14 @@ export function InstallatiePaneel(props: {
   zetVerplaatsen: (b: boolean) => void;
   wijzig: (f: (v: Verdieping) => Verdieping) => boolean;
   exporteerPdf: () => void;
+  wijzigProject: (p: Project) => void;
 }) {
   const { project, v, net, plaatsen, geselecteerd } = props;
   const punt = v.installaties.find((x) => x.id === geselecteerd);
   const kringen = useMemo(() => kringenVoorstel(project), [project]);
-  const ap = useMemo(() => aandachtspunten(project).filter((a) => a.net === net), [project, net]);
-  const mat = useMemo(() => materiaallijst(project).filter((m) => m.net === net), [project, net]);
+  const ap = useMemo(() => (net === "ventilatie" ? ventilatieAandachtspunten(project).map((a) => ({ ...a, net, puntId: undefined as string | undefined })) : aandachtspunten(project).filter((a) => a.net === net)), [project, net]);
+  const mat = useMemo(() => (net === "ventilatie" ? ventilatieMateriaal(project) : materiaallijst(project).filter((m) => m.net === net)), [project, net]);
+  const deb = useMemo(() => (net === "ventilatie" ? ventilatieDebieten(project).filter((d) => d.verdieping === v.naam) : []), [project, net, v.naam]);
   const schema = useMemo(() => (net === "elektriciteit" && kringen.length ? eendraadschemaSVG(project) : ""), [project, net, kringen.length]);
   const [toonSchema, zetToonSchema] = useState(false);
   const metGas = net === "gas" || project.verdiepingen.some((x) => x.installaties.some((y) => y.net === "gas"));
@@ -43,7 +48,32 @@ export function InstallatiePaneel(props: {
     <section className="kaart installaties">
       <div className="kaart-kop"><h2>Installaties</h2></div>
       {metGas && <p className="gas-waarschuwing" role="alert"><strong>Gas.</strong> {GAS_WAARSCHUWING.replace(/^GAS: /, "")}</p>}
-      <p className="uitleg">{INSTALLATIE_DISCLAIMER}</p>
+      <p className="uitleg">{net === "ventilatie" ? VENTILATIE_DISCLAIMER : INSTALLATIE_DISCLAIMER}</p>
+      {net === "ventilatie" && (
+        <>
+          <Veld label="Systeem">
+            <select value={systeemVan(project)} onChange={(e) => props.wijzigProject({ ...project, ventilatie: { systeem: e.target.value as Systeem } })}>
+              {SYSTEMEN.map((x) => <option key={x.systeem} value={x.systeem}>{x.naam}</option>)}
+            </select>
+          </Veld>
+          <h3>Debieten {v.naam}</h3>
+          <table className="tabel klein">
+            <thead><tr><th>Ruimte</th><th>Functie</th><th className="getal">Toevoer</th><th className="getal">Afvoer</th></tr></thead>
+            <tbody>{deb.map((d) => (
+              <tr key={d.ruimte.id}>
+                <td>{d.ruimte.naam} <span className="zacht">{String(d.oppervlakte).replace(".", ",")} m²</span></td>
+                <td>
+                  <select aria-label={`Functie ${d.ruimte.naam}`} value={d.functie} onChange={(e) => props.wijzig((x) => ({ ...x, ruimtes: x.ruimtes.map((r) => (r.id === d.ruimte.id ? { ...r, functie: e.target.value as Functie } : r)) }))}>
+                    {FUNCTIES.map((f) => <option key={f.functie} value={f.functie}>{f.naam}</option>)}
+                  </select>
+                </td>
+                <td className="getal">{d.toevoer ? `${d.toevoer} m³/h` : "–"}</td>
+                <td className="getal">{d.afvoer ? `${d.afvoer} m³/h` : "–"}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </>
+      )}
 
       {punt ? (
         <div className="punt-bewerken">

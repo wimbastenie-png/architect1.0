@@ -6,6 +6,7 @@ import { binnenmaten, m2Tekst, muurRechthoek, muurVorm, oppervlakte, puntLangsMu
 import { TOESTAND_KLEUR } from "./ontwerp.ts";
 import { materiaal, meubelDef, meubelHoeken } from "./inrichting.ts";
 import { installatiesSVG, type Net } from "./installaties.ts";
+import { ventilatieSVG } from "./ventilatie.ts";
 import type { MeetMethode, Project, Punt, Verdieping } from "./schema.ts";
 
 const KLEUR: Record<MeetMethode, string> = {
@@ -199,6 +200,7 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
   }
   if (opties.installaties) {
     const ti = (q: Punt) => ({ x: q.x - minX, y: maxY - q.y });
+    if (!opties.installaties.netten || opties.installaties.netten.includes("ventilatie")) el.push(...ventilatieSVG(opties.installaties.project, v, ti));
     el.push(...installatiesSVG(opties.installaties.project, v, ti, { netten: opties.installaties.netten, geselecteerd: opties.installaties.geselecteerd, interactief: ia }));
   }
   if (sel) {

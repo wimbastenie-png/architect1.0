@@ -723,7 +723,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           <InstallatiePaneel
             project={project} v={v} net={net} zetNet={zetNet} plaatsen={plaatsen} zetPlaatsen={(x) => { zetPlaatsen(x); zetInstSel(null); }}
             geselecteerd={instSel} zetGeselecteerd={(x) => { zetInstSel(x); zetVerplaatsen(false); zetPlaatsen(null); }}
-            verplaatsen={verplaatsen} zetVerplaatsen={zetVerplaatsen} wijzig={wijzig} exporteerPdf={() => exporteer("installaties")}
+            verplaatsen={verplaatsen} zetVerplaatsen={zetVerplaatsen} wijzig={wijzig} exporteerPdf={() => exporteer("installaties")} wijzigProject={wijzigProject}
           />
         ) : nieuweVerdieping ? (
           <NieuweVerdieping

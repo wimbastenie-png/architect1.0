@@ -121,6 +121,8 @@ export const Ruimte = z.object({
   bron: Bron,
   /** Vrije notities van de werf (vocht, stopcontacten, opmerkingen klant …). */
   notities: z.string().optional(),
+  /** Functie (ventilatie, warmteverlies); leeg = afgeleid uit de naam. */
+  functie: z.enum(["woonkamer", "keuken", "open-keuken", "slaapkamer", "studeerkamer", "badkamer", "wc", "washok", "berging", "gang", "andere"]).optional(),
   /** EPB: binnen het beschermd volume (standaard ja). */
   beschermd: z.boolean().optional(),
   /** Inrichting: materiaal van vloer en wanden (sleutels uit MATERIALEN in inrichting.ts). */
@@ -148,7 +150,7 @@ export type Sparing = z.infer<typeof Sparing>;
  */
 export const InstallatiePunt = z.object({
   id,
-  net: z.enum(["elektriciteit", "sanitair", "gas"]),
+  net: z.enum(["elektriciteit", "sanitair", "gas", "ventilatie"]),
   /** Soort toestel of punt (zie SOORTEN in installaties.ts). */
   soort: z.string().min(1),
   positie: Punt,
@@ -221,6 +223,8 @@ export const Project = z.object({
     reeksen: z.array(z.enum(["IPE", "HEA", "HEB"])).optional(),
     muurId: z.string().optional(),
   })).default([]),
+  /** Ventilatie: gekozen systeem (A natuurlijk, B mechanische toevoer, C mechanische afvoer, D balans). */
+  ventilatie: z.object({ systeem: z.enum(["A", "B", "C", "D"]) }).optional(),
   /** Oriëntatie: richting van het noorden op het plan, in graden met de klok mee vanaf "boven" (0 = noorden boven). */
   noord: z.number().default(0),
   /** Bewijsfoto's (EPB, werf): metadata; de beelden zelf staan op het toestel (IndexedDB). */
