@@ -27,3 +27,5 @@ export * from "./liggers.ts";
 export * from "./pdf-liggers.ts";
 export * from "./inrichting.ts";
 export * from "./lastenboek-extra.ts";
+export * from "./epb.ts";
+export * from "./pdf-epb.ts";

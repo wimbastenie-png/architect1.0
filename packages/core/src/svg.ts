@@ -43,6 +43,10 @@ export interface SvgOpties {
   markeringen?: Array<{ a: Punt; b?: Punt; label?: string; kleur?: string }>;
   /** Inrichting: meubels tekenen (en vloeren in hun materiaalkleur). */
   meubels?: { geselecteerd?: string };
+  /** Noordpijl tekenen: richting van het noorden in graden met de klok mee vanaf boven. */
+  noord?: number;
+  /** EPB: muren en ramen kleuren naar wat al ingevuld is (groen) of ontbreekt (oranje). */
+  epb?: { geselecteerd?: string };
 }
 
 export type Kader = { minX: number; maxX: number; minY: number; maxY: number };
@@ -208,6 +212,17 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     }
   }
 
+  if (opties.epb) {
+    for (const m of v.muren) {
+      const ingevuld = !!(m.epb?.uIngegeven || m.epb?.lagen.length);
+      const sel = m.id === opties.epb.geselecteerd;
+      el.push(`<polygon points="${muurVorm(m, v.muren).map(t).join(" ")}" fill="none" stroke="${sel ? "#2563eb" : ingevuld ? "#16a34a" : "#f59e0b"}" stroke-width="${sel ? 60 : 30}" pointer-events="none"/>`);
+    }
+  }
+  if (opties.noord !== undefined) {
+    const r = Math.min(w, h) * 0.06, cx = w - r * 1.6, cy = r * 1.6;
+    el.push(`<g transform="translate(${cx.toFixed(0)} ${cy.toFixed(0)}) rotate(${opties.noord.toFixed(1)})" pointer-events="none" data-noordpijl="${opties.noord}"><circle r="${r.toFixed(0)}" fill="#fff" stroke="#292524" stroke-width="${(r * 0.06).toFixed(0)}"/><path d="M 0 ${(-r * 0.85).toFixed(0)} L ${(r * 0.35).toFixed(0)} ${(r * 0.5).toFixed(0)} L 0 ${(r * 0.25).toFixed(0)} L ${(-r * 0.35).toFixed(0)} ${(r * 0.5).toFixed(0)} Z" fill="#292524"/><text y="${(-r * 1.1).toFixed(0)}" font-size="${(r * 0.6).toFixed(0)}" font-weight="700" text-anchor="middle">N</text></g>`);
+  }
   // data-min-x / data-max-y: om schermcoördinaten terug te rekenen naar plan-mm (slepen)
   return `<svg xmlns="http://www.w3.org/2000/svg" data-min-x="${minX}" data-max-x="${maxX}" data-min-y="${minY}" data-max-y="${maxY}" viewBox="0 0 ${w} ${h}" font-family="Helvetica, Arial, sans-serif" style="background:#fff">\n${el.join("\n")}\n</svg>\n`;
 }

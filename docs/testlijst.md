@@ -136,3 +136,14 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
 - [ ] **Lastenboek (Excel)** en **PDF-plan**: de nieuwe posten en de aannames (puin × 1,4; 1,8 t/m³; containers 10 m³; stutten ± 1 per meter) staan erin.
 - [ ] Onderaan de app en op elk PDF-blad: "De app bereidt voor; een bevoegde vakman controleert en tekent af."
 - [ ] **Aannemer:** kloppen de aannames (losheid, gewicht, containergrootte, stutten, latei-oplegging)? Welke posten mis je?
+
+## 11. EPC/EPB-inventaris (energiedeskundige)
+
+- [ ] **Energie**: draai de noordpijl tot ze klopt (kompas van de gsm). De richtingen in de lijst (N, O, Z, W …) kloppen met de werkelijkheid.
+- [ ] Tik een buitenmuur aan → lagen van binnen naar buiten (bv. pleister, baksteen, isolatie, luchtlaag, gevelsteen). Komt de U-waarde in de buurt van wat je verwacht? Of geef een gekende U-waarde in met bron.
+- [ ] Tik een raam aan → glas, schrijnwerk en zonwering. Uw verschijnt.
+- [ ] **Bewijsfoto** nemen met de gsm bij een muur en een raam. De foto blijft na het herladen van de app.
+- [ ] Tik een ruimte aan → binnen of buiten het beschermd volume; vloer en plafond/dak invullen (grens: grond, onverwarmd, buiten).
+- [ ] De lijst "Nog in te vullen" wordt korter naarmate je invult; muren worden groen.
+- [ ] **EPB-inventaris (PDF)** en **Invoerlijst (Excel)**: oppervlaktes per richting, U-waarden, volume, bron, aantal foto's. Er staat nergens een EPC-score.
+- [ ] **Energiedeskundige:** is de invoerlijst bruikbaar voor de officiële software? Welke meetregels moeten anders (buitenafmetingen)? Kloppen de richtwaarden voor λ, Ug en Uf?
