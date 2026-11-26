@@ -114,8 +114,16 @@ De MVP staat online. Alle stappen hieronder zijn **gebouwd en automatisch getest
 | 7. Voordimensionering stalen liggers | Rekennota met alle aannames, ter controle en aftekening. Fundering buiten bereik | Gebouwd; nakijken door een ingenieur | Ingenieur tekent af |
 | 8. Accounts en cloudopslag | Gsm en pc gelijk houden, delen met klant, architect en ingenieur (Supabase, EU) | Gebouwd; Supabase-project aanmaken (`docs/cloud-instellen.md`) | – |
 | 9. Inrichting en renders | Meubels, materialen, 3D, beeld (PNG) en model (GLB) voor fotorealistische renders | Gebouwd | – |
+| 10. Lastenboek uitbreiden | Afbraak (m², m³, puin, containers, stutten), ruwbouw (metselwerk, lateien, dichtmaken, chape) en installatieposten, met prijzen in Excel en PDF | Gepland | Aannemer |
+| 11. EPC/EPB-inventaris | Noordpijl, samenstelling en U-waarden van muren, vloeren en daken, ramen (Ug, Uf, zonwering), beschermd volume, bewijsfoto's; invoerlijst per richting als voorbereiding op de officiële software. Geen EPC-score | Gepland | Energiedeskundige (EPC-certificateur, EPB-verslaggever) |
+| 12. Ventilatie | Vierde net: systeem A/B/C/D, toevoer- en afvoerpunten, debieten volgens NBN D 50-001, doorstroomopeningen, unit en kanalen, materiaallijst en PDF | Gepland | Ventilatie-expert |
+| 13. Keuken en maatwerk | Precisiemeting per wand, wandaanzichten met aansluitingen, keukenplanner (modules, werkblad, passtukken), controle tegen installatiepunten, PDF, snij- en kastenlijst, DXF | Gepland | Keukenbouwer, meubelmaker |
+| 14. Liggers en stabiliteit uitbreiden | Puntlasten, lastendaling over verdiepingen, doorgaande liggers, lijfplooi en lijfstuik, oplegblok tegen metselwerksterkte, kolommen | Gepland | Ingenieur tekent af |
+| 15. Architect: vergunningsklare basis | Daken, trap met comfortregel, terrein en inplantingsplan, ruimtes herindelen en meetstaat nieuwe toestand, legende en titelblok als vergunningsplan, opmerkingen (pins) voor wie meekijkt | Gepland | Architect |
+| 16. Verwarming en energie | Warmteverlies per ruimte (vereenvoudigd volgens EN 12831), radiatoren of vloerverwarming, warmtepomp en buffervat, zonnepanelen met indicatieve opbrengst | Gepland | Installateur (verwarming), energiedeskundige |
+| 17. Werfopvolging en offerte | Offerte-PDF met eigen logo en btw 6/21 %, werffoto's, opvolgpunten per ruimte, vorderingsstaat, Bluetooth-laserafstandsmeter | Gepland | Aannemer |
 
-**Volgende stappen** na de testronde: verbeteren wat uit de testlijst komt; partners vastleggen; de app sneller laten laden; een eigen iOS-app voor RoomPlan; live samenwerken in de cloud.
+**Daarna**: stap 10–17 uit de tabel hierboven (één pull request per stap), verbeteren wat uit de testlijst komt, partners vastleggen, de app sneller laten laden, een eigen iOS-app voor RoomPlan en live samenwerken in de cloud.
 
 ### Installaties in detail
 
@@ -143,5 +151,13 @@ De MVP staat online. Alle stappen hieronder zijn **gebouwd en automatisch getest
 
 ### Niet vergeten
 
-- **Partners zoeken:** een ingenieur (stabiliteit), een architect (vergunningen) en een installateur of keurder (elektriciteit, sanitair, gas), om te controleren en af te tekenen.
+- **Partners zoeken**, één per vakgebied om mee te lezen, te controleren en af te tekenen:
+  - **Aannemer**: lastenboek, offerte, werfopvolging (stap 10, 17).
+  - **Architect**: ontwerp, vergunningsplannen (stap 6, 15).
+  - **Ingenieur**: liggers en stabiliteit (stap 7, 14).
+  - **EPC/EPB-verslaggever**: energie-inventaris, warmteverlies (stap 11, 16).
+  - **Ventilatie-expert**: ventilatie (stap 12).
+  - **Keukenbouwer**: keuken en maatwerk (stap 13).
+  - **Installateur/keurder**: elektriciteit, sanitair, gas, verwarming (stap 5, 16).
+- **Altijd:** de app geeft nooit een oordeel "conform". Ze bereidt voor; een bevoegde vakman controleert en tekent af. Dat staat in de app en in elke PDF.
 - **Juridische punten:** algemene voorwaarden, privacy (scans van woningen zijn persoonsgegevens onder de GDPR) en verzekering (beroepsaansprakelijkheid).

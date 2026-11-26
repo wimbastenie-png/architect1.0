@@ -112,3 +112,9 @@ Echt instellen (± 20 min, volg [cloud-instellen.md](cloud-instellen.md)):
 ### Wat je terugstuurt
 
 Per blok: wat werkt, en wat niet (met toestel, wat je deed, wat je zag, schermafdruk). Zeg ook wat je het eerst verbeterd wil zien.
+
+---
+
+## Stap 10–17 (per vakgebied)
+
+Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De volgorde van mergen staat telkens in de pull request.
