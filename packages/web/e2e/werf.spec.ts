@@ -81,3 +81,48 @@ test("laser: zonder Web Bluetooth een duidelijke uitleg", async ({ page }) => {
   await page.getByRole("button", { name: "Laser" }).click();
   await expect(page.getByRole("dialog", { name: "Laserafstandsmeter" })).toContainText("Chrome op Android");
 });
+
+test("laser (Bosch GLM, nagebootst): autosync aanzetten en meetbericht lezen", async ({ page }) => {
+  await page.addInitScript(() => {
+    let luisteraar: ((e: unknown) => void) | null = null;
+    const w = window as unknown as { __meet: (m: number) => void; __geschreven: number[][] };
+    w.__geschreven = [];
+    const kar = {
+      addEventListener: (_: string, f: (e: unknown) => void) => { luisteraar = f; },
+      startNotifications: async () => kar,
+      writeValue: async (b: Uint8Array) => { w.__geschreven.push([...b]); },
+    };
+    w.__meet = (m: number) => {
+      const dv = new DataView(new ArrayBuffer(16));
+      [0xc0, 0x55, 0x10, 0x06].forEach((b, i) => dv.setUint8(i, b));
+      dv.setFloat32(7, m, true);
+      luisteraar?.({ target: { value: dv } });
+      // bevestiging (geen meting): mag niets invullen
+      const b = new DataView(new ArrayBuffer(6)); [0xc0, 0x55, 0x02, 0x01, 0, 0].forEach((x, i) => b.setUint8(i, x));
+      luisteraar?.({ target: { value: b } });
+    };
+    Object.defineProperty(navigator, "bluetooth", { value: {
+      requestDevice: async () => ({ addEventListener: () => {}, gatt: { connect: async () => ({
+        getPrimaryService: async (s: string) => { if (!s.startsWith("02a6c0d0")) throw new Error("NotFoundError"); return { getCharacteristic: async () => kar }; },
+      }), disconnect: () => {} } }),
+    } });
+  });
+  await page.goto("/");
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.getByRole("button", { name: "Laser" }).click();
+  await page.getByRole("button", { name: "Verbinden" }).click();
+  await expect(page.getByRole("dialog", { name: "Laserafstandsmeter" })).toContainText("Verbonden met een Bosch GLM");
+  expect(await page.evaluate(() => (window as unknown as { __geschreven: number[][] }).__geschreven)).toEqual([[0xc0, 0x55, 0x02, 0x01, 0x00, 0x1a]]);
+  await page.getByLabel("Binnenbreedte (mm)").click();
+  await page.evaluate(() => (window as unknown as { __meet: (m: number) => void }).__meet(2.48));
+  await expect(page.getByLabel("Binnenbreedte (mm)")).toHaveValue("2480");
+});
+
+test("laser: uitleg voor Hilti en iPhone", async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, "bluetooth", { value: undefined }); });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Laser" }).click();
+  await expect(page.getByRole("dialog", { name: "Laserafstandsmeter" })).toContainText("Hilti");
+  await expect(page.getByRole("dialog", { name: "Laserafstandsmeter" })).toContainText("eigen gsm-app");
+});

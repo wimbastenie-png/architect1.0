@@ -1,18 +1,14 @@
 /**
  * Bluetooth-laserafstandsmeter via Web Bluetooth (Chrome op Android, en op
- * pc met Bluetooth). Eerst één merk: Leica DISTO met Bluetooth (BLE), met de
- * publiek beschreven service. Elke meting komt in het invulveld dat op dat
+ * pc met Bluetooth): Leica DISTO en Bosch GLM (Bluetooth LE). De protocollen
+ * staan in de kern (laser.ts). Elke meting komt in het invulveld dat op dat
  * moment actief is (in mm).
  *
  * Werkt NIET op iPhone/iPad (Safari ondersteunt geen Web Bluetooth) en niet in Firefox.
- * Niet getest met een echt toestel: de UUID's komen uit publieke beschrijvingen.
+ * Niet getest met een echt toestel: de gegevens komen uit publieke beschrijvingen.
  */
+import { LASERS, leesMeting, naarMm, NIET_IN_BROWSER, type LaserProtocol } from "@scanapp/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-export const DISTO = {
-  service: "3ab10100-f831-4395-b29d-570977d5bf94",
-  afstand: "3ab10101-f831-4395-b29d-570977d5bf94",
-};
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const bt = (): any => (navigator as any).bluetooth;
@@ -34,6 +30,7 @@ export type LaserStatus = "niet-mogelijk" | "los" | "verbinden" | "verbonden" | 
 export function useLaser() {
   const [status, zetStatus] = useState<LaserStatus>(laserMogelijk() ? "los" : "niet-mogelijk");
   const [laatste, zetLaatste] = useState<{ mm: number; ingevuld: boolean } | null>(null);
+  const [merk, zetMerk] = useState<LaserProtocol | null>(null);
   const [fout, zetFout] = useState<string | null>(null);
   const toestel = useRef<any>(null);
 
@@ -42,20 +39,30 @@ export function useLaser() {
     zetFout(null);
     zetStatus("verbinden");
     try {
-      const dev = await bt().requestDevice({ filters: [{ services: [DISTO.service] }, { namePrefix: "DISTO" }], optionalServices: [DISTO.service] });
+      const dev = await bt().requestDevice({
+        filters: [...LASERS.map((l) => ({ services: [l.service] })), ...LASERS.flatMap((l) => l.namen.map((n) => ({ namePrefix: n })))],
+        optionalServices: LASERS.map((l) => l.service),
+      });
       toestel.current = dev;
       dev.addEventListener?.("gattserverdisconnected", () => zetStatus("los"));
       const server = await dev.gatt.connect();
-      const dienst = await server.getPrimaryService(DISTO.service);
-      const kar = await dienst.getCharacteristic(DISTO.afstand);
+      // welk merk? de eerste dienst die het toestel heeft
+      let gevonden: { p: LaserProtocol; dienst: any } | null = null;
+      for (const p of LASERS) {
+        try { gevonden = { p, dienst: await server.getPrimaryService(p.service) }; break; } catch { /* ander merk */ }
+      }
+      if (!gevonden) throw new Error("Dit toestel is geen ondersteunde laser (Leica DISTO of Bosch GLM).");
+      const { p } = gevonden;
+      const kar = await gevonden.dienst.getCharacteristic(p.meting);
       kar.addEventListener("characteristicvaluechanged", (e: any) => {
-        const dv: DataView = e.target.value;
-        const meter = dv.getFloat32(0, true);
-        if (!Number.isFinite(meter) || meter <= 0) return;
-        const mm = Math.round(meter * 1000);
+        const meter = leesMeting(p.merk, e.target.value as DataView);
+        if (meter === null) return;
+        const mm = naarMm(meter);
         zetLaatste({ mm, ingevuld: vulActiefVeld(mm) });
       });
       await kar.startNotifications();
+      if (p.start) await kar.writeValue(new Uint8Array(p.start));
+      zetMerk(p);
       zetStatus("verbonden");
     } catch (e) {
       const m = (e as Error).message ?? String(e);
@@ -66,7 +73,7 @@ export function useLaser() {
 
   const verbreek = useCallback(() => { try { toestel.current?.gatt?.disconnect(); } catch { /* al los */ } zetStatus("los"); }, []);
   useEffect(() => () => { try { toestel.current?.gatt?.disconnect(); } catch { /* */ } }, []);
-  return { status, laatste, fout, verbind, verbreek };
+  return { status, laatste, fout, merk, verbind, verbreek };
 }
 
 export function LaserKnop({ laser }: { laser: ReturnType<typeof useLaser> }) {
@@ -79,16 +86,23 @@ export function LaserKnop({ laser }: { laser: ReturnType<typeof useLaser> }) {
       {open && (
         <div className="laser-paneel" role="dialog" aria-label="Laserafstandsmeter">
           {laser.status === "niet-mogelijk" ? (
-            <p>Deze browser kan geen Bluetooth-toestellen koppelen. Gebruik <strong>Chrome op Android</strong> (of Chrome op een pc met Bluetooth). Op iPhone en iPad kan het niet: Safari ondersteunt Web Bluetooth niet.</p>
+            <><p>Deze browser kan geen Bluetooth-toestellen koppelen. Gebruik <strong>Chrome op Android</strong> (of Chrome op een pc met Bluetooth). Op iPhone en iPad kan het niet: Safari ondersteunt Web Bluetooth niet.</p>
+            <ul className="klein">{NIET_IN_BROWSER.map((x) => <li key={x.merk}><strong>{x.merk}</strong>: {x.uitleg}</li>)}</ul>
+            </>
           ) : (
             <>
-              <p>Leica DISTO met Bluetooth. Zet Bluetooth aan op de laser, tik op <strong>Verbinden</strong> en kies de laser. Tik daarna in een maatveld (bv. binnenmaat, lengte bij de vloer) en meet: de maat komt erin.</p>
+              <p>Zet Bluetooth aan op de laser, tik op <strong>Verbinden</strong> en kies de laser. Tik daarna in een maatveld (bv. binnenmaat, lengte bij de vloer) en meet: de maat komt erin.</p>
+              <ul className="klein">{LASERS.map((l) => <li key={l.merk}><strong>{l.naam}</strong>: {l.modellen}</li>)}</ul>
+              {laser.merk && laser.status === "verbonden" && <p>Verbonden met een <strong>{laser.merk.naam}</strong>.</p>}
               {laser.status === "verbonden"
                 ? <button onClick={laser.verbreek}>Verbreken</button>
                 : <button className="primair" onClick={() => void laser.verbind()} disabled={laser.status === "verbinden"}>{laser.status === "verbinden" ? "Verbinden…" : "Verbinden"}</button>}
               {laser.laatste && <p>Laatste meting: <strong>{laser.laatste.mm} mm</strong>{laser.laatste.ingevuld ? " — ingevuld" : " — tik eerst in een maatveld"}</p>}
               {laser.fout && <p className="melding" role="alert">{laser.fout}</p>}
-              <p className="uitleg klein">Andere merken (Bosch, Stabila …) gebruiken een eigen protocol en worden nog niet ondersteund. Niet getest met een echt toestel.</p>
+              <details className="klein"><summary>Andere merken en iPhone</summary>
+                <ul>{NIET_IN_BROWSER.map((x) => <li key={x.merk}><strong>{x.merk}</strong>: {x.uitleg}</li>)}</ul>
+              </details>
+              <p className="uitleg klein">Niet getest met een echt toestel: de gegevens komen uit publieke beschrijvingen. Controleer de eerste metingen met een rolmeter.</p>
             </>
           )}
         </div>
