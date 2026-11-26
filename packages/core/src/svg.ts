@@ -41,7 +41,7 @@ export interface SvgOpties {
   /** Installaties tekenen (symbolen en leidingen); het project is nodig voor bronnen op andere verdiepingen en kringnummers. */
   installaties?: { project: Project; netten?: Net[]; geselecteerd?: string };
   /** Lijnen of punten bovenop het plan (snijlijnen, eerste punt van een nieuwe muur …). */
-  markeringen?: Array<{ a: Punt; b?: Punt; label?: string; kleur?: string }>;
+  markeringen?: Array<{ a: Punt; b?: Punt; label?: string; kleur?: string; midden?: boolean }>;
   /** Inrichting: meubels tekenen (en vloeren in hun materiaalkleur). */
   meubels?: { geselecteerd?: string };
   /** Noordpijl tekenen: richting van het noorden in graden met de klok mee vanaf boven. */
@@ -193,7 +193,8 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     if (mk.b) {
       const [bx, by] = t(mk.b).split(",");
       el.push(`<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="${k}" stroke-width="30" stroke-dasharray="200 60 30 60" pointer-events="none"/>`);
-      if (mk.label) for (const [x, y] of [[ax, ay], [bx, by]]) el.push(`<text x="${x}" y="${y}" font-size="220" font-weight="700" fill="${k}" text-anchor="middle" dy="-80" paint-order="stroke" stroke="#fff" stroke-width="40" pointer-events="none">${esc(mk.label)}</text>`);
+      if (mk.label && mk.midden) el.push(`<text x="${((+ax! + +bx!) / 2).toFixed(0)}" y="${((+ay! + +by!) / 2).toFixed(0)}" font-size="200" font-weight="700" fill="${k}" text-anchor="middle" dominant-baseline="central" paint-order="stroke" stroke="#fff" stroke-width="40" pointer-events="none">${esc(mk.label)}</text>`);
+      else if (mk.label) for (const [x, y] of [[ax, ay], [bx, by]]) el.push(`<text x="${x}" y="${y}" font-size="220" font-weight="700" fill="${k}" text-anchor="middle" dy="-80" paint-order="stroke" stroke="#fff" stroke-width="40" pointer-events="none">${esc(mk.label)}</text>`);
     } else {
       el.push(`<circle cx="${ax}" cy="${ay}" r="90" fill="${k}" stroke="#fff" stroke-width="30" pointer-events="none"/>`);
     }

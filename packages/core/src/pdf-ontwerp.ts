@@ -9,7 +9,7 @@ import {
   aanzicht, doorsnede, muurToestand, ONTWERP_DISCLAIMER, ontwerpWaarschuwingen, openingToestand, TOESTAND_KLEUR, verdiepingInToestand, ZIJDEN, type Tekening,
 } from "./ontwerp.ts";
 import { lijstBladen } from "./pdf-lijst.ts";
-import { kiesBlad, pdfTekst, PAPIER, PT, RAND, tekenBlad, tekenPaginaKader, tekenTitelblok, TITELBLOK_H, type Fonts, type Papier, type PdfOpties, type Schaal } from "./pdf.ts";
+import { kiesBlad, pdfTekst, PAPIER, PT, RAND, tekenBlad, tekenPaginaKader, tekenTitelblok, TITELBLOK_H, type Fonts, type Papier, type PdfOpties } from "./pdf.ts";
 import type { Project, Punt } from "./schema.ts";
 
 const hex = (k: string): RGB => { const h = k.length === 4 ? `#${k[1]}${k[1]}${k[2]}${k[2]}${k[3]}${k[3]}` : k; return rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255); };
@@ -70,21 +70,21 @@ export async function ontwerpNaarPDF(p: Project, opties: PdfOpties = {}): Promis
 }
 
 /** Eén tekening (doorsnede, aanzicht) op schaal 1:50, 1:100 of 1:200, met titelblok. */
-function tekeningBlad(doc: PDFDocument, f: Fonts, p: Project, t: Tekening, o: PdfOpties & { datum: string }, papier: Papier, titel: string) {
+export function tekeningBlad(doc: PDFDocument, f: Fonts, p: Project, t: Tekening, o: PdfOpties & { datum: string }, papier: Papier, titel: string, schalen: number[] = [50, 100, 200], legende: Array<[RGB, string]> | undefined = LEGENDE) {
   const { b, h } = PAPIER[papier];
   const vakB = b - 2 * RAND, vakH = h - 2 * RAND - TITELBLOK_H;
   const w = t.maxX - t.minX, hh = t.maxY - t.minY;
-  const schaal = ([50, 100, 200] as Schaal[]).find((s) => w / s <= vakB && hh / s <= vakH) ?? 200;
+  const schaal = schalen.find((s) => w / s <= vakB && hh / s <= vakH) ?? schalen[schalen.length - 1]!;
   const past = w / schaal <= vakB && hh / schaal <= vakH;
   const page = doc.addPage([b * PT, h * PT]);
   const ox = RAND + (vakB - w / schaal) / 2, oy = RAND + TITELBLOK_H + (vakH - hh / schaal) / 2;
   const naar = (q: Punt) => ({ x: (ox + (q.x - t.minX) / schaal) * PT, y: (oy + (q.y - t.minY) / schaal) * PT });
   tekenElementen(page, f, t, naar, schaal);
   tekenPaginaKader(page, b, h);
-  return (blad: number, bladen: number) => tekenTitelblok(page, f, p, titel, { ...o, papier, schaal, past, blad, bladen, legende: LEGENDE }, b);
+  return (blad: number, bladen: number) => tekenTitelblok(page, f, p, titel, { ...o, papier, schaal, past, blad, bladen, legende }, b);
 }
 
-function tekenElementen(page: PDFPage, f: Fonts, t: Tekening, naar: (q: Punt) => { x: number; y: number }, schaal: number) {
+export function tekenElementen(page: PDFPage, f: Fonts, t: Tekening, naar: (q: Punt) => { x: number; y: number }, schaal: number) {
   const dik = (mm: number) => Math.max(0.25, (mm / schaal) * PT * 1.2);
   for (const e of t.elementen) {
     if (e.t === "rect") {

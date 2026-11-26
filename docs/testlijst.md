@@ -157,3 +157,23 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
 - [ ] **Installaties (PDF)**: ventilatieblad met kanalen, debietentabel, kanalen, materiaallijst en aandachtspunten.
 - [ ] **Lastenboek**: groep **Ventilatie** (unit, ventielen, kanalen per diameter, bochten, doorvoeren, geluiddempers).
 - [ ] **Ventilatie-expert:** kloppen de debieten (NBN D 50-001), de doorstroomopeningen, de kanaaldiameters (luchtsnelheid)? Wat moet erbij voor het ventilatieverslag?
+
+## 13. Keuken en maatwerk (keukenbouwer, meubelmaker)
+
+- [ ] **Keuken**: tik in het plan dicht bij een wand. De wand wordt rood (W1, W2 …) en het wandaanzicht verschijnt met ramen, deuren en installatiepunten.
+- [ ] **Precisiemeting** met de laser: de lengte op 3 hoogtes, de hoeken uit haaks, het verschil in de vloer en de muur uit het lood. Bij verschillen verschijnt een opmerking (plannen met de kleinste maat).
+- [ ] **Wand vullen**:
+  - onder- en bovenkasten in modules, met een hoge kast;
+  - een passtuk tot de gemeten breedte;
+  - het werkblad met naad en uitsparingen.
+- [ ] Een kast aantikken → schuiven, breedte, functie, verwijderen. **+ Kast** voegt een kast toe aan het einde.
+- [ ] **Aansluitingen** toevoegen (radiator, water, afvoer, gas, stopcontact). De opmerkingen verwijzen ernaar:
+  - een spoelbak zonder afvoer;
+  - een kookplaat zonder kring of gas;
+  - een kast voor een raam of radiator.
+- [ ] **Wandaanzichten (PDF)** op schaal (meet een maat na op de afdruk), **Kasten- en snijlijst (Excel)**, **Wandaanzicht (DXF)** (openen in je CAD-programma).
+- [ ] **Keukenbouwer:**
+  - Klopt de vereenvoudigde kastopbouw?
+  - Kloppen de standaardmaten (plint 100, kast 720, werkblad 38/620, bovenkast op 1450)?
+  - Is de werkbladlengte van max. 3 m juist?
+  - Wat heb je nodig voor je eigen software?

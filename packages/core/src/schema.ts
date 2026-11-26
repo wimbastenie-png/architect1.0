@@ -223,6 +223,38 @@ export const Project = z.object({
     reeksen: z.array(z.enum(["IPE", "HEA", "HEB"])).optional(),
     muurId: z.string().optional(),
   })).default([]),
+  /** Keuken en maatwerk: per wand (rand van een ruimte) de precisiemeting, kasten en aansluitingen. */
+  maatwerk: z.array(z.object({
+    id,
+    ruimteId: id,
+    /** Index van de rand in de ruimtecontour (rand k loopt van contour[k] naar contour[k+1]). */
+    rand: z.number().int().nonnegative(),
+    meting: z.object({
+      /** Lengte van de wand op 3 hoogtes (mm): bij de vloer, op ± 900 mm, tegen het plafond. */
+      onder: mm.positive().optional(),
+      midden: mm.positive().optional(),
+      boven: mm.positive().optional(),
+      /** Afwijking van haaks in de linker- en rechterhoek (graden, + = hoek groter dan 90°). */
+      hoekLinks: z.number().optional(),
+      hoekRechts: z.number().optional(),
+      /** Vloer: hoogteverschil over de lengte van de wand (mm, + = rechts hoger). */
+      vloerVerschil: mm.optional(),
+      /** Muur uit het lood over de hoogte (mm, + = bovenaan naar voren). */
+      lood: mm.optional(),
+      methode: MeetMethode.default("laser"),
+    }).default({ methode: "laser" }),
+    kasten: z.array(z.object({
+      id,
+      soort: z.enum(["onder", "boven", "hoog"]),
+      functie: z.enum(["kast", "lades", "spoelbak", "kookplaat", "vaatwas", "oven", "koelkast", "dampkap", "vulstuk"]).default("kast"),
+      x: mm.nonnegative(),
+      breedte: mmPositief,
+      hoogte: mmPositief.optional(),
+      diepte: mmPositief.optional(),
+    })).default([]),
+    /** Aansluitingen die (nog) niet als installatiepunt op het plan staan: radiator, water, afvoer, gas, stopcontact. */
+    aansluitingen: z.array(z.object({ soort: z.enum(["radiator", "koud", "warm", "afvoer", "gas", "stopcontact", "dampkap-afvoer"]), x: mm.nonnegative(), hoogte: mm.nonnegative(), breedte: mm.positive().optional(), hoogteObject: mm.positive().optional() })).default([]),
+  })).default([]),
   /** Ventilatie: gekozen systeem (A natuurlijk, B mechanische toevoer, C mechanische afvoer, D balans). */
   ventilatie: z.object({ systeem: z.enum(["A", "B", "C", "D"]) }).optional(),
   /** Oriëntatie: richting van het noorden op het plan, in graden met de klok mee vanaf "boven" (0 = noorden boven). */
