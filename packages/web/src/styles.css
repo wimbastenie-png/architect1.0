@@ -205,3 +205,11 @@ a.knop { text-decoration: none; color: inherit; }
 .drie3d-achtergrond { padding: 8px; }
 .drie3d { width: min(1100px, 100%); margin-top: 8px; }
 .drie3d-beeld { width: 100%; height: min(70vh, 620px); border-radius: 8px; overflow: hidden; background: #e8eef3; touch-action: none; }
+/* modi altijd zichtbaar bovenaan (ook bij scrollen op de gsm) */
+.modi { grid-column: 1 / -1; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 6px 0; margin: 0 0 6px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.modi button { flex: 0 0 auto; font-weight: 600; }
+.nieuwe-versie { background: var(--kaart); color: var(--accent); border: 2px solid var(--accent); }
+.voet { text-align: center; font-size: 12px; color: var(--zacht); padding: 16px; }
+/* modi: alle knoppen zichtbaar, ook op een smal scherm (over twee regels) */
+.modi { flex-wrap: wrap; overflow: visible; gap: 6px; }
+.modi button, .modi button:first-child, .modi button:last-child { border-radius: 8px; margin-left: 0; flex: 1 1 auto; }

@@ -66,6 +66,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 const Drie3D = lazy(() => import("./Drie3D.tsx"));
 import { appartement } from "../../core/examples/appartement.ts";
 import { InrichtingBalk, InrichtingPaneel } from "./Inrichting.tsx";
+import { NieuweVersie, VERSIE } from "./Versie.tsx";
 import { CloudPaneel, ConflictBalk, statusTekst, useCloud } from "./Cloud.tsx";
 import { LiggerPaneel } from "./Liggers.tsx";
 import { OntwerpBalk, OntwerpPaneel, type OntwerpGereedschap, type OntwerpWeergave } from "./Ontwerp.tsx";
@@ -174,6 +175,7 @@ export function App() {
   }, [project]);
 
   const nieuwProject = (p: Project) => {
+    window.scrollTo({ top: 0 });
     if (project) zetGeschiedenis((g) => [...g.slice(-49), project]);
     zetProject(p);
     zetVi(0);
@@ -273,6 +275,7 @@ export function App() {
 
       {melding && <div className="melding" role="alert">{melding}<button onClick={() => zetMelding(null)} aria-label="Sluiten">×</button></div>}
       {bericht && <div className="melding bericht" role="status">{bericht}<button onClick={() => zetBericht(null)} aria-label="Sluiten">×</button></div>}
+      <NieuweVersie />
       <ConflictBalk cloud={cloud} />
       {cloudOpen && <CloudPaneel cloud={cloud} project={project} sluit={() => zetCloudOpen(false)} meld={zetMelding} />}
 
@@ -290,6 +293,7 @@ export function App() {
           zetMelding={zetMelding}
         />
       )}
+      <footer className="voet">architect1.0 · versie {VERSIE}</footer>
     </div>
   );
 }
@@ -608,6 +612,11 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
   return (
     <main className="werkblad">
+        <div className="modi" role="tablist" aria-label="Weergave">
+          {MODI.map((m) => (
+            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); zetEerstePunt(null); zetOntwerpMuur(null); zetGereedschap("kies"); zetLiggerVoorstel(null); zetMeubelPlaatsen(null); zetMeubelSel(null); zetInrRuimte(null); zetMeubelVerplaatsen(false); }}>{m.naam}</button>
+          ))}
+        </div>
       {toon3D && (
         <Suspense fallback={<div className="dialoog-achtergrond"><section className="kaart dialoog"><p>3D laden…</p></section></div>}>
           <Drie3D project={project} verdiepingId={v.id} sluit={() => zetToon3D(false)} />
@@ -621,11 +630,6 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
             </button>
           ))}
           <button className="tab-nieuw" onClick={() => { zetNieuweVerdieping(true); zetSelectie(null); }}>+ Verdieping</button>
-        </div>
-        <div className="modi" role="tablist" aria-label="Weergave">
-          {MODI.map((m) => (
-            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); zetEerstePunt(null); zetOntwerpMuur(null); zetGereedschap("kies"); zetLiggerVoorstel(null); zetMeubelPlaatsen(null); zetMeubelSel(null); zetInrRuimte(null); zetMeubelVerplaatsen(false); }}>{m.naam}</button>
-          ))}
         </div>
         {modus === "inrichting" && <InrichtingBalk plaatsen={meubelPlaatsen} zetPlaatsen={(x) => { zetMeubelPlaatsen(x); zetMeubelVerplaatsen(false); }} />}
         {modus === "liggers" && <p className="hint-kort">Tik een raam, deur of muur aan in het plan: een nieuwe ligger neemt dan de breedte en muurdikte over.</p>}
