@@ -101,19 +101,21 @@ Zie [`docs/werftest.md`](docs/werftest.md): stappenplan en invulblad om de app o
 
 ## Roadmap
 
-De MVP staat online: opmeten (rolmeter, laser, camera op Android), plannen op schaal met maatkettingen, verdiepingen, bewerken met slepen en schuine muren, PDF, DXF, meetstaat en lastenboek met prijzen. De volgende stappen komen in deze volgorde; overal geldt dat de app voorbereidt en een bevoegde vakman controleert en aftekent.
+De MVP staat online. Alle stappen hieronder zijn **gebouwd en automatisch getest**; wat nog op een echte werf, een echt toestel of door een vakman getest moet worden, staat in [docs/testlijst.md](docs/testlijst.md). Overal geldt: de app bereidt voor, een bevoegde vakman controleert en tekent af.
 
-| Stap | Inhoud | Wie controleert of tekent af |
-| --- | --- | --- |
-| 1. Werftest | Een echte woning opmeten met `docs/werftest.md` en de bevindingen verwerken | – |
-| 2. Camera-opmeting verfijnen | Testen op Android-toestellen; plafondhoogte meten, schuine muren, meerdere ruimtes na elkaar | – |
-| 3. RoomPlan-omzetting | Scan van iPhone/iPad Pro met LiDAR omzetten naar het projectformaat; vraagt een echt scanbestand | – |
-| 4. IFC-export (open BIM) | Muren, ramen, deuren, ruimtes en verdiepingen als IFC, zodat architecten en ingenieurs de opmeting in hun eigen software openen | Architect of ingenieur gebruikt ze als vertrekpunt |
-| 5. Installaties | Elektriciteit, sanitair en gas op het plan, met schema's, materiaallijsten en aandachtspunten (zie hieronder) | Installateur; keuring waar verplicht. De app vervangt die niet |
-| 6. Ontwerp | Nieuwe toestand naast de bestaande, aanzichten en doorsneden | Architect waar de wet dat vraagt |
-| 7. Voordimensionering stalen liggers | Samen met een ingenieur uitgewerkt: rekennota met alle aannames, ter controle en aftekening. Fundering blijft buiten bereik: enkel voorbereiding | Ingenieur tekent af |
-| 8. Accounts en cloudopslag | Projecten bewaren en automatisch gelijk houden tussen gsm en pc (Supabase, servers in de EU), en delen met klant, architect en ingenieur | – |
-| 9. Inrichting en renders | Meubels en materialen, fotorealistische beelden | – |
+| Stap | Inhoud | Status | Wie controleert of tekent af |
+| --- | --- | --- | --- |
+| 1. Werftest | Een echte woning opmeten met `docs/werftest.md` en de bevindingen verwerken | Klaar om uit te voeren (jij) | – |
+| 2. Camera-opmeting verfijnen | Plafondhoogte meten, schuine muren behouden, meerdere ruimtes na elkaar | Gebouwd; testen op Android | – |
+| 3. RoomPlan-omzetting | Scan van iPhone/iPad Pro met LiDAR → projectformaat | Gebouwd; wacht op een echt scanbestand | – |
+| 4. IFC-export (open BIM) | Verdiepingen, muren, ramen, deuren, ruimtes als IFC4 | Gebouwd; openen in BIM-software | Architect of ingenieur gebruikt ze als vertrekpunt |
+| 5. Installaties | Elektriciteit, sanitair en gas op het plan, kringen, eendraadschema, leidingen, materiaallijst, aandachtspunten | Gebouwd; nalezen door een vakman | Installateur; keuring waar verplicht. De app vervangt die niet |
+| 6. Ontwerp | Verbouwing (afbreken geel, nieuw rood), nieuwe toestand, doorsneden en gevels | Gebouwd | Architect waar de wet dat vraagt |
+| 7. Voordimensionering stalen liggers | Rekennota met alle aannames, ter controle en aftekening. Fundering buiten bereik | Gebouwd; nakijken door een ingenieur | Ingenieur tekent af |
+| 8. Accounts en cloudopslag | Gsm en pc gelijk houden, delen met klant, architect en ingenieur (Supabase, EU) | Gebouwd; Supabase-project aanmaken (`docs/cloud-instellen.md`) | – |
+| 9. Inrichting en renders | Meubels, materialen, 3D, beeld (PNG) en model (GLB) voor fotorealistische renders | Gebouwd | – |
+
+**Volgende stappen** na de testronde: verbeteren wat uit de testlijst komt; partners vastleggen; de app sneller laten laden; een eigen iOS-app voor RoomPlan; live samenwerken in de cloud.
 
 ### Installaties in detail
 
