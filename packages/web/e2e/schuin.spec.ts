@@ -76,4 +76,26 @@ test.describe("schuine muren", () => {
     await expect(page.locator(".fouten")).toHaveCount(0);
     expect(fouten).toEqual([]);
   });
+
+  test("gemeld: na een schuine muur de ondermuur slepen — de vloer glijdt mee (14,68 m²)", async ({ page }) => {
+    const fouten = await start(page);
+    await rechthoek(page);
+    await page.locator('polygon[data-muur="m-rechts"]').first().click({ force: true });
+    await page.getByLabel("Welke hoek").selectOption("eind");
+    await page.getByLabel("Naar rechts (mm)").fill("1000");
+    await page.getByRole("button", { name: "Hoek verplaatsen" }).click();
+    await expect(await vloer(page, "Living")).toHaveText("13,49");
+    // ondermuur 300 mm omlaag slepen (eerst het plan in beeld: het formulier staat lager op de pagina)
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const s = await schaal(page);
+    const c = await midden(page, 'polygon[data-muur="m-onder"]');
+    await muisSleep(page, c, { x: c.x, y: c.y + 300 * s });
+    await expect(page.locator(".sleep-info")).toHaveText("Muur 300 mm naar onder");
+    await page.mouse.up();
+    // de binnenhoek glijdt langs de schuine muur: 3300 × (3932,73 + 4963,98) / 2
+    await expect(await vloer(page, "Living")).toHaveText("14,68");
+    await expect(page.locator(".fouten")).toHaveCount(0);
+    expect(fouten).toEqual([]);
+  });
 });
+
