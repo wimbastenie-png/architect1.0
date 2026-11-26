@@ -224,3 +224,12 @@ a.knop { text-decoration: none; color: inherit; }
 .u-waarde { font-size: 15px; }
 .schema.aanzicht svg { min-width: 560px; }
 .schema.aanzicht [data-kast] { cursor: pointer; }
+.opmerkingen { padding-left: 20px; font-size: 14px; }
+.opmerkingen li { margin-bottom: 6px; }
+.opmerkingen li.actief { background: #fef3c7; border-radius: 6px; }
+details > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+/* breed scherm: paneel scrolt apart, het plan blijft in beeld */
+@media (min-width: 901px) {
+  .werkblad > .paneel { position: sticky; top: 64px; max-height: calc(100vh - 80px); overflow-y: auto; }
+  .werkblad > .plan-kolom { position: sticky; top: 64px; align-self: start; }
+}

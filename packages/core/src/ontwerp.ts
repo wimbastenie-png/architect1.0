@@ -12,6 +12,7 @@
  * architect vraagt (vergunningsplichtige werken, stabiliteit) waarschuwt ze.
  */
 import { muurLengte, muurVorm, planMidden, puntLangsMuur, richting, zwaartepunt } from "./geometrie.ts";
+import { dakInAanzicht, dakInDoorsnede, trapInDoorsnede } from "./architect.ts";
 import type { Muur, MuurToestand, Opening, OpeningToestand, Project, Punt, Verdieping } from "./schema.ts";
 
 export const TOESTAND_KLEUR = { bestaand: "#292524", afbreken: "#facc15", nieuw: "#dc2626" } as const;
@@ -35,7 +36,8 @@ export function verdiepingInToestand(v: Verdieping, welke: "bestaand" | "nieuw")
   const muren = v.muren.filter((m) => (welke === "bestaand" ? muurToestand(m) !== "nieuw" : muurToestand(m) !== "afbreken"));
   const ids = new Set(muren.map((m) => m.id));
   const openingen = v.openingen.filter((o) => ids.has(o.muurId) && (welke === "bestaand" ? openingToestand(o) !== "nieuw" : openingToestand(o) !== "dicht"));
-  return { ...v, muren, openingen, ruimtes: v.ruimtes.map((r) => ({ ...r, muurIds: r.muurIds.filter((id) => ids.has(id)) })) };
+  const bron = welke === "nieuw" && v.ruimtesNieuw ? v.ruimtesNieuw : v.ruimtes;
+  return { ...v, muren, openingen, ruimtes: bron.map((r) => ({ ...r, muurIds: r.muurIds.filter((id) => ids.has(id)) })) };
 }
 
 export function heeftOntwerp(p: Project): boolean {
@@ -131,7 +133,8 @@ export function ontwerpWaarschuwingen(p: Project): OntwerpWaarschuwing[] {
 export type TekenEl =
   | { t: "rect"; x: number; y: number; b: number; h: number; vul?: string; lijn?: string; dikte?: number; streep?: boolean; data?: string }
   | { t: "lijn"; a: Punt; b: Punt; lijn: string; dikte: number; streep?: boolean }
-  | { t: "tekst"; p: Punt; s: string; grootte: number; kleur?: string; anker?: "start" | "middle" | "end"; vet?: boolean };
+  | { t: "tekst"; p: Punt; s: string; grootte: number; kleur?: string; anker?: "start" | "middle" | "end"; vet?: boolean }
+  | { t: "veelhoek"; punten: Punt[]; vul?: string; lijn?: string; dikte?: number };
 
 export interface Tekening { titel: string; elementen: TekenEl[]; minX: number; maxX: number; minY: number; maxY: number }
 
@@ -141,6 +144,7 @@ function kader(titel: string, el: TekenEl[], marge = 600): Tekening {
   for (const e of el) {
     if (e.t === "rect") { neem(e.x, e.y); neem(e.x + e.b, e.y + e.h); }
     else if (e.t === "lijn") { neem(e.a.x, e.a.y); neem(e.b.x, e.b.y); }
+    else if (e.t === "veelhoek") { for (const q of e.punten) neem(q.x, q.y); }
     else { neem(e.p.x, e.p.y); neem(e.p.x, e.p.y + e.grootte); }
   }
   if (!Number.isFinite(minX)) { minX = 0; maxX = 1000; minY = 0; maxY = 1000; }
@@ -151,6 +155,7 @@ export function tekeningNaarSVG(t: Tekening): string {
   const X = (x: number) => (x - t.minX).toFixed(0), Y = (y: number) => (t.maxY - y).toFixed(0);
   const out = t.elementen.map((e) => {
     if (e.t === "rect") return `<rect x="${X(e.x)}" y="${Y(e.y + e.h)}" width="${e.b.toFixed(0)}" height="${e.h.toFixed(0)}" fill="${e.vul ?? "none"}" stroke="${e.lijn ?? "none"}" stroke-width="${e.dikte ?? 10}"${e.streep ? ' stroke-dasharray="60 40"' : ""}${e.data ? ` data-kast="${esc(e.data)}" style="cursor:pointer"` : ""}/>`;
+    if (e.t === "veelhoek") return `<polygon pointer-events="none" points="${e.punten.map((q) => `${X(q.x)},${Y(q.y)}`).join(" ")}" fill="${e.vul ?? "none"}" stroke="${e.lijn ?? "none"}" stroke-width="${e.dikte ?? 10}"/>`;
     if (e.t === "lijn") return `<line pointer-events="none" x1="${X(e.a.x)}" y1="${Y(e.a.y)}" x2="${X(e.b.x)}" y2="${Y(e.b.y)}" stroke="${e.lijn}" stroke-width="${e.dikte}"${e.streep ? ' stroke-dasharray="60 40"' : ""}/>`;
     return `<text pointer-events="none" x="${X(e.p.x)}" y="${Y(e.p.y)}" font-size="${e.grootte}" text-anchor="${e.anker ?? "start"}" fill="${e.kleur ?? "#1c1917"}"${e.vet ? ' font-weight="700"' : ""}>${esc(e.s)}</text>`;
   });
@@ -263,8 +268,21 @@ export function doorsnede(p: Project, a: Punt, b: Punt, o: { naam?: string; toes
     el.push({ t: "lijn", a: { x: -700, y: v.peil }, b: { x: -200, y: v.peil }, lijn: GRIJS, dikte: 8 });
     el.push({ t: "tekst", p: { x: -720, y: v.peil + 40 }, s: `${peilTekst(v.peil)} ${v.naam}`, grootte: 130, anker: "end", kleur: GRIJS });
   });
+  // trappen en dak
+  verd.forEach((v0, i2) => {
+    const H = (verd[i2 + 1]?.peil ?? v0.peil + 2800) - v0.peil;
+    for (const t of v0.trappen ?? []) el.push(...trapInDoorsnede(t, v0, H, a, b));
+  });
+  const dak = dakInDoorsnede(p, a, b);
+  el.push(...dak);
+  for (const e of dak) if (e.t === "veelhoek") hoogste = Math.max(hoogste, ...e.punten.map((q) => q.y));
   if (Number.isFinite(laagste)) {
+    const mv = p.terrein?.maaiveld;
     el.unshift({ t: "lijn", a: { x: -300, y: laagste }, b: { x: L + 300, y: laagste }, lijn: ZWART, dikte: 24 });
+    if (mv !== undefined) {
+      el.push({ t: "lijn", a: { x: -800, y: mv }, b: { x: L + 800, y: mv }, lijn: "#3f6212", dikte: 20, streep: true });
+      el.push({ t: "tekst", p: { x: L + 820, y: mv + 40 }, s: `maaiveld ${peilTekst(mv)}`, grootte: 120, kleur: "#3f6212" });
+    }
     el.push({ t: "tekst", p: { x: L / 2, y: hoogste + 300 }, s: o.naam ?? "Doorsnede", grootte: 220, anker: "middle", vet: true });
   }
   return kader(o.naam ?? "Doorsnede", el);
@@ -335,6 +353,16 @@ export function aanzicht(p: Project, zijde: Zijde, o: { toestand?: "bestaand" | 
     }
   }
   vlakken.sort((x, y) => y.diepte - x.diepte).forEach((v) => v.teken());
+  const dak = dakInAanzicht(p, u, k);
+  el.push(...dak);
+  for (const e of dak) if (e.t === "veelhoek") hoogste = Math.max(hoogste, ...e.punten.map((q) => q.y));
+  const mat = p.gevelmaterialen?.[zijde];
+  if (mat && Number.isFinite(laagste)) el.push({ t: "tekst", p: { x: (links + rechts) / 2, y: laagste + 250 }, s: `Gevel: ${mat}`, grootte: 140, anker: "middle", kleur: "#1c1917" });
+  if (p.dak?.materiaal && dak.length) el.push({ t: "tekst", p: { x: rechts + 200, y: hoogste - 200 }, s: `Dak: ${p.dak.materiaal}`, grootte: 130, kleur: "#7f1d1d" });
+  if (p.terrein && Number.isFinite(laagste)) {
+    el.push({ t: "lijn", a: { x: links - 1200, y: p.terrein.maaiveld }, b: { x: rechts + 1200, y: p.terrein.maaiveld }, lijn: "#3f6212", dikte: 20, streep: true });
+    el.push({ t: "tekst", p: { x: rechts + 1220, y: p.terrein.maaiveld + 40 }, s: `maaiveld ${peilTekst(p.terrein.maaiveld)}`, grootte: 120, kleur: "#3f6212" });
+  }
   if (Number.isFinite(laagste)) {
     el.unshift({ t: "lijn", a: { x: links - 400, y: laagste }, b: { x: rechts + 400, y: laagste }, lijn: ZWART, dikte: 24 });
     for (const v of p.verdiepingen) {

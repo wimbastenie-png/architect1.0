@@ -50,6 +50,7 @@ export function voegVerdiepingToe(p: Project, i: NieuweVerdieping): { project: P
       sparingen: [], // een trapgat ligt per verdieping anders; niet overnemen
       installaties: [],
       meubels: [],
+      trappen: [],
     };
   } else {
     const basis = rechthoekigProject({

@@ -92,6 +92,10 @@ export function tekenElementen(page: PDFPage, f: Fonts, t: Tekening, naar: (q: P
       page.drawRectangle({ x: a.x, y: a.y, width: c.x - a.x, height: c.y - a.y, color: e.vul ? hex(e.vul) : undefined, borderColor: e.lijn ? hex(e.lijn) : undefined, borderWidth: e.lijn ? dik(e.dikte ?? 10) : 0, borderDashArray: e.streep ? [3, 2] : undefined });
     } else if (e.t === "lijn") {
       page.drawLine({ start: naar(e.a), end: naar(e.b), color: hex(e.lijn), thickness: dik(e.dikte), dashArray: e.streep ? [3, 2] : undefined });
+    } else if (e.t === "veelhoek") {
+      if (e.punten.length < 3) continue;
+      const d = e.punten.map((q, i) => { const r = naar(q); return `${i ? "L" : "M"}${r.x.toFixed(2)},${(-r.y).toFixed(2)}`; }).join(" ") + " Z";
+      page.drawSvgPath(d, { x: 0, y: 0, color: e.vul ? hex(e.vul) : undefined, borderColor: e.lijn ? hex(e.lijn) : undefined, borderWidth: e.lijn ? dik(e.dikte ?? 10) : 0 });
     } else {
       const size = Math.max(5, Math.min(12, ((e.grootte / schaal) * PT) / 0.72));
       const font = e.vet ? f.vet : f.gewoon;
