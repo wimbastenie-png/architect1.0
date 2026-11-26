@@ -38,3 +38,4 @@ export * from "./pdf-vergunning.ts";
 export * from "./verwarming.ts";
 export * from "./werf.ts";
 export * from "./pdf-offerte.ts";
+export * from "./laser.ts";

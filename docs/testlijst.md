@@ -273,3 +273,12 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
 - [ ] **Foto's in de cloud**: neem een werffoto op de gsm (mag offline). Zodra er netwerk is, gaat ze mee. Open het project op de pc: de foto verschijnt (ook na een tel wachten).
 - [ ] Sluit de app terwijl er wijzigingen wachten en open ze later met netwerk: de wijzigingen gaan alsnog mee.
 - [ ] Eerste keer openen zonder netwerk (nooit eerder geopend): de app kan niet starten; dat is normaal. Een modus die niet geladen raakt, toont een melding met **Opnieuw laden** i.p.v. een leeg scherm.
+
+## F1-3. Bluetooth-lasers
+
+- [ ] **Leica DISTO** (Chrome op Android): knop **Laser** → **Verbinden** → kies de DISTO. Je ziet "Verbonden met een Leica DISTO". Tik in een maatveld en meet: de maat komt erin (in mm).
+- [ ] **Bosch GLM 50 C / 100 C**: zelfde werkwijze. Je ziet "Verbonden met een Bosch GLM". Komt elke meting door? Ook na 5 metingen na elkaar?
+- [ ] Controleer 3 metingen per laser met een rolmeter: verschil?
+- [ ] Laser uitzetten en weer aanzetten: knop wordt weer **Laser**; opnieuw verbinden lukt.
+- [ ] **Hilti** of een ander merk: de app legt uit waarom het (nog) niet kan (knop Laser → "Andere merken en iPhone").
+- [ ] Noteer merk, model en wat er misloopt: zo kan ik het protocol bijsturen.
