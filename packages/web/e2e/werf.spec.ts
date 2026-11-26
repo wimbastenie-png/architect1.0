@@ -180,3 +180,50 @@ test("werf: dagboek met foto, meerwerk met akkoord in de vorderingsstaat, bon en
   await expect(page.locator(".werf")).toContainText("deze staat: € 170,00");
   expect(fouten).toEqual([]);
 });
+
+test("werf: facturen — controle, voorschot met QR-PDF, vorderingsfactuur, betaald", async ({ page }) => {
+  const fouten = await start(page);
+  await openVoorbeeld(page);
+  await page.getByRole("tab", { name: "Lastenboek" }).click();
+  await page.getByLabel("Prijs Vloerafwerking").fill("50");
+  await page.getByLabel("Prijs Vloerafwerking").blur();
+  await page.getByRole("tab", { name: "Werf", exact: true }).click();
+  await page.getByRole("tab", { name: "Facturen" }).click();
+  await expect(page.locator(".werf")).toContainText("Aanneming € 2.070,00");
+  await expect(page.getByLabel("Factuurnummer")).toHaveValue(new RegExp(`^${new Date().getFullYear()}-001$`));
+  // zonder firmagegevens: duidelijke lijst wat ontbreekt
+  await page.getByRole("button", { name: "Factuur opmaken" }).click();
+  await expect(page.locator(".werf [role=alert]")).toContainText("IBAN ontbreekt of is ongeldig.");
+  await expect(page.locator(".werf [role=alert]")).toContainText("Naam van de klant ontbreekt.");
+  // firmagegevens invullen
+  await page.getByRole("tab", { name: "Vordering en offerte" }).click();
+  await page.getByText("Firmagegevens en logo").click();
+  await page.getByLabel("Firmanaam").fill("Bouwbedrijf Voorbeeld");
+  await page.getByLabel("Adres", { exact: true }).fill("Werfstraat 1, 9000 Gent");
+  await page.getByLabel("Btw-nummer").fill("BE0123.456.789");
+  await page.getByLabel("IBAN").fill("BE68 5390 0754 7034");
+  // voorschot
+  await page.getByRole("tab", { name: "Facturen" }).click();
+  await page.getByLabel("Klant (naam)").fill("Familie Peeters");
+  await page.getByLabel("Klant (adres)").fill("Kerkstraat 5, 9000 Gent");
+  await page.getByRole("combobox", { name: /^Btw-regime/ }).selectOption("6");
+  await page.getByRole("button", { name: "Factuur opmaken" }).click();
+  await expect(page.locator(".werf table")).toContainText("Voorschotfactuur");
+  await expect(page.locator(".werf table")).toContainText("€ 658,26"); // 30 % van 2070 + 6 %
+  await expect(page.getByLabel("Factuurnummer")).toHaveValue(/-002$/);
+  const [pdf] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "PDF", exact: true }).click()]);
+  expect(readFileSync((await pdf.path())!).subarray(0, 4).toString()).toBe("%PDF");
+  // vorderingsstaat en factuur
+  await page.getByRole("tab", { name: "Vordering en offerte" }).click();
+  await page.getByRole("button", { name: "Eerste vorderingsstaat beginnen" }).click();
+  await page.getByLabel("Percentage Vloerafwerking").fill("50");
+  await page.getByRole("tab", { name: "Facturen" }).click();
+  await page.getByRole("combobox", { name: /^Soort/ }).selectOption("vordering");
+  await page.getByRole("combobox", { name: /^Vorderingsstaat/ }).selectOption("1");
+  await page.getByRole("button", { name: "Factuur opmaken" }).click();
+  await expect(page.locator(".werf tbody tr")).toHaveCount(2);
+  await page.getByLabel(/Factuur .*-001 betaald/).check();
+  await expect(page.locator(".werf")).toContainText("gefactureerd € 1.345,50"); // 621 + 1035 − 310,50 (voorschot pro rata: 621 × 1035 / 2070)
+  await expect(page.locator(".werf table")).toContainText("€ 767,97"); // 724,50 + 6 % (regime blijft zoals de vorige factuur)
+  expect(fouten).toEqual([]);
+});

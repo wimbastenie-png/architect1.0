@@ -3,9 +3,10 @@
  * vorderingsstaat en offerte.
  */
 import {
+  aanneming, BTW_NAAM, controleerFactuur, FACTUUR_SOORT, factuurTotalen, gefactureerd, stelFactuurOp, volgendNummer,
   BTW6_VOORWAARDEN, bewaarDag, dagboekTotalen, dagVan, meerwerkBedrag, meerwerkTotalen, nieuweVordering, nieuwMeerwerk, offerteRegels, STANDAARD_BETALING,
   vorderingsstaat, WEER, zetMeerwerkStatus, euro,
-  type DagboekDag, type Firma, type Meerwerk, type OfferteInvoer, type Prijzen, type Project, type Verdieping,
+  type BtwRegime, type DagboekDag, type Factuur, type Firma, type Meerwerk, type OfferteInvoer, type Prijzen, type Project, type Verdieping,
 } from "@scanapp/core";
 import { useMemo, useState } from "react";
 import { FotoVeld, verklein } from "./Fotos.tsx";
@@ -17,9 +18,9 @@ const leesFirma = (x: unknown): Firma => (x && typeof x === "object" && typeof (
 export function WerfPaneel(props: {
   project: Project; v: Verdieping; ruimteId: string | null; zetRuimteId: (id: string | null) => void;
   wijzigProject: (p: Project) => void; prijzen: Prijzen;
-  exporteer: (soort: "offerte" | "vordering" | "meerwerk" | "dagboek", data: { firma: Firma; offerte?: OfferteInvoer; nr?: number; btw?: 6 | 21; id?: string }) => void;
+  exporteer: (soort: "offerte" | "vordering" | "meerwerk" | "dagboek" | "factuur", data: { firma: Firma; offerte?: OfferteInvoer; nr?: number; btw?: 6 | 21; id?: string }) => void;
 }) {
-  const [tab, zetTab] = useState<"fotos" | "dagboek" | "meerwerk" | "geld">("fotos");
+  const [tab, zetTab] = useState<"fotos" | "dagboek" | "meerwerk" | "geld" | "facturen">("fotos");
   const { project, v, ruimteId } = props;
   const r = v.ruimtes.find((x) => x.id === ruimteId);
   const [punt, zetPunt] = useState("");
@@ -41,12 +42,14 @@ export function WerfPaneel(props: {
     <section className="kaart werf">
       <div className="kaart-kop"><h2>Werf{r ? `: ${r.naam}` : ""}</h2>{r && <button onClick={() => props.zetRuimteId(null)} aria-label="Alle ruimtes">×</button>}</div>
       <div className="soorten" role="tablist" aria-label="Werf">
-        {([["fotos", "Foto's en punten"], ["dagboek", "Dagboek"], ["meerwerk", "Meer- en minwerk"], ["geld", "Vordering en offerte"]] as const).map(([k, n]) => (
+        {([["fotos", "Foto's en punten"], ["dagboek", "Dagboek"], ["meerwerk", "Meer- en minwerk"], ["geld", "Vordering en offerte"], ["facturen", "Facturen"]] as const).map(([k, n]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "actief" : ""} onClick={() => zetTab(k)}>{n}</button>
         ))}
       </div>
       {tab === "dagboek" && <Dagboek project={project} wijzigProject={props.wijzigProject} exporteer={() => props.exporteer("dagboek", { firma })} />}
       {tab === "meerwerk" && <Meerwerken project={project} wijzigProject={props.wijzigProject} exporteer={(id) => props.exporteer("meerwerk", { firma, id, btw: off.btwPct })} />}
+      {tab === "facturen" && <Facturen project={project} prijzen={props.prijzen} firma={firma} wijzigProject={props.wijzigProject} exporteer={(id) => props.exporteer("factuur", { firma, id })}
+        standaardKlant={{ naam: off.klant, adres: off.klantAdres }} />}
       {tab === "fotos" && (<>
       <p className="uitleg">Tik een ruimte aan in het plan om foto's en punten per ruimte te zien; zonder keuze zie je alles.</p>
 
@@ -103,8 +106,8 @@ export function WerfPaneel(props: {
       <details>
         <summary>Firmagegevens en logo (op dit toestel bewaard)</summary>
         <div className="velden">
-          {(["naam", "adres", "btw", "iban", "telefoon", "email"] as const).map((k) => (
-            <Veld key={k} label={{ naam: "Firmanaam", adres: "Adres", btw: "Btw-nummer", iban: "IBAN", telefoon: "Telefoon", email: "E-mail" }[k]}>
+          {(["naam", "adres", "btw", "iban", "bic", "telefoon", "email"] as const).map((k) => (
+            <Veld key={k} label={{ naam: "Firmanaam", adres: "Adres", btw: "Btw-nummer", iban: "IBAN", bic: "BIC", telefoon: "Telefoon", email: "E-mail" }[k]}>
               <input value={firma[k] ?? ""} onChange={(e) => zetFirma({ ...firma, [k]: e.target.value || (k === "naam" ? "" : undefined) })} />
             </Veld>
           ))}
@@ -224,6 +227,88 @@ function Meerwerken({ project, wijzigProject, exporteer }: { project: Project; w
         </table>
       )}
       <p>Akkoord: meer <strong>{euro(t.meer)}</strong> · min <strong>{euro(t.min)}</strong> · saldo <strong>{euro(t.saldo)}</strong> excl. btw{t.open ? ` · ${t.open} voorstel(len) wachten op de klant (${euro(t.voorgesteld)})` : ""}</p>
+    </>
+  );
+}
+
+const TELLER = "architect1.0:factuurteller";
+const leesTeller = (jaar: number) => { try { return (JSON.parse(localStorage.getItem(TELLER) ?? "{}") as Record<string, number>)[jaar] ?? 0; } catch { return 0; } };
+const zetTeller = (nummer: string) => {
+  const m = nummer.match(/^(\d{4})-(\d+)$/); if (!m) return;
+  try { const t = JSON.parse(localStorage.getItem(TELLER) ?? "{}") as Record<string, number>; t[m[1]!] = Math.max(t[m[1]!] ?? 0, +m[2]!); localStorage.setItem(TELLER, JSON.stringify(t)); } catch { /* privévenster */ }
+};
+
+function Facturen({ project, prijzen, firma, wijzigProject, exporteer, standaardKlant }: {
+  project: Project; prijzen: Prijzen; firma: Firma; wijzigProject: (p: Project) => void; exporteer: (id: string) => void; standaardKlant: { naam: string; adres?: string };
+}) {
+  const jaar = new Date().getFullYear();
+  const [soort, zetSoort] = useState<Factuur["soort"]>("voorschot");
+  const [btw, zetBtw] = useState<BtwRegime>(() => project.facturen[project.facturen.length - 1]?.btw ?? "21");
+  const [datum, zetDatum] = useState(vandaag);
+  const [nummer, zetNummer] = useState(() => volgendNummer(project, jaar, leesTeller(jaar)));
+  const [klant, zetKlant] = useState<Factuur["klant"]>(() => project.facturen[project.facturen.length - 1]?.klant ?? { naam: standaardKlant.naam, adres: standaardKlant.adres });
+  const [pct, zetPct] = useState("30");
+  const [termijn, zetTermijn] = useState("15");
+  const vorderingenZonder = project.vorderingen.filter((v) => !project.facturen.some((f) => f.soort === "vordering" && f.vorderingNr === v.nr));
+  const [vnr, zetVnr] = useState<number | undefined>(vorderingenZonder[0]?.nr);
+  const [credit, zetCredit] = useState({ bedrag: "", omschrijving: "" });
+  const [problemen, zetProblemen] = useState<string[]>([]);
+  const totaal = aanneming(project, prijzen), al = gefactureerd(project);
+  const open = project.facturen.filter((f) => !f.betaald && f.soort !== "credit").reduce((s, f) => s + factuurTotalen(f).incl, 0);
+
+  const maak = () => {
+    try {
+      const f = stelFactuurOp(project, prijzen, { soort, nummer: nummer.trim(), datum, btw, klant, betaaltermijn: Math.max(0, +termijn || 0), voorschotPct: +pct, vorderingNr: vnr, bedrag: +credit.bedrag, omschrijving: credit.omschrijving });
+      if (project.facturen.some((x) => x.nummer === f.nummer)) throw new Error(`Factuurnummer ${f.nummer} bestaat al.`);
+      const pr = controleerFactuur(f, firma);
+      zetProblemen(pr);
+      if (pr.length) return;
+      wijzigProject({ ...project, facturen: [...project.facturen, f] });
+      zetTeller(f.nummer);
+      zetNummer(volgendNummer({ ...project, facturen: [...project.facturen, f] }, jaar, leesTeller(jaar)));
+    } catch (e) { zetProblemen([(e as Error).message]); }
+  };
+  const laatste = [...project.facturen].sort((a, b) => b.nummer.localeCompare(a.nummer))[0];
+
+  return (
+    <>
+      <h3>Facturen</h3>
+      <p className="uitleg">Aanneming {euro(totaal)} · gefactureerd {euro(al.totaal)} · nog te factureren {euro(totaal - al.totaal)} (excl. btw) · openstaand {euro(open)} (incl. btw)</p>
+      <div className="velden">
+        <Veld label="Soort"><select value={soort} onChange={(e) => zetSoort(e.target.value as Factuur["soort"])}>{Object.entries(FACTUUR_SOORT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Veld>
+        <Veld label="Factuurnummer"><input value={nummer} onChange={(e) => zetNummer(e.target.value)} /></Veld>
+        <Veld label="Factuurdatum"><input type="date" value={datum} onChange={(e) => e.target.value && zetDatum(e.target.value)} /></Veld>
+        <Veld label="Betaaltermijn (dagen)"><input type="number" min={0} value={termijn} onChange={(e) => zetTermijn(e.target.value)} /></Veld>
+        <Veld label="Btw-regime"><select value={btw} onChange={(e) => zetBtw(e.target.value as BtwRegime)}>{(["21", "6", "verlegd"] as const).map((k) => <option key={k} value={k}>{BTW_NAAM[k]}</option>)}</select></Veld>
+        {soort === "voorschot" && <Veld label="Voorschot (%)"><input type="number" min={0} max={100} value={pct} onChange={(e) => zetPct(e.target.value)} /></Veld>}
+        {soort === "vordering" && <Veld label="Vorderingsstaat"><select value={vnr ?? ""} onChange={(e) => zetVnr(e.target.value ? +e.target.value : undefined)}><option value="">–</option>{vorderingenZonder.map((v) => <option key={v.nr} value={v.nr}>staat {v.nr} ({v.datum.split("-").reverse().join("/")})</option>)}</select></Veld>}
+        {soort === "credit" && <><Veld label="Bedrag creditnota (excl. btw)"><input type="number" min={0} value={credit.bedrag} onChange={(e) => zetCredit({ ...credit, bedrag: e.target.value })} /></Veld>
+          <Veld label="Reden creditnota"><input value={credit.omschrijving} onChange={(e) => zetCredit({ ...credit, omschrijving: e.target.value })} /></Veld></>}
+        <Veld label="Klant (naam)"><input value={klant.naam} onChange={(e) => zetKlant({ ...klant, naam: e.target.value })} /></Veld>
+        <Veld label="Klant (adres)"><input value={klant.adres ?? ""} onChange={(e) => zetKlant({ ...klant, adres: e.target.value || undefined })} /></Veld>
+        <Veld label="Klant (btw-nummer, firma)"><input value={klant.btw ?? ""} onChange={(e) => zetKlant({ ...klant, btw: e.target.value || undefined })} placeholder="leeg voor een particulier" /></Veld>
+      </div>
+      <button className="primair" onClick={maak}>Factuur opmaken</button>
+      {problemen.length > 0 && <ul className="aandachtspunten" role="alert">{problemen.map((x) => <li key={x} className="let-op">{x}</li>)}</ul>}
+      {btw === "6" && <p className="uitleg klein">Op de factuur komt de wettelijke vermelding voor 6 % (de klant bevestigt de voorwaarden door niet te betwisten binnen één maand). Laat dit nakijken door je boekhouder.</p>}
+      {btw === "verlegd" && <p className="uitleg klein">Verlegd: werk in onroerende staat voor een btw-plichtige klant die periodieke aangiften indient. Het btw-nummer van de klant is verplicht.</p>}
+      {project.facturen.length > 0 && (
+        <table className="tabel klein">
+          <thead><tr><th>Nr</th><th>Soort</th><th>Datum</th><th className="getal">Incl. btw</th><th>Betaald</th><th></th></tr></thead>
+          <tbody>{[...project.facturen].sort((a, b) => a.nummer.localeCompare(b.nummer)).map((f) => (
+            <tr key={f.id}>
+              <td>{f.nummer}</td><td>{FACTUUR_SOORT[f.soort]}</td><td>{f.datum.split("-").reverse().join("/")}</td>
+              <td className="getal">{euro(factuurTotalen(f).incl)}</td>
+              <td><input type="checkbox" aria-label={`Factuur ${f.nummer} betaald`} checked={f.betaald} onChange={(e) => wijzigProject({ ...project, facturen: project.facturen.map((x) => (x.id === f.id ? { ...x, betaald: e.target.checked, betaaldOp: e.target.checked ? vandaag() : undefined } : x)) })} /></td>
+              <td className="acties">
+                <button onClick={() => exporteer(f.id)}>PDF</button>
+                {f.id === laatste?.id && <button className="gevaar" onClick={() => { if (window.confirm(`Factuur ${f.nummer} verwijderen? Doe dit alleen als ze nog niet verstuurd is; anders maak je een creditnota.`)) wijzigProject({ ...project, facturen: project.facturen.filter((x) => x.id !== f.id) }); }}>Verwijderen</button>}
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+      <p className="uitleg klein">Nummering: doorlopend per jaar (2026-001, 2026-002 …), ook over je projecten heen op dit toestel. Factureer je vanaf meerdere toestellen, controleer dan het nummer. De app geeft geen fiscaal advies: laat btw-regime en vermeldingen nakijken door je boekhouder.</p>
     </>
   );
 }

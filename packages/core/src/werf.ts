@@ -12,6 +12,8 @@ export interface Firma {
   adres?: string;
   btw?: string;
   iban?: string;
+  /** BIC van de bank (mag leeg: in de SEPA-zone niet verplicht voor de betaal-QR) */
+  bic?: string;
   telefoon?: string;
   email?: string;
   /** Logo als data-URL (PNG of JPEG), op dit toestel bewaard. */

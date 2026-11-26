@@ -293,3 +293,16 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
 - [ ] **Vordering en offerte**: het akkoord meerwerk staat als post **MW1** in de vorderingsstaat; vul een percentage in en controleer het bedrag. Een minwerk telt negatief.
 - [ ] Na het afsluiten van een vorderingsstaat kan je een akkoord niet meer terugdraaien (maak dan een minwerk).
 - [ ] **Aannemer:** ontbreken er velden in het dagboek (bv. materieel, onderaannemers, veiligheid)? Moet de bon andere tekst hebben?
+
+## F1-5. Facturen
+
+- [ ] **Werf → Vordering en offerte → Firmagegevens**: vul naam, adres, btw-nummer, IBAN (en eventueel BIC) in.
+- [ ] **Werf → Facturen**: zonder gegevens toont **Factuur opmaken** wat er ontbreekt.
+- [ ] **Voorschotfactuur** 30 % (6 % btw): controleer bedrag, btw, de vermelding voor 6 % en de vervaldatum.
+- [ ] **Betaal-QR**: open de PDF op de pc en scan de QR met je bankapp (KBC, Belfius, BNP, ING, Argenta …). Staan bedrag, rekening en mededeling juist ingevuld? **Niet echt betalen.**
+- [ ] **Factuur bij een vorderingsstaat**: het voorschot wordt pro rata verrekend (regel "Verrekening voorschot").
+- [ ] **Eindfactuur**: samen met de vorige facturen precies het bedrag van de aanneming (offerte + meerwerken met akkoord); het rest-voorschot wordt verrekend.
+- [ ] **Btw verlegd**: vraagt het btw-nummer van de klant; op de factuur staat "Verlegging van heffing".
+- [ ] **Creditnota**: bedrag en reden; telt negatief.
+- [ ] **Nummering**: 2026-001, 2026-002 … ook als je in een ander project factureert (op hetzelfde toestel). Alleen de laatste factuur kan je verwijderen.
+- [ ] **Boekhouder:** kloppen de vermeldingen (6 %, verlegd), de nummering en de opbouw voorschot/vordering/eind? Ontbreekt er iets (bv. KBO-nummer, RPR, algemene voorwaarden)?
