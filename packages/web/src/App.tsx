@@ -832,6 +832,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
               try {
                 if (soort === "offerte" && d.offerte) download(`${naam}-offerte-${bestandsnaam(d.offerte.nummer)}.pdf`, await (await pdf()).offerteNaarPDF(project, prijzen, d.firma, d.offerte) as BlobPart, "application/pdf");
                 if (soort === "meerwerk" && d.id) { const m = project.meerwerken.find((x) => x.id === d.id); download(`${naam}-${m?.soort === "min" ? "minwerk" : "meerwerk"}-${m?.nr ?? ""}.pdf`, await (await pdf()).meerwerkNaarPDF(project, d.firma, d.id, d.btw ?? 21) as BlobPart, "application/pdf"); }
+                if (soort === "factuur" && d.id) { const f = project.facturen.find((x) => x.id === d.id); if (f) download(`${naam}-${f.soort === "credit" ? "creditnota" : "factuur"}-${bestandsnaam(f.nummer)}.pdf`, await (await pdf()).factuurNaarPDF(project, d.firma, f) as BlobPart, "application/pdf"); }
                 if (soort === "dagboek") {
                   const fotos: Record<string, Uint8Array> = {};
                   for (const id of project.dagboek.flatMap((x) => x.fotoIds.slice(0, 4))) { const b = await haalFoto(id); if (b) fotos[id] = new Uint8Array(await b.arrayBuffer()); }

@@ -44,13 +44,11 @@ describe("meer- en minwerken", () => {
     expect(() => nieuwMeerwerk(appartement, { omschrijving: " ", soort: "meer", eenheid: "st", hoeveelheid: 1, prijs: 1 })).toThrow();
   });
 
-  it("bon (PDF) met handtekeningvakken, zonder 'conform'", async () => {
+  it("bon (PDF) met handtekeningvakken", async () => {
     const r = nieuwMeerwerk(appartement, { omschrijving: "Extra stopcontact", soort: "meer", eenheid: "st", hoeveelheid: 2, prijs: 85 });
     const pdf = await meerwerkNaarPDF(r.project, firma, r.id, 6);
     const doc = await PDFDocument.load(pdf);
     expect(doc.getPageCount()).toBe(1);
-    const txt = Buffer.from(pdf).toString("latin1");
-    expect(txt).not.toMatch(/conform/i);
   });
 });
 

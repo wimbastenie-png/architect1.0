@@ -2,6 +2,8 @@
  * Offerte en vorderingsstaat als staand A4-document met logo en firmagegevens.
  */
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFPage } from "pdf-lib";
+import qrcode from "qrcode-generator";
+import { BTW_NAAM, BTW_PCT, epcQr, FACTUUR_SOORT, factuurTotalen, TEKST_6, TEKST_VERLEGD, type Factuur } from "./factuur.ts";
 import { VAKMAN_ZIN } from "./lastenboek.ts";
 import { regels as breek, pdfTekst, type Fonts } from "./pdf.ts";
 import { euro } from "./prijzen.ts";
@@ -231,5 +233,57 @@ export async function dagboekNaarPDF(p: Project, firma: Firma, o: { van?: string
   }
   d.y -= 2;
   alinea(d, "Opgesteld door de aannemer. Het dagboek is een feitelijk verslag van de werf en geen oordeel over de kwaliteit of de conformiteit van de werken.", 8, false, GRIJS);
+  return d.doc.save();
+}
+
+/** QR-code tekenen (vierkant van `maat` mm, linksonder op x, y). */
+function tekenQr(d: Doc, inhoud: string, x: number, y: number, maat: number) {
+  const q = qrcode(0, "M");
+  q.addData(inhoud, "Byte");
+  q.make();
+  const n = q.getModuleCount(), m = maat / n;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (q.isDark(r, c)) d.pagina.drawRectangle({ x: (x + c * m) * PT, y: (y + maat - (r + 1) * m) * PT, width: m * PT + 0.15, height: m * PT + 0.15, color: ZWART });
+  }
+}
+
+/** Factuur of creditnota (A4) met de wettelijke vermeldingen, de gestructureerde mededeling en een betaal-QR. */
+export async function factuurNaarPDF(p: Project, firma: Firma & { bic?: string }, f: Factuur): Promise<Uint8Array> {
+  const titel = `${FACTUUR_SOORT[f.soort]} ${f.nummer}`;
+  const d = await nieuw(firma, titel);
+  tekst(d, titel.toUpperCase(), 15, d.y, 16, true);
+  d.y -= 9;
+  // klant rechts, gegevens links
+  const kl = [f.klant.naam, ...(f.klant.adres ? breek(f.klant.adres, d.f.gewoon, 9, 70) : []), f.klant.btw && `Btw ${f.klant.btw}`].filter((x): x is string => !!x);
+  kl.forEach((r, i) => tekst(d, r, 120, d.y - i * 4.6, 9, i === 0));
+  const geg: Array<[string, string]> = [["Factuurdatum", datumBE(f.datum)], ["Vervaldatum", datumBE(f.vervaldatum)], ["Werf", p.naam]];
+  if (p.adres?.straat) geg.push(["Adres werf", [p.adres.straat, p.adres.postcode, p.adres.gemeente].filter(Boolean).join(" ")]);
+  if (f.vorderingNr) geg.push(["Vorderingsstaat", String(f.vorderingNr)]);
+  geg.forEach(([k, v], i) => { tekst(d, k, 15, d.y - i * 4.6, 9, true); tekst(d, v, 45, d.y - i * 4.6, 9); });
+  d.y -= Math.max(kl.length, geg.length) * 4.6 + 6;
+  tabelKop(d, [["Omschrijving", 15, false], ["Bedrag excl. btw", 195, true]]);
+  for (const r of f.regels) {
+    const lijnen = breek(r.omschrijving, d.f.gewoon, 9, 140);
+    lijnen.forEach((l, i) => { plaats(d, 5); tekst(d, l, 15, d.y, 9); if (i === 0) rechts(d, euro(r.bedrag), 195, d.y, 9); d.y -= 4.6; });
+  }
+  d.y -= 3;
+  const t = factuurTotalen(f);
+  plaats(d, 25);
+  for (const [lbl, b, vet] of [["Totaal excl. btw", t.excl, false], [`Btw ${BTW_NAAM[f.btw]}`, t.btw, false], [f.soort === "credit" ? "Terug te betalen" : "Te betalen", t.incl, true]] as const) {
+    tekst(d, lbl, 100, d.y, 9.5, vet); rechts(d, euro(b), 195, d.y, 9.5, vet); d.y -= 5.4;
+  }
+  d.y -= 4;
+  if (f.btw === "verlegd") alinea(d, TEKST_VERLEGD, 8.5, true);
+  if (f.btw === "6") alinea(d, TEKST_6, 7.5);
+  if (f.soort !== "credit" && t.incl > 0) {
+    plaats(d, 42);
+    alinea(d, `Gelieve ${euro(t.incl)} over te schrijven op ${firma.iban ?? "(IBAN ontbreekt)"}${firma.bic ? ` (BIC ${firma.bic})` : ""} vóór ${datumBE(f.vervaldatum)} met de mededeling ${f.mededeling}.`, 9);
+    try {
+      tekenQr(d, epcQr({ naam: firma.naam, iban: firma.iban ?? "", bic: firma.bic, bedrag: t.incl, mededeling: f.mededeling }), 15, d.y - 34, 32);
+      tekst(d, "Scan met je bankapp om te betalen.", 52, d.y - 8, 8, false, GRIJS);
+      d.y -= 38;
+    } catch (e) { alinea(d, `Geen betaal-QR: ${(e as Error).message}`, 8, false, GRIJS); }
+  }
+  alinea(d, `Btw ${BTW_PCT[f.btw]} % · ${firma.naam}${firma.btw ? ` · btw ${firma.btw}` : ""}.`, 7.5, false, GRIJS);
   return d.doc.save();
 }

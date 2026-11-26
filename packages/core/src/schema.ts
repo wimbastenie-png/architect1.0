@@ -341,6 +341,14 @@ export const Project = z.object({
     status: z.enum(["voorgesteld", "akkoord", "geweigerd"]).default("voorgesteld"),
     akkoordDoor: z.string().optional(), akkoordDatum: z.string().optional(), reden: z.string().optional(),
   })).default([]),
+  /** Facturen: voorschot, vordering, eind, creditnota. */
+  facturen: z.array(z.object({
+    id, nummer: z.string(), soort: z.enum(["voorschot", "vordering", "eind", "credit"]), datum: z.string(), vervaldatum: z.string(),
+    btw: z.enum(["21", "6", "verlegd"]),
+    klant: z.object({ naam: z.string(), adres: z.string().optional(), btw: z.string().optional(), email: z.string().optional() }),
+    regels: z.array(z.object({ omschrijving: z.string(), bedrag: z.number(), verrekening: z.boolean().optional() })),
+    mededeling: z.string(), vorderingNr: z.number().int().optional(), betaald: z.boolean().default(false), betaaldOp: z.string().optional(),
+  })).default([]),
   /** Ventilatie: gekozen systeem (A natuurlijk, B mechanische toevoer, C mechanische afvoer, D balans). */
   ventilatie: z.object({ systeem: z.enum(["A", "B", "C", "D"]) }).optional(),
   /** Oriëntatie: richting van het noorden op het plan, in graden met de klok mee vanaf "boven" (0 = noorden boven). */
