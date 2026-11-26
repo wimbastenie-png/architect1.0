@@ -214,3 +214,11 @@ a.knop { text-decoration: none; color: inherit; }
 .modi { flex-wrap: wrap; overflow: visible; gap: 6px; }
 .modi button, .modi button:first-child, .modi button:last-child { border-radius: 8px; margin-left: 0; flex: 1 1 auto; }
 .lastenboek tr.groep th { text-align: left; padding-top: 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--zacht); }
+/* EPB en foto's */
+.fotos { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.duim { position: relative; display: inline-block; }
+.duim img { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; border: 1px solid var(--lijn); display: block; }
+.duim button { position: absolute; top: -8px; right: -8px; min-height: 0; width: 24px; height: 24px; padding: 0; border-radius: 12px; }
+.duim-leeg { display: inline-flex; width: 72px; height: 72px; font-size: 11px; color: var(--zacht); border: 1px dashed var(--lijn); border-radius: 6px; align-items: center; text-align: center; }
+.samenstelling { border-left: 3px solid var(--lijn); padding-left: 10px; margin-bottom: 12px; }
+.u-waarde { font-size: 15px; }

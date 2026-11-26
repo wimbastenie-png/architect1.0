@@ -48,6 +48,22 @@ export type Dragend = z.infer<typeof Dragend>;
  * Ontwerp (verbouwing): bestaand blijft, afbreken (geel op plan), nieuw (rood).
  * Openingen: nieuw = nieuwe opening in een bestaande muur; dicht = bestaande opening dichtmaken.
  */
+/** EPB/EPC: samenstelling van een muur, vloer of dak (lagen van binnen naar buiten). */
+export const Laag = z.object({ materiaal: z.string(), dikte: mm.positive(), lambda: z.number().positive().optional(), r: z.number().positive().optional() });
+export type Laag = z.infer<typeof Laag>;
+export const Grens = z.enum(["buiten", "grond", "onverwarmd", "buren", "binnen"]);
+export type Grens = z.infer<typeof Grens>;
+export const Samenstelling = z.object({
+  grens: Grens.optional(),
+  lagen: z.array(Laag).default([]),
+  /** U-waarde (W/m²K) zelf ingegeven (bv. uit een EPB-verslag of een fiche); anders berekend uit de lagen. */
+  uIngegeven: z.number().positive().optional(),
+  /** Bron van de gegevens: vaststelling, factuur, technische fiche, aanname … */
+  bron: z.string().optional(),
+  fotos: z.array(z.string()).default([]),
+});
+export type Samenstelling = z.infer<typeof Samenstelling>;
+
 export const MuurToestand = z.enum(["bestaand", "afbreken", "nieuw"]);
 export type MuurToestand = z.infer<typeof MuurToestand>;
 export const OpeningToestand = z.enum(["bestaand", "nieuw", "dicht"]);
@@ -63,6 +79,7 @@ export const Muur = z.object({
   bron: Bron,
   /** Ontwerp: leeg = bestaand. */
   toestand: MuurToestand.optional(),
+  epb: Samenstelling.optional(),
 });
 export type Muur = z.infer<typeof Muur>;
 
@@ -79,6 +96,17 @@ export const Opening = z.object({
   bron: Bron,
   /** Ontwerp: leeg = bestaand. */
   toestand: OpeningToestand.optional(),
+  /** EPB/EPC: glas, schrijnwerk, zonwering. */
+  epb: z.object({
+    glas: z.string().optional(),
+    ug: z.number().positive().optional(),
+    schrijnwerk: z.string().optional(),
+    uf: z.number().positive().optional(),
+    uw: z.number().positive().optional(),
+    zonwering: z.enum(["geen", "binnen", "screen", "rolluik", "buitenjaloezie", "overstek"]).optional(),
+    bron: z.string().optional(),
+    fotos: z.array(z.string()).default([]),
+  }).optional(),
 });
 export type Opening = z.infer<typeof Opening>;
 
@@ -93,6 +121,8 @@ export const Ruimte = z.object({
   bron: Bron,
   /** Vrije notities van de werf (vocht, stopcontacten, opmerkingen klant …). */
   notities: z.string().optional(),
+  /** EPB: binnen het beschermd volume (standaard ja). */
+  beschermd: z.boolean().optional(),
   /** Inrichting: materiaal van vloer en wanden (sleutels uit MATERIALEN in inrichting.ts). */
   afwerking: z.object({ vloer: z.string().optional(), wand: z.string().optional() }).optional(),
 });
@@ -154,6 +184,8 @@ export const Verdieping = z.object({
   sparingen: z.array(Sparing).default([]),
   installaties: z.array(InstallatiePunt).default([]),
   meubels: z.array(Meubel).default([]),
+  /** EPB: vloer (onderkant) en plafond/dak (bovenkant) van deze verdieping. */
+  epb: z.object({ vloer: Samenstelling.optional(), plafond: Samenstelling.optional() }).optional(),
 });
 export type Verdieping = z.infer<typeof Verdieping>;
 
@@ -189,6 +221,10 @@ export const Project = z.object({
     reeksen: z.array(z.enum(["IPE", "HEA", "HEB"])).optional(),
     muurId: z.string().optional(),
   })).default([]),
+  /** Oriëntatie: richting van het noorden op het plan, in graden met de klok mee vanaf "boven" (0 = noorden boven). */
+  noord: z.number().default(0),
+  /** Bewijsfoto's (EPB, werf): metadata; de beelden zelf staan op het toestel (IndexedDB). */
+  fotos: z.array(z.object({ id, datum: z.string(), element: z.string().optional(), ruimteId: z.string().optional(), bijschrift: z.string().optional(), soort: z.enum(["epb", "werf"]).default("epb") })).default([]),
   /** Ontwerp: snijlijnen voor doorsneden (plan-mm, over alle verdiepingen). */
   doorsneden: z.array(z.object({ id, naam: z.string(), a: Punt, b: Punt })).default([]),
 });
