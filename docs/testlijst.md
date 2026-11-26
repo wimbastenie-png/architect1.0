@@ -282,3 +282,14 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
 - [ ] Laser uitzetten en weer aanzetten: knop wordt weer **Laser**; opnieuw verbinden lukt.
 - [ ] **Hilti** of een ander merk: de app legt uit waarom het (nog) niet kan (knop Laser → "Andere merken en iPhone").
 - [ ] Noteer merk, model en wat er misloopt: zo kan ik het protocol bijsturen.
+
+## F1-4. Werfdagboek en meer- en minwerken
+
+- [ ] **Werf → Dagboek**: kies een datum, vul weer, ploeg, uren, uitgevoerd werk, leveringen, bezoekers en problemen in. Neem een foto. Ga naar een andere dag en terug: alles staat er nog.
+- [ ] Vink **Verlet** aan bij een dag zonder werk (vorst, regen): de teller "verlet" telt mee.
+- [ ] **Werfdagboek (PDF)**: alle dagen met hun foto's (max. 4 per dag). Is dit bruikbaar voor jou, je klant of bij een geschil over termijnen?
+- [ ] **Werf → Meer- en minwerk**: voorstel maken (meerwerk +, minwerk −). **Akkoord** vraagt de naam van de klant. **Geweigerd** vraagt een reden.
+- [ ] **Bon (PDF)**: omschrijving, bedrag, btw en handtekeningvakken voor klant en aannemer. Laat de klant de bon tekenen; het akkoord in de app is geen handtekening.
+- [ ] **Vordering en offerte**: het akkoord meerwerk staat als post **MW1** in de vorderingsstaat; vul een percentage in en controleer het bedrag. Een minwerk telt negatief.
+- [ ] Na het afsluiten van een vorderingsstaat kan je een akkoord niet meer terugdraaien (maak dan een minwerk).
+- [ ] **Aannemer:** ontbreken er velden in het dagboek (bv. materieel, onderaannemers, veiligheid)? Moet de bon andere tekst hebben?

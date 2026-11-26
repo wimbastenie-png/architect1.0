@@ -324,6 +324,23 @@ export const Project = z.object({
   opvolging: z.array(z.object({ id, ruimteId: z.string().optional(), tekst: z.string(), status: z.enum(["open", "klaar"]).default("open"), datum: z.string(), wie: z.string().optional() })).default([]),
   /** Vorderingsstaten: per staat het cumulatieve percentage uitgevoerd per lastenboekpost. */
   vorderingen: z.array(z.object({ nr: z.number().int().positive(), datum: z.string(), procent: z.record(z.string(), z.number().min(0).max(100)), afgesloten: z.boolean().default(false) })).default([]),
+  /** Werfdagboek: één ingave per werfdag. */
+  dagboek: z.array(z.object({
+    id, datum: z.string(),
+    weer: z.enum(["zon", "bewolkt", "regen", "wind", "vorst", "sneeuw"]).optional(), temperatuur: z.number().optional(),
+    ploeg: z.string().optional(), uren: z.number().min(0).optional(),
+    werk: z.string().default(""), leveringen: z.string().optional(), bezoekers: z.string().optional(), problemen: z.string().optional(),
+    /** werf kon niet doorgaan (weerverlet, wachten op levering …) */
+    verlet: z.boolean().optional(),
+    fotoIds: z.array(z.string()).default([]),
+  })).default([]),
+  /** Meer- en minwerken: voorstel → akkoord of geweigerd door de klant; akkoord komt in de vorderingsstaat. */
+  meerwerken: z.array(z.object({
+    id, nr: z.number().int().positive(), datum: z.string(), omschrijving: z.string(), soort: z.enum(["meer", "min"]),
+    eenheid: z.string().default("st"), hoeveelheid: z.number().min(0), prijs: z.number().min(0),
+    status: z.enum(["voorgesteld", "akkoord", "geweigerd"]).default("voorgesteld"),
+    akkoordDoor: z.string().optional(), akkoordDatum: z.string().optional(), reden: z.string().optional(),
+  })).default([]),
   /** Ventilatie: gekozen systeem (A natuurlijk, B mechanische toevoer, C mechanische afvoer, D balans). */
   ventilatie: z.object({ systeem: z.enum(["A", "B", "C", "D"]) }).optional(),
   /** Oriëntatie: richting van het noorden op het plan, in graden met de klok mee vanaf "boven" (0 = noorden boven). */
