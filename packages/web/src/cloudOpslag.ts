@@ -8,7 +8,7 @@
  * de beveiliging zit in de databaseregels (Row Level Security). Een geheime
  * sleutel (service_role / sb_secret_) wordt geweigerd.
  */
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Project } from "@scanapp/core";
 
 export type Rol = "eigenaar" | "bewerken" | "lezen";
@@ -92,31 +92,34 @@ export const vanBuitenIngesteld = () => {
 
 export class SupabaseOpslag implements CloudOpslag {
   soort = "supabase" as const;
-  private sb: SupabaseClient;
+  /** supabase-js wordt pas geladen als de cloud gebruikt wordt (kleinere start van de app). */
+  private klant: Promise<SupabaseClient>;
   constructor(i: CloudInstelling) {
-    this.sb = createClient(i.url, i.sleutel, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+    this.klant = import("@supabase/supabase-js").then(({ createClient }) => createClient(i.url, i.sleutel, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }));
   }
   async gebruiker() {
-    const { data } = await this.sb.auth.getSession();
+    const { data } = await (await this.klant).auth.getSession();
     const e = data.session?.user?.email;
     return e ? { email: e } : null;
   }
   async meldAan(email: string) {
     const terug = `${window.location.origin}${window.location.pathname}`;
-    const { error } = await this.sb.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: terug } });
+    const { error } = await (await this.klant).auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: terug } });
     if (error) throw new Error(`Aanmelden lukt niet: ${error.message}`);
     return "link-verstuurd" as const;
   }
-  async meldAf() { await this.sb.auth.signOut(); }
+  async meldAf() { await (await this.klant).auth.signOut(); }
   opAanmelding(cb: () => void) {
-    const { data } = this.sb.auth.onAuthStateChange(() => cb());
-    return () => data.subscription.unsubscribe();
+    let stop = () => {};
+    let weg = false;
+    void this.klant.then((k) => { if (weg) return; const { data } = k.auth.onAuthStateChange(() => cb()); stop = () => data.subscription.unsubscribe(); });
+    return () => { weg = true; stop(); };
   }
   async lijst(): Promise<CloudProject[]> {
     const ik = (await this.gebruiker())?.email.toLowerCase();
-    const { data: sessie } = await this.sb.auth.getSession();
+    const { data: sessie } = await (await this.klant).auth.getSession();
     const uid = sessie.session?.user?.id;
-    const { data, error } = await this.sb.from("projecten").select("id, naam, versie, gewijzigd, gewijzigd_door, eigenaar, project_leden(email, rol)").order("gewijzigd", { ascending: false });
+    const { data, error } = await (await this.klant).from("projecten").select("id, naam, versie, gewijzigd, gewijzigd_door, eigenaar, project_leden(email, rol)").order("gewijzigd", { ascending: false });
     if (error) throw new Error(`Lijst ophalen lukt niet: ${error.message}`);
     return (data ?? []).map((r: Record<string, unknown>) => {
       const leden = (r.project_leden as Lid[] | null) ?? [];
@@ -125,30 +128,30 @@ export class SupabaseOpslag implements CloudOpslag {
     });
   }
   async haal(id: string) {
-    const { data, error } = await this.sb.from("projecten").select("data, versie, gewijzigd_door").eq("id", id).maybeSingle();
+    const { data, error } = await (await this.klant).from("projecten").select("data, versie, gewijzigd_door").eq("id", id).maybeSingle();
     if (error) throw new Error(`Ophalen lukt niet: ${error.message}`);
     return data ? { data: data.data, versie: data.versie as number, gewijzigdDoor: (data.gewijzigd_door as string) ?? undefined } : null;
   }
   async bewaar(p: Project, versie: number) {
-    const { data, error } = await this.sb.rpc("bewaar_project", { p_id: p.id, p_naam: p.naam, p_data: p, p_versie: versie });
+    const { data, error } = await (await this.klant).rpc("bewaar_project", { p_id: p.id, p_naam: p.naam, p_data: p, p_versie: versie });
     if (error) throw new Error(`Bewaren lukt niet: ${error.message}`);
     return typeof data === "number" ? data : null;
   }
   async verwijder(id: string) {
-    const { error } = await this.sb.from("projecten").delete().eq("id", id);
+    const { error } = await (await this.klant).from("projecten").delete().eq("id", id);
     if (error) throw new Error(`Verwijderen lukt niet: ${error.message}`);
   }
   async leden(id: string) {
-    const { data, error } = await this.sb.from("project_leden").select("email, rol").eq("project_id", id);
+    const { data, error } = await (await this.klant).from("project_leden").select("email, rol").eq("project_id", id);
     if (error) throw new Error(error.message);
     return (data ?? []) as Lid[];
   }
   async deel(id: string, email: string, rol: Lid["rol"]) {
-    const { error } = await this.sb.from("project_leden").upsert({ project_id: id, email: email.trim().toLowerCase(), rol });
+    const { error } = await (await this.klant).from("project_leden").upsert({ project_id: id, email: email.trim().toLowerCase(), rol });
     if (error) throw new Error(`Delen lukt niet: ${error.message}`);
   }
   async stopDelen(id: string, email: string) {
-    const { error } = await this.sb.from("project_leden").delete().eq("project_id", id).eq("email", email);
+    const { error } = await (await this.klant).from("project_leden").delete().eq("project_id", id).eq("email", email);
     if (error) throw new Error(error.message);
   }
 }

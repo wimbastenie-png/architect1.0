@@ -136,7 +136,19 @@ De MVP staat online. Alle stappen hieronder zijn **gebouwd en automatisch getest
 | 16. Verwarming en energie | Warmteverlies per ruimte (vereenvoudigd volgens EN 12831), radiatoren of vloerverwarming, warmtepomp en buffervat, zonnepanelen met indicatieve opbrengst | Gebouwd; nakijken door een installateur | Installateur (verwarming), energiedeskundige |
 | 17. Werfopvolging en offerte | Offerte-PDF met eigen logo en btw 6/21 %, werffoto's, opvolgpunten per ruimte, vorderingsstaat, Bluetooth-laserafstandsmeter | Gebouwd; nakijken door een aannemer | Aannemer |
 
-**Daarna**: stap 10–17 uit de tabel hierboven (één pull request per stap), verbeteren wat uit de testlijst komt, partners vastleggen, de app sneller laten laden, een eigen iOS-app voor RoomPlan en live samenwerken in de cloud.
+### Fase 1: wereldklasse voor de aannemer
+
+| PR | Inhoud | Status | Wat jij regelt of test |
+| --- | --- | --- | --- |
+| F1-1. Sneller laden | De app laadt eerst alleen het plan (159 kB i.p.v. 402 kB, gezipt). PDF-maker, cloud, 3D en de modi Installaties, Ontwerp, Liggers, Inrichting, Energie, Keuken en Werf laden pas als je ze opent | Gebouwd | Op de gsm: opent de app sneller? Werkt elke modus en elke PDF nog? |
+| F1-2. Offline werken | Installeerbaar op het startscherm, werkt zonder netwerk, wijzigingen wachten en gaan mee als je weer online bent, foto's in de cloud | Gepland | Supabase-project en repo-variabelen |
+| F1-3. Bluetooth-lasers | Leica DISTO, Bosch GLM; uitleg voor Hilti (vraagt een eigen app) | Gepland | Je lasers om te testen |
+| F1-4. Werfdagboek, meer- en minwerken | Dagboek per werfdag (weer, ploeg, werk, foto's), meer- en minwerken met akkoord van de klant, mee in de vorderingsstaat | Gepland | – |
+| F1-5. Facturen | Voorschot, vordering, eindfactuur; nummering, gestructureerde mededeling, betaal-QR, btw 21/6 % en verlegd | Gepland | Boekhouder: teksten en btw nakijken |
+| F1-6. Boekhouding en groothandel | E-factuur (UBL, Peppol BIS 3.0), klantenlijst, bestellijst voor de groothandel | Gepland | Naam van je boekhoudpakket en groothandel; Peppol-toegangspunt |
+| F1-7. Werftestprotocol | Controlemetingen tegenover het plan, nauwkeurigheidsrapport per project (PDF) | Gepland | Een echte werf om te meten |
+
+**Daarna**: fase 2 (BIM-kern en exports), fase 3 (samenwerken en ondertekenen), fase 4 (regels en rekenkernen per discipline), fase 5 (renders, AR, AI), fase 6 (eigen apps, talen, beveiliging).
 
 ### Installaties in detail
 

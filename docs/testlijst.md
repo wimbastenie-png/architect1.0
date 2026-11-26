@@ -256,3 +256,10 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
   - Is de offerte zo bruikbaar voor je klanten?
   - Wat ontbreekt er (algemene voorwaarden, voorschotfactuur, meerwerken)?
   - Klopt de tekst over 6 % (laten nakijken door je boekhouder)?
+
+## F1-1. Sneller laden
+
+- [ ] Open de app op de gsm (4G, niet op wifi): verschijnt het plan sneller dan vroeger?
+- [ ] Tik elke modus één keer aan (Installaties, Ontwerp, Liggers, Inrichting, Energie, Keuken, Werf): even "Laden…" is normaal, daarna moet alles werken zoals vroeger.
+- [ ] Maak één PDF per modus (de eerste keer duurt het een tel langer, de PDF-maker wordt dan geladen).
+- [ ] Knop **Cloud** en knop **3D** openen nog.
