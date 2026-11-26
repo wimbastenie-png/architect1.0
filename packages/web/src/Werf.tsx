@@ -3,6 +3,7 @@
  * vorderingsstaat en offerte.
  */
 import {
+  bestelbaar, bestellijst, bestellijstCSV, controleerUBL, factuurNaarUBL, klantenCSV, verkoopCSV, type Artikels,
   aanneming, BTW_NAAM, controleerFactuur, FACTUUR_SOORT, factuurTotalen, gefactureerd, stelFactuurOp, volgendNummer,
   BTW6_VOORWAARDEN, bewaarDag, dagboekTotalen, dagVan, meerwerkBedrag, meerwerkTotalen, nieuweVordering, nieuwMeerwerk, offerteRegels, STANDAARD_BETALING,
   vorderingsstaat, WEER, zetMeerwerkStatus, euro,
@@ -10,7 +11,7 @@ import {
 } from "@scanapp/core";
 import { useMemo, useState } from "react";
 import { FotoVeld, verklein } from "./Fotos.tsx";
-import { leesOpslag, schrijfOpslag, Veld } from "./ui.tsx";
+import { bestandsnaam, download, leesOpslag, schrijfOpslag, Veld } from "./ui.tsx";
 
 const FIRMA = "architect1.0:firma";
 const leesFirma = (x: unknown): Firma => (x && typeof x === "object" && typeof (x as Firma).naam === "string" ? (x as Firma) : { naam: "" });
@@ -20,7 +21,7 @@ export function WerfPaneel(props: {
   wijzigProject: (p: Project) => void; prijzen: Prijzen;
   exporteer: (soort: "offerte" | "vordering" | "meerwerk" | "dagboek" | "factuur", data: { firma: Firma; offerte?: OfferteInvoer; nr?: number; btw?: 6 | 21; id?: string }) => void;
 }) {
-  const [tab, zetTab] = useState<"fotos" | "dagboek" | "meerwerk" | "geld" | "facturen">("fotos");
+  const [tab, zetTab] = useState<"fotos" | "dagboek" | "meerwerk" | "geld" | "facturen" | "export">("fotos");
   const { project, v, ruimteId } = props;
   const r = v.ruimtes.find((x) => x.id === ruimteId);
   const [punt, zetPunt] = useState("");
@@ -42,7 +43,7 @@ export function WerfPaneel(props: {
     <section className="kaart werf">
       <div className="kaart-kop"><h2>Werf{r ? `: ${r.naam}` : ""}</h2>{r && <button onClick={() => props.zetRuimteId(null)} aria-label="Alle ruimtes">×</button>}</div>
       <div className="soorten" role="tablist" aria-label="Werf">
-        {([["fotos", "Foto's en punten"], ["dagboek", "Dagboek"], ["meerwerk", "Meer- en minwerk"], ["geld", "Vordering en offerte"], ["facturen", "Facturen"]] as const).map(([k, n]) => (
+        {([["fotos", "Foto's en punten"], ["dagboek", "Dagboek"], ["meerwerk", "Meer- en minwerk"], ["geld", "Vordering en offerte"], ["facturen", "Facturen"], ["export", "Boekhouding en groothandel"]] as const).map(([k, n]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "actief" : ""} onClick={() => zetTab(k)}>{n}</button>
         ))}
       </div>
@@ -50,6 +51,7 @@ export function WerfPaneel(props: {
       {tab === "meerwerk" && <Meerwerken project={project} wijzigProject={props.wijzigProject} exporteer={(id) => props.exporteer("meerwerk", { firma, id, btw: off.btwPct })} />}
       {tab === "facturen" && <Facturen project={project} prijzen={props.prijzen} firma={firma} wijzigProject={props.wijzigProject} exporteer={(id) => props.exporteer("factuur", { firma, id })}
         standaardKlant={{ naam: off.klant, adres: off.klantAdres }} />}
+      {tab === "export" && <Export project={project} />}
       {tab === "fotos" && (<>
       <p className="uitleg">Tik een ruimte aan in het plan om foto's en punten per ruimte te zien; zonder keuze zie je alles.</p>
 
@@ -302,6 +304,7 @@ function Facturen({ project, prijzen, firma, wijzigProject, exporteer, standaard
               <td><input type="checkbox" aria-label={`Factuur ${f.nummer} betaald`} checked={f.betaald} onChange={(e) => wijzigProject({ ...project, facturen: project.facturen.map((x) => (x.id === f.id ? { ...x, betaald: e.target.checked, betaaldOp: e.target.checked ? vandaag() : undefined } : x)) })} /></td>
               <td className="acties">
                 <button onClick={() => exporteer(f.id)}>PDF</button>
+                <button onClick={() => { const pr = controleerUBL(f, firma); zetProblemen(pr); if (!pr.length) download(`${bestandsnaam(project.naam)}-${f.soort === "credit" ? "creditnota" : "factuur"}-${bestandsnaam(f.nummer)}.xml`, factuurNaarUBL(project, firma, f), "application/xml"); }}>E-factuur (UBL)</button>
                 {f.id === laatste?.id && <button className="gevaar" onClick={() => { if (window.confirm(`Factuur ${f.nummer} verwijderen? Doe dit alleen als ze nog niet verstuurd is; anders maak je een creditnota.`)) wijzigProject({ ...project, facturen: project.facturen.filter((x) => x.id !== f.id) }); }}>Verwijderen</button>}
               </td>
             </tr>
@@ -309,6 +312,59 @@ function Facturen({ project, prijzen, firma, wijzigProject, exporteer, standaard
         </table>
       )}
       <p className="uitleg klein">Nummering: doorlopend per jaar (2026-001, 2026-002 …), ook over je projecten heen op dit toestel. Factureer je vanaf meerdere toestellen, controleer dan het nummer. De app geeft geen fiscaal advies: laat btw-regime en vermeldingen nakijken door je boekhouder.</p>
+    </>
+  );
+}
+
+const ARTIKELS = "architect1.0:artikels";
+const leesArtikels = (x: unknown): Artikels => (x && typeof x === "object" ? (x as Artikels) : {});
+
+function Export({ project }: { project: Project }) {
+  const [artikels, zetArtikelsState] = useState<Artikels>(() => leesOpslag(ARTIKELS, leesArtikels, {}));
+  const zetArtikels = (a: Artikels) => { zetArtikelsState(a); schrijfOpslag(ARTIKELS, a); };
+  const [verlies, zetVerlies] = useState("5");
+  const items = useMemo(() => bestelbaar(project), [project]);
+  const regels = bestellijst(project, artikels, +verlies || 0);
+  const naam = bestandsnaam(project.naam);
+  const zet = (sleutel: string, veld: "nummer" | "perVerpakking", waarde: string) => {
+    const a = { ...(artikels[sleutel] ?? { nummer: "" }) };
+    if (veld === "nummer") a.nummer = waarde.trim(); else a.perVerpakking = waarde === "" ? undefined : Math.max(0, +waarde || 0);
+    const n = { ...artikels };
+    if (!a.nummer && !a.perVerpakking) delete n[sleutel]; else n[sleutel] = a;
+    zetArtikels(n);
+  };
+  return (
+    <>
+      <h3>Boekhouding</h3>
+      <p className="uitleg">Lees deze bestanden in je boekhoudpakket in (de meeste pakketten aanvaarden een CSV met puntkomma). Een e-factuur (UBL, Peppol) maak je per factuur in het tabblad <strong>Facturen</strong>.</p>
+      <div className="acties">
+        <button disabled={!project.facturen.length} onClick={() => download(`${naam}-klanten.csv`, klantenCSV([project]), "text/csv;charset=utf-8")}>Klantenlijst (CSV)</button>
+        <button disabled={!project.facturen.length} onClick={() => download(`${naam}-verkoopdagboek.csv`, verkoopCSV([project]), "text/csv;charset=utf-8")}>Verkoopdagboek (CSV)</button>
+      </div>
+      {!project.facturen.length && <p className="uitleg klein">Nog geen facturen in dit project.</p>}
+
+      <h3>Groothandel: bestellijst</h3>
+      <p className="uitleg">Geef bij elke post je eigen artikelnummer bij de groothandel en hoeveel er in één verpakking zit (bv. 1,44 m² per doos tegels). De nummers blijven op dit toestel bewaard voor al je projecten. De bestellijst rekent snijverlies mee en rondt af naar hele verpakkingen.</p>
+      <Veld label="Snijverlies (%)"><input type="number" min={0} max={50} value={verlies} onChange={(e) => zetVerlies(e.target.value)} /></Veld>
+      <div className="tabel-wrap">
+        <table className="tabel klein">
+          <thead><tr><th>Post</th><th className="getal">Nodig</th><th>Artikelnummer</th><th className="getal">Per verpakking</th><th className="getal">Bestellen</th></tr></thead>
+          <tbody>{items.map((b) => {
+            const r = regels.find((x) => x.sleutel === b.sleutel);
+            return (
+              <tr key={b.sleutel}>
+                <td>{b.omschrijving}</td>
+                <td className="getal">{Math.round(b.hoeveelheid * 100) / 100} {b.eenheid}</td>
+                <td><input aria-label={`Artikelnummer ${b.omschrijving}`} defaultValue={artikels[b.sleutel]?.nummer ?? ""} onBlur={(e) => zet(b.sleutel, "nummer", e.target.value)} /></td>
+                <td className="getal"><input className="prijs" type="number" min={0} step="any" aria-label={`Per verpakking ${b.omschrijving}`} defaultValue={artikels[b.sleutel]?.perVerpakking ?? ""} onBlur={(e) => zet(b.sleutel, "perVerpakking", e.target.value)} /></td>
+                <td className="getal">{r ? r.aantal : "–"}</td>
+              </tr>
+            );
+          })}</tbody>
+        </table>
+      </div>
+      <div className="acties"><button className="primair" disabled={!regels.length} onClick={() => download(`${naam}-bestellijst.csv`, bestellijstCSV(regels, project.naam), "text/csv;charset=utf-8")}>Bestellijst (CSV, {regels.length} artikels)</button></div>
+      <p className="uitleg klein">Controleer hoeveelheden en verpakkingen vóór je bestelt. De groothandel bepaalt prijzen en beschikbaarheid.</p>
     </>
   );
 }

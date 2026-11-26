@@ -21,3 +21,14 @@ export function schrijfOpslag(sleutel: string, waarde: unknown) {
     /* opslag niet beschikbaar: werkt verder zonder onthouden */
   }
 }
+
+export function download(naam: string, inhoud: BlobPart, type: string) {
+  const url = URL.createObjectURL(new Blob([inhoud], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = naam;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export const bestandsnaam = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";

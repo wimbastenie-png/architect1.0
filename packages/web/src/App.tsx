@@ -110,7 +110,7 @@ import { LastenboekWeergave } from "./Lastenboek.tsx";
 import { RuimtePaneel } from "./RuimtePaneel.tsx";
 import { naarPlan, useSlepen } from "./Slepen.ts";
 import { MAX_ZOOM, useZoom } from "./Zoom.ts";
-import { Veld, getal, leesOpslag, schrijfOpslag } from "./ui.tsx";
+import { Veld, getal, leesOpslag, schrijfOpslag, bestandsnaam, download } from "./ui.tsx";
 
 const OPSLAG = "architect1.0:project";
 type Selectie = { soort: "muur" | "ruimte"; id: string } | null;
@@ -146,16 +146,7 @@ function laadOpgeslagen(): Project | null {
   }
 }
 
-function download(naam: string, inhoud: BlobPart, type: string) {
-  const url = URL.createObjectURL(new Blob([inhoud], { type }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = naam;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
-const bestandsnaam = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
 const PRIJZEN = "architect1.0:prijzen";
 const BTW = "architect1.0:btw";
 
