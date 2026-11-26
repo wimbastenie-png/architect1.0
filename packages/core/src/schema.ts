@@ -159,6 +159,20 @@ export const Project = z.object({
   aangemaakt: z.string().datetime(),
   gewijzigd: z.string().datetime(),
   verdiepingen: z.array(Verdieping).min(1),
+  /** Voordimensionering stalen liggers (invoer; resultaten worden telkens herberekend). */
+  liggers: z.array(z.object({
+    id,
+    naam: z.string(),
+    dagmaat: mmPositief,
+    oplegging: mmPositief,
+    staal: z.enum(["S235", "S355"]),
+    aantal: z.number().int().min(1).max(4),
+    kipVerhinderd: z.boolean(),
+    doorbuiging: z.number().positive(),
+    lasten: z.array(z.object({ omschrijving: z.string(), soort: z.enum(["G", "Q", "S"]), waarde: z.number().nonnegative() })),
+    reeksen: z.array(z.enum(["IPE", "HEA", "HEB"])).optional(),
+    muurId: z.string().optional(),
+  })).default([]),
   /** Ontwerp: snijlijnen voor doorsneden (plan-mm, over alle verdiepingen). */
   doorsneden: z.array(z.object({ id, naam: z.string(), a: Punt, b: Punt })).default([]),
 });

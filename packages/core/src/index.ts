@@ -22,3 +22,6 @@ export * from "./pdf-installaties.ts";
 export * from "./pdf-lijst.ts";
 export * from "./ontwerp.ts";
 export * from "./pdf-ontwerp.ts";
+export * from "./profielen.ts";
+export * from "./liggers.ts";
+export * from "./pdf-liggers.ts";

@@ -178,3 +178,12 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--lijn); border
 .chip button:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; padding: 0 10px; }
 .chip .actief { background: var(--accent); color: var(--accent-tekst); border-color: var(--accent); }
 .opening-toestand { align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; margin: 6px 0; }
+.ligger-keuze .groot { font-size: 24px; font-weight: 700; margin: 4px 0; }
+.uc { display: inline-block; width: 70px; height: 8px; background: var(--lijn); border-radius: 4px; vertical-align: middle; overflow: hidden; }
+.uc > div { height: 100%; background: var(--laser); }
+.uc > div.krap { background: var(--scan); }
+.uc > div.te-hoog { background: var(--gevaar); }
+.lasten input, .lasten select { width: 100%; min-width: 0; }
+.lasten td:first-child { width: 55%; }
+.last-hulp { margin: 8px 0 12px; }
+.last-hulp summary { cursor: pointer; font-weight: 600; padding: 6px 0; }

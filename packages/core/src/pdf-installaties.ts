@@ -10,7 +10,7 @@ import {
   type Kring, type LeidingSoort, type Net,
 } from "./installaties.ts";
 import { lijstBladen } from "./pdf-lijst.ts";
-import { kiesBlad, PT, tekenBlad, type Fonts, type PdfOpties } from "./pdf.ts";
+import { kiesBlad, pdfTekst, PT, tekenBlad, type Fonts, type PdfOpties } from "./pdf.ts";
 import type { InstallatiePunt, Project, Punt } from "./schema.ts";
 
 const hex = (k: string): RGB => { const h = k.length === 4 ? `#${k[1]}${k[1]}${k[2]}${k[2]}${k[3]}${k[3]}` : k; return rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255); };
@@ -67,7 +67,7 @@ export async function installatiesNaarPDF(p: Project, opties: PdfOpties = {}): P
   }
 
   const papier = kiesBlad(p.verdiepingen[0]!, opties).papier;
-  const lijst = lijstBladen(doc, f, p, o, papier, "Installaties — schema en lijsten (voorstel)");
+  const lijst = lijstBladen(doc, f, p, o, papier, "Installaties — schema en lijsten (voorstel)", ["Status", "Voorstel ter voorbereiding; na te kijken door installateur of keurder."]);
   if (kringen.length) {
     const blad = lijst.heelBlad("Eendraadschema elektriciteit (voorstel, vereenvoudigd)");
     tekenEendraadschema(blad.page, f, kringen, blad);
@@ -114,7 +114,7 @@ function tekenEendraadschema(page: PDFPage, f: Fonts, kringen: Kring[], vak: { x
   const top = vak.y + vak.h;
   const rijen = kringen.length + 4;
   const rijH = Math.min(12, (vak.h - 30) / rijen);
-  const tekst = (s: string, x: number, y: number, size = 8, vet = false, kleur = ZWART) => page.drawText(s, { x: mm(x), y: mm(y), size, font: vet ? f.vet : f.gewoon, color: kleur });
+  const tekst = (s: string, x: number, y: number, size = 8, vet = false, kleur = ZWART) => page.drawText(pdfTekst(s), { x: mm(x), y: mm(y), size, font: vet ? f.vet : f.gewoon, color: kleur });
   const lijn = (x1: number, y1: number, x2: number, y2: number) => page.drawLine({ start: { x: mm(x1), y: mm(y1) }, end: { x: mm(x2), y: mm(y2) }, thickness: mm(0.3), color: ZWART });
   const doos = (x: number, y: number, b: number, h: number, vul = WIT, rand = ZWART) => page.drawRectangle({ x: mm(x), y: mm(y), width: mm(b), height: mm(h), color: vul, borderColor: rand, borderWidth: mm(0.3) });
   tekst("Eendraadschema (voorstel, vereenvoudigd)", vak.x, top - 4, 12, true);

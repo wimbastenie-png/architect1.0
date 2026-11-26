@@ -51,6 +51,22 @@ export const PT = 72 / 25.4; // punten per mm papier
 export const RAND = 10; // mm
 export const TITELBLOK_H = 42; // mm, strook onderaan
 
+const WINANSI_EXTRA = new Set("€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ");
+const VERVANG: Record<string, string> = {
+  "γ": "gamma", "ψ": "psi", "χ": "chi", "λ": "lambda", "δ": "delta", "η": "eta", "ε": "eps", "σ": "sigma", "Δ": "Delta",
+  "\u0304": "", "√": "V", "≤": "<=", "≥": ">=", "→": "->", "−": "-", "⁴": "^4", "₀": "0", "₁": "1", "Ø": "Ø",
+};
+/** Tekst die de standaardletter (WinAnsi) kan tonen: Griekse letters uitgeschreven, onbekende tekens → "?". */
+export function pdfTekst(s: string): string {
+  let uit = "";
+  for (const ch of s.normalize("NFC")) {
+    if (ch in VERVANG) { uit += VERVANG[ch]; continue; }
+    const c = ch.codePointAt(0)!;
+    uit += c < 256 || WINANSI_EXTRA.has(ch) ? ch : "?";
+  }
+  return uit;
+}
+
 export const DISCLAIMER =
   "Opmeting ter indicatie, opgemaakt met een gsm-scan. Maten te verifiëren ter plaatse vóór uitvoering of bestelling. " +
   "Dit is geen bouwplan voor een omgevingsvergunning en geen stabiliteitsstudie.";
@@ -242,7 +258,8 @@ export function tekenBlad(
   return (blad, bladen) => tekenTitelblok(page, f, p, titel, { papier, schaal, past, blad, bladen, muren: v.muren, ...opties, disclaimer: extra.disclaimer ?? opties.disclaimer, legende: extra.legende }, b);
 }
 
-export function tekstGecentreerd(page: PDFPage, s: string, c: { x: number; y: number }, hoogteMm: number, font: PDFFont, kleur: RGB, hoekGraden = 0) {
+export function tekstGecentreerd(page: PDFPage, ruw: string, c: { x: number; y: number }, hoogteMm: number, font: PDFFont, kleur: RGB, hoekGraden = 0) {
+  const s = pdfTekst(ruw);
   const size = hoogteMm * PT / 0.72; // kapitaalhoogte Helvetica ≈ 0,72 × korpsgrootte
   const w = font.widthOfTextAtSize(s, size);
   const a = (hoekGraden * Math.PI) / 180;
@@ -270,7 +287,7 @@ export function tekenTitelblok(
   f: Fonts,
   p: Project,
   titel: string,
-  o: PdfOpties & { datum: string; papier: Papier; schaal?: Schaal; past: boolean; blad: number; bladen: number; muren?: Verdieping["muren"]; legende?: Array<[RGB, string]> },
+  o: PdfOpties & { datum: string; papier: Papier; schaal?: Schaal; past: boolean; blad: number; bladen: number; muren?: Verdieping["muren"]; legende?: Array<[RGB, string]>; middenTekst?: [string, string] },
   b: number,
 ) {
   const x0 = RAND / 2, y0 = RAND / 2, w = b - RAND, hb = TITELBLOK_H - 2;
@@ -278,7 +295,7 @@ export function tekenTitelblok(
   const lijn = (x1: number, y1: number, x2: number, y2: number) =>
     page.drawLine({ start: { x: mm(x1), y: mm(y1) }, end: { x: mm(x2), y: mm(y2) }, thickness: mm(0.3), color: ZWART });
   const tekst = (s: string, x: number, y: number, size = 8, font = f.gewoon, kleur = ZWART) =>
-    page.drawText(s, { x: mm(x), y: mm(y), size, font, color: kleur });
+    page.drawText(pdfTekst(s), { x: mm(x), y: mm(y), size, font, color: kleur });
   const label = (s: string, x: number, y: number) => tekst(s.toUpperCase(), x, y, 5.5, f.gewoon, GRIJS);
 
   lijn(x0, y0 + hb, x0 + w, y0 + hb);
@@ -329,8 +346,8 @@ export function tekenTitelblok(
   }
 
   // Legende meetbronnen
-  label(o.legende ? "Legende" : o.schaal ? "Betrouwbaarheid maten" : "Hoeveelheden", xLeg + 3, y0 + hb - 5);
-  if (!o.schaal && !o.legende) regels("Ter indicatie, berekend uit de opmeting. Aannames: zie lijst.", f.gewoon, 7.5, 52 - 6).forEach((r, i) => tekst(r, xLeg + 3, y0 + hb - 12 - i * 3.6, 7.5));
+  label(o.middenTekst?.[0] ?? (o.legende ? "Legende" : o.schaal ? "Betrouwbaarheid maten" : "Hoeveelheden"), xLeg + 3, y0 + hb - 5);
+  if (!o.schaal && !o.legende) regels(o.middenTekst?.[1] ?? "Ter indicatie, berekend uit de opmeting. Aannames: zie lijst.", f.gewoon, 7.5, 52 - 6).forEach((r, i) => tekst(r, xLeg + 3, y0 + hb - 12 - i * 3.6, 7.5));
   const legende: Array<[MeetMethode, string]> = [
     ["gescand", "Gescand (± enkele cm)"],
     ["gecorrigeerd", "Gecorrigeerd / ingegeven"],
@@ -356,14 +373,16 @@ export function tekenTitelblok(
   lijnen.forEach((r, i) => tekst(r, xDisc + 3, y0 + hb - 10 - i * stap, grootte, f.gewoon, vetDisc ? rgb(0.55, 0.25, 0) : ZWART));
 }
 
-export function afkappen(s: string, font: PDFFont, size: number, maxMm: number): string {
+export function afkappen(ruw: string, font: PDFFont, size: number, maxMm: number): string {
+  let s = pdfTekst(ruw);
   const max = maxMm * PT;
   if (font.widthOfTextAtSize(s, size) <= max) return s;
   while (s.length > 1 && font.widthOfTextAtSize(s + "…", size) > max) s = s.slice(0, -1);
   return s + "…";
 }
 
-export function regels(s: string, font: PDFFont, size: number, maxMm: number): string[] {
+export function regels(ruw: string, font: PDFFont, size: number, maxMm: number): string[] {
+  const s = pdfTekst(ruw);
   const uit: string[] = [];
   let huidig = "";
   for (const woord of s.split(" ")) {
@@ -407,7 +426,7 @@ function tekenLijsten(doc: PDFDocument, f: Fonts, p: Project, opties: PdfOpties 
     nieuweBlad();
   };
   const tekst = (s: string, x: number, yy: number, size: number, font: PDFFont, kleur = ZWART) =>
-    page.drawText(s, { x: mm(x), y: mm(yy), size, font, color: kleur });
+    page.drawText(pdfTekst(s), { x: mm(x), y: mm(yy), size, font, color: kleur });
   const kop = (s: string) => {
     plaats(14);
     y -= 6;

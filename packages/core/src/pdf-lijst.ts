@@ -3,7 +3,7 @@
  * twee kolommen, koppen, tabellen en alinea's, met titelblok.
  */
 import { rgb, type PDFDocument, type PDFFont, type PDFPage } from "pdf-lib";
-import { afkappen, PAPIER, PT, RAND, regels, tekenPaginaKader, tekenTitelblok, TITELBLOK_H, type Fonts, type Papier, type PdfOpties } from "./pdf.ts";
+import { afkappen, pdfTekst, PAPIER, PT, RAND, regels, tekenPaginaKader, tekenTitelblok, TITELBLOK_H, type Fonts, type Papier, type PdfOpties } from "./pdf.ts";
 import type { Project } from "./schema.ts";
 
 export interface Kolom { kop: string; breedte: number; rechts?: boolean }
@@ -22,7 +22,7 @@ export interface LijstApi {
   titelblokken: Array<(blad: number, bladen: number) => void>;
 }
 
-export function lijstBladen(doc: PDFDocument, f: Fonts, p: Project, opties: PdfOpties & { datum: string }, papier: Papier, titel: string): LijstApi {
+export function lijstBladen(doc: PDFDocument, f: Fonts, p: Project, opties: PdfOpties & { datum: string }, papier: Papier, titel: string, middenTekst?: [string, string]): LijstApi {
   const { b, h } = PAPIER[papier];
   const mm = (q: number) => q * PT;
   const titelblokken: Array<(blad: number, bladen: number) => void> = [];
@@ -36,7 +36,7 @@ export function lijstBladen(doc: PDFDocument, f: Fonts, p: Project, opties: PdfO
     const pg = doc.addPage([b * PT, h * PT]);
     page = pg;
     tekenPaginaKader(pg, b, h);
-    titelblokken.push((blad, bladen) => tekenTitelblok(pg, f, p, t, { papier, past: true, blad, bladen, ...opties }, b));
+    titelblokken.push((blad, bladen) => tekenTitelblok(pg, f, p, t, { papier, past: true, blad, bladen, ...opties, middenTekst }, b));
     kol = 0;
     y = boven;
     return pg;
@@ -49,7 +49,7 @@ export function lijstBladen(doc: PDFDocument, f: Fonts, p: Project, opties: PdfO
     nieuwBlad();
   };
   const tekst = (s: string, x: number, yy: number, size: number, font: PDFFont, kleur = ZWART) =>
-    page!.drawText(s, { x: mm(x), y: mm(yy), size, font, color: kleur });
+    page!.drawText(pdfTekst(s), { x: mm(x), y: mm(yy), size, font, color: kleur });
   const kop = (s: string) => {
     plaats(14);
     y -= 6;
@@ -63,7 +63,7 @@ export function lijstBladen(doc: PDFDocument, f: Fonts, p: Project, opties: PdfO
     kolommen.forEach((k, i) => {
       const font = vet ? f.vet : f.gewoon;
       const w = afkappen(waarden[i] ?? "", font, 7.5, k.breedte - 1.5);
-      const tx = k.rechts ? x + k.breedte - 1.5 - font.widthOfTextAtSize(w, 7.5) / PT : x;
+      const tx = k.rechts ? x + k.breedte - 1.5 - font.widthOfTextAtSize(pdfTekst(w), 7.5) / PT : x;
       tekst(w, tx, y + 1.2, 7.5, font);
       x += k.breedte;
     });
