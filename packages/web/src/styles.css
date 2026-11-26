@@ -233,3 +233,11 @@ details > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
   .werkblad > .paneel { position: sticky; top: 64px; max-height: calc(100vh - 80px); overflow-y: auto; }
   .werkblad > .plan-kolom { position: sticky; top: 64px; align-self: start; }
 }
+/* werf en laser */
+.opvolging { list-style: none; padding: 0; font-size: 14px; }
+.opvolging li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid var(--lijn); }
+.opvolging li.klaar label { text-decoration: line-through; color: var(--zacht); }
+.logo-voorbeeld { max-height: 48px; display: block; margin: 8px 0; }
+.laser { position: relative; display: inline-block; }
+.laser .verbonden { border-color: var(--laser); color: var(--laser); }
+.laser-paneel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; width: min(340px, 90vw); background: var(--kaart); border: 1px solid var(--lijn); border-radius: 8px; padding: 12px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.15); font-size: 14px; }

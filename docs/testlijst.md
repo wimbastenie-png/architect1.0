@@ -240,3 +240,19 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
   - Kloppen de binnentemperaturen en de temperatuurcorrecties?
   - Klopt de ventilatie-aanname?
   - Is de warmtepompraming (+10 %, zonder sanitair warm water) en de buffervuistregel juist?
+
+## 17. Werfopvolging en offerte (aannemer)
+
+- [ ] **Werf**: tik een ruimte aan → **Werffoto nemen** (camera van de gsm). De foto krijgt datum en ruimte; voeg een bijschrift toe.
+- [ ] **Op te volgen**: punten per ruimte toevoegen en afvinken.
+- [ ] **Vorderingsstaat**:
+  - geef eerst prijzen in het lastenboek;
+  - **Eerste vorderingsstaat beginnen** → percentage per post → bedrag van deze staat;
+  - **Afsluiten en nieuwe staat**: de vorige percentages blijven staan;
+  - **Vorderingsstaat (PDF)**.
+- [ ] **Offerte**: firmagegevens en **logo** (blijven op dit toestel), klant, btw 21 % of 6 % (met de voorwaarden voor 6 %), geldigheid, betalingsvoorwaarden → **Offerte (PDF)**. Controleer de opmaak en de totalen.
+- [ ] **Laser**: knop **Laser** bovenaan → **Verbinden** met een Leica DISTO (Chrome op Android). Tik in een maatveld en meet: de maat komt erin. Werkt het met jouw laser? Op iPhone kan het niet; de app legt uit waarom.
+- [ ] **Aannemer:**
+  - Is de offerte zo bruikbaar voor je klanten?
+  - Wat ontbreekt er (algemene voorwaarden, voorschotfactuur, meerwerken)?
+  - Klopt de tekst over 6 % (laten nakijken door je boekhouder)?
