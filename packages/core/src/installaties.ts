@@ -75,6 +75,12 @@ export const SOORTEN: SoortDef[] = [
   { soort: "vent-toevoer", net: "ventilatie", naam: "Toevoerventiel (mechanisch)", code: "TV", hoogte: 2500 },
   { soort: "vent-afvoer", net: "ventilatie", naam: "Afvoerventiel (mechanisch)", code: "AV", hoogte: 2500 },
   { soort: "vent-rooster", net: "ventilatie", naam: "Toevoerrooster (RTO, raam of muur)", code: "RTO", hoogte: 2100 },
+  { soort: "radiator", net: "verwarming", naam: "Radiator", code: "RAD", hoogte: 150 },
+  { soort: "collector", net: "verwarming", naam: "Collector vloerverwarming", code: "COL", hoogte: 500 },
+  { soort: "warmtepomp-binnen", net: "verwarming", naam: "Warmtepomp (binnendeel)", code: "WP", hoogte: 1500 },
+  { soort: "warmtepomp-buiten", net: "verwarming", naam: "Warmtepomp (buitendeel)", code: "WPb", hoogte: 300 },
+  { soort: "buffervat", net: "verwarming", naam: "Buffervat", code: "BUF", hoogte: 1200 },
+  { soort: "cv-ketel", net: "verwarming", naam: "Cv-ketel", code: "CV", hoogte: 1500 },
   { soort: "vent-natuurlijk", net: "ventilatie", naam: "Natuurlijke afvoer (NAO, kanaal)", code: "NAO", hoogte: 2500 },
 ];
 
@@ -480,7 +486,8 @@ export function materiaallijst(p: Project): MateriaalRegel[] {
 // ---------------------------------------------------------------------------
 // tekening: symbolen en leidingen als SVG (in plancoördinaten via t)
 
-export const NET_KLEUR: Record<LeidingSoort | "elektriciteit" | "ventilatie", string> = {
+export const NET_KLEUR: Record<LeidingSoort | "elektriciteit" | "ventilatie" | "verwarming", string> = {
+  verwarming: "#ea580c",
   ventilatie: "#0e7490",
   koud: "#2563eb",
   warm: "#dc2626",
@@ -491,7 +498,7 @@ export const NET_KLEUR: Record<LeidingSoort | "elektriciteit" | "ventilatie", st
 
 /** SVG-elementen voor installaties (symbolen + leidingen). `t` zet plan-mm om naar SVG-coördinaten. */
 export function installatiesSVG(p: Project, v: Verdieping, t: (q: Punt) => { x: number; y: number }, opties: { netten?: Net[]; geselecteerd?: string; interactief?: boolean; grootte?: number } = {}): string[] {
-  const netten = new Set<Net>(opties.netten ?? ["elektriciteit", "sanitair", "gas", "ventilatie"]);
+  const netten = new Set<Net>(opties.netten ?? ["elektriciteit", "sanitair", "gas", "ventilatie", "verwarming"]);
   const g = opties.grootte ?? 160;
   const el: string[] = [];
   for (const l of leidingen(p)) {
@@ -523,7 +530,7 @@ export function installatiesSVG(p: Project, v: Verdieping, t: (q: Punt) => { x: 
 function symbool(x: InstallatiePunt, c: { x: number; y: number }, g: number, o: { geselecteerd?: string; interactief?: boolean }, kring?: string): string[] {
   const d = DEF.get(x.soort);
   const sel = x.id === o.geselecteerd;
-  const kleur = x.net === "elektriciteit" ? NET_KLEUR.elektriciteit : x.net === "gas" ? NET_KLEUR.gas : x.net === "ventilatie" ? NET_KLEUR.ventilatie : "#0369a1";
+  const kleur = x.net === "elektriciteit" ? NET_KLEUR.elektriciteit : x.net === "gas" ? NET_KLEUR.gas : x.net === "ventilatie" ? NET_KLEUR.ventilatie : x.net === "verwarming" ? NET_KLEUR.verwarming : "#0369a1";
   const attr = o.interactief ? ` data-installatie="${x.id}" style="cursor:pointer"` : ' pointer-events="none"';
   const X = c.x.toFixed(0), Y = c.y.toFixed(0);
   const el: string[] = [];

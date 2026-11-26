@@ -10,6 +10,7 @@ import {
   type Kring, type LeidingSoort, type Net,
 } from "./installaties.ts";
 import { lijstBladen } from "./pdf-lijst.ts";
+import { opwekking, VERWARMING_DISCLAIMER, warmteverlies, zonnepanelen } from "./verwarming.ts";
 import { systeemVan, VENT_KLEUR, ventilatieAandachtspunten, ventilatieDebieten, ventilatieKanalen, ventilatieMateriaal, VENTILATIE_DISCLAIMER } from "./ventilatie.ts";
 import { kiesBlad, pdfTekst, PT, tekenBlad, type Fonts, type PdfOpties } from "./pdf.ts";
 import type { InstallatiePunt, Project, Punt } from "./schema.ts";
@@ -20,7 +21,7 @@ const KLEUR: Record<LeidingSoort | "elektriciteit" | "sanitairPunt", RGB> = {
 };
 const WIT = rgb(1, 1, 1), ZWART = rgb(0.16, 0.15, 0.14), GRIJS = rgb(0.34, 0.33, 0.31);
 
-const NAAM: Record<Net, string> = { elektriciteit: "Elektriciteit", sanitair: "Sanitair", gas: "Gas", ventilatie: "Ventilatie" };
+const NAAM: Record<Net, string> = { elektriciteit: "Elektriciteit", sanitair: "Sanitair", gas: "Gas", ventilatie: "Ventilatie", verwarming: "Verwarming" };
 
 export async function installatiesNaarPDF(p: Project, opties: PdfOpties = {}): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -38,7 +39,7 @@ export async function installatiesNaarPDF(p: Project, opties: PdfOpties = {}): P
   const ld = leidingen(p);
 
   const kanalen = ventilatieKanalen(p);
-  for (const net of ["elektriciteit", "sanitair", "gas", "ventilatie"] as Net[]) {
+  for (const net of ["elektriciteit", "sanitair", "gas", "ventilatie", "verwarming"] as Net[]) {
     for (const v of p.verdiepingen) {
       const punten = v.installaties.filter((x) => x.net === net);
       if (!punten.length) continue;
@@ -46,7 +47,9 @@ export async function installatiesNaarPDF(p: Project, opties: PdfOpties = {}): P
         ? [[KLEUR.elektriciteit, "Punten met kringcode (K1 …)"], [ZWART, "Symbolen: zie lijst"]]
         : net === "sanitair"
           ? [[KLEUR.koud, "Koud water"], [KLEUR.warm, "Warm water"], [KLEUR.afvoer, `Afvoer (helling, zie lijst)`]]
-          : net === "ventilatie"
+          : net === "verwarming"
+            ? [[hex("#ea580c"), "Verwarming (radiatoren, warmtepomp, buffervat)"]]
+            : net === "ventilatie"
             ? [[hex(VENT_KLEUR.toevoer), "Toevoerkanaal"], [hex(VENT_KLEUR.afvoer), "Afvoerkanaal"], [ZWART, `Systeem ${systeemVan(p)}`]]
             : [[KLEUR.gas, "Gasleiding (geel)"], [hex("#713f12"), "Afsluitkraan"]];
       titelblokken.push(tekenBlad(doc, f, p, v, o, {
@@ -104,6 +107,21 @@ export async function installatiesNaarPDF(p: Project, opties: PdfOpties = {}): P
       kanalen.map((k) => [k.soort, String(k.debiet), String(k.diameter), (k.lengte / 1000).toFixed(1).replace(".", ",")]));
     for (const a of ventilatieAandachtspunten(p)) lijst.alinea(`${a.ernst === "let op" ? "LET OP" : "Info"} · Ventilatie: ${a.tekst}`, { kleur: a.ernst === "let op" ? rgb(0.6, 0.2, 0.05) : GRIJS });
     lijst.alinea(VENTILATIE_DISCLAIMER, { vet: true });
+  }
+  if (p.verdiepingen.some((v) => v.installaties.some((x) => x.net === "verwarming")) || p.verwarming) {
+    const vl = warmteverlies(p), op = opwekking(p), pv = zonnepanelen(p);
+    lijst.kop(`Verwarming: warmteverlies (θe ${p.verwarming?.buitentemperatuur ?? -7} °C, regime ${p.verwarming?.regime ?? "45/35"})`);
+    lijst.tabel([{ kop: "Ruimte", breedte: 44 }, { kop: "θi", breedte: 10, rechts: true }, { kop: "Φ_T W", breedte: 16, rechts: true }, { kop: "Φ_V W", breedte: 16, rechts: true }, { kop: "Φ W", breedte: 16, rechts: true }, { kop: "Afgifte", breedte: 16 }, { kop: "Rad. ΔT50", breedte: 18, rechts: true }],
+      vl.map((r) => [`${r.ruimte.naam}${r.aannames ? " *" : ""}`, String(r.binnen), String(r.transmissie), String(r.ventilatie), String(r.totaal), r.afgifte, r.afgifte === "radiator" ? String(r.radiatorNominaal) : "–"]));
+    if (vl.some((r) => r.aannames)) lijst.alinea("* U-waarde niet ingevuld: aangenomen ongeïsoleerd (muur 1,5; raam 2,9; vloer 1,0; dak 1,2 W/m²K).", { grootte: 6.8 });
+    for (const x of op.opmerkingen) lijst.alinea(x);
+    if (pv.length) {
+      lijst.kop("Zonnepanelen (indicatief)");
+      lijst.tabel([{ kop: "Dakvlak", breedte: 44 }, { kop: "Richting", breedte: 16 }, { kop: "Panelen", breedte: 16, rechts: true }, { kop: "kWp", breedte: 16, rechts: true }, { kop: "kWh/jaar", breedte: 20, rechts: true }],
+        pv.map((x) => [`${x.naam} (${x.helling}°)`, x.richting, String(x.panelen), String(x.kWp).replace(".", ","), String(x.opbrengst)]));
+    }
+    lijst.alinea("Methode: vereenvoudigd volgens NBN EN 12831 (transmissie met forfaitaire koudebrugtoeslag 0,10 W/m²K, temperatuurcorrectie 1 / 0,5 / 0,3; ventilatie 0,34·V̇·ΔT met min. 0,5 h⁻¹). Geen opwarmtoeslag of buurruimtes met andere temperatuur.", { grootte: 6.8 });
+    lijst.alinea(VERWARMING_DISCLAIMER, { vet: true });
   }
   const mat = [...materiaallijst(p), ...ventilatieMateriaal(p).map((m) => ({ ...m, net: "ventilatie" as const }))];
   if (mat.length) {

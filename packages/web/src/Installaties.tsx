@@ -3,6 +3,7 @@
  * aanpassen; kringen, eendraadschema, aandachtspunten en materiaallijst.
  */
 import {
+  opwekking, U_AANNAME, VERWARMING_DISCLAIMER, warmteverlies, zonnepanelen,
   FUNCTIES, SYSTEMEN, systeemVan, ventilatieAandachtspunten, ventilatieDebieten, ventilatieMateriaal, VENTILATIE_DISCLAIMER,
   type Functie, type Systeem,
   aandachtspunten, eendraadschemaSVG, GAS_WAARSCHUWING, INSTALLATIE_DISCLAIMER, kringenVoorstel, materiaallijst,
@@ -17,6 +18,7 @@ export const NETTEN: Array<{ net: Net; naam: string }> = [
   { net: "sanitair", naam: "Sanitair" },
   { net: "gas", naam: "Gas" },
   { net: "ventilatie", naam: "Ventilatie" },
+  { net: "verwarming", naam: "Verwarming" },
 ];
 
 export function InstallatiePaneel(props: {
@@ -49,6 +51,7 @@ export function InstallatiePaneel(props: {
       <div className="kaart-kop"><h2>Installaties</h2></div>
       {metGas && <p className="gas-waarschuwing" role="alert"><strong>Gas.</strong> {GAS_WAARSCHUWING.replace(/^GAS: /, "")}</p>}
       <p className="uitleg">{net === "ventilatie" ? VENTILATIE_DISCLAIMER : INSTALLATIE_DISCLAIMER}</p>
+      {net === "verwarming" && <VerwarmingSectie project={project} wijzigProject={props.wijzigProject} />}
       {net === "ventilatie" && (
         <>
           <Veld label="Systeem">
@@ -164,5 +167,51 @@ export function InstallatieBalk(props: { net: Net; zetNet: (n: Net) => void; pla
       </div>
       <p className="hint-kort">{plaatsen ? <>Tik op het plan om <strong>{soortDef(plaatsen)?.naam.toLowerCase()}</strong> te plaatsen (meermaals kan). Tik de knop opnieuw om te stoppen.</> : "Kies wat je wil plaatsen, of tik op een symbool in het plan."}</p>
     </div>
+  );
+}
+
+function VerwarmingSectie({ project, wijzigProject }: { project: Project; wijzigProject: (p: Project) => void }) {
+  const w = project.verwarming ?? { buitentemperatuur: -7, afgifte: {}, regime: "45/35" as const, zonnepanelen: false };
+  const zet = (x: Partial<typeof w>) => wijzigProject({ ...project, verwarming: { ...w, ...x } });
+  const verlies = useMemo(() => warmteverlies(project), [project]);
+  const op = useMemo(() => opwekking(project), [project]);
+  const pv = useMemo(() => zonnepanelen(project), [project]);
+  const aannames = verlies.some((r) => r.aannames > 0);
+  return (
+    <>
+      <p className="gas-waarschuwing" role="note">{VERWARMING_DISCLAIMER}</p>
+      <div className="velden">
+        <Veld label="Ontwerpbuitentemperatuur (°C)"><input type="number" value={w.buitentemperatuur} onChange={(e) => zet({ buitentemperatuur: +e.target.value })} /></Veld>
+        <Veld label="Temperatuurregime"><select value={w.regime} onChange={(e) => zet({ regime: e.target.value as typeof w.regime })}><option value="45/35">45/35 (warmtepomp)</option><option value="55/45">55/45</option><option value="75/65">75/65 (ketel)</option></select></Veld>
+      </div>
+      <h3>Warmteverlies per ruimte</h3>
+      <table className="tabel klein">
+        <thead><tr><th>Ruimte</th><th className="getal">θ</th><th className="getal">Φ (W)</th><th className="getal">W/m²</th><th>Afgifte</th><th className="getal">Radiator ΔT50</th></tr></thead>
+        <tbody>{verlies.map((r) => (
+          <tr key={r.ruimte.id} title={r.opmerking}>
+            <td>{r.ruimte.naam}{r.aannames ? " *" : ""} <span className="zacht">{r.verdieping}</span></td>
+            <td className="getal">{r.binnen}°</td>
+            <td className="getal">{r.totaal}</td>
+            <td className="getal">{r.perM2}</td>
+            <td><select aria-label={`Afgifte ${r.ruimte.naam}`} value={r.afgifte} onChange={(e) => zet({ afgifte: { ...w.afgifte, [r.ruimte.id]: e.target.value as "radiator" | "vloer" } })}><option value="radiator">radiator</option><option value="vloer">vloer</option></select></td>
+            <td className="getal">{r.afgifte === "radiator" ? `${r.radiatorNominaal} W` : "–"}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+      {aannames && <p className="uitleg">* U-waarde niet ingevuld (bij Energie): aangenomen ongeïsoleerd (muur {String(U_AANNAME.muur).replace(".", ",")}, raam {String(U_AANNAME.raam).replace(".", ",")}, vloer {String(U_AANNAME.vloer).replace(".", ",")}, dak {String(U_AANNAME.dak).replace(".", ",")} W/m²K). Vul de samenstelling in voor een betere raming.</p>}
+      {verlies.filter((r) => r.opmerking).map((r) => <p key={r.ruimte.id} className="uitleg">{r.ruimte.naam}: {r.opmerking}</p>)}
+      <h3>Warmtepomp en buffervat</h3>
+      <p>Totaal warmteverlies: <strong>{(op.totaal / 1000).toFixed(1).replace(".", ",")} kW</strong></p>
+      <ul className="aandachtspunten">{op.opmerkingen.map((x) => <li key={x}>{x}</li>)}</ul>
+      <p className="uitleg">Plaats de warmtepomp (binnen- en buitendeel), het buffervat en de radiatoren of collector op het plan met de knoppen hierboven.</p>
+      <h3>Zonnepanelen</h3>
+      {pv.length ? (
+        <table className="tabel klein">
+          <thead><tr><th>Dakvlak</th><th>Richting</th><th className="getal">Panelen</th><th className="getal">kWp</th><th className="getal">kWh/jaar</th></tr></thead>
+          <tbody>{pv.map((x) => <tr key={x.naam}><td>{x.naam} <span className="zacht">{x.helling}°</span></td><td>{x.richting}</td><td className="getal">{x.panelen}</td><td className="getal">{String(x.kWp).replace(".", ",")}</td><td className="getal">± {x.opbrengst}</td></tr>)}</tbody>
+        </table>
+      ) : <p className="uitleg">Stel eerst een dak in (Ontwerp → Dak).</p>}
+      <p className="uitleg klein">Panelen 1134 × 1722 mm (420 Wp), 50 cm rand. Opbrengst indicatief (± 15 %) voor België; voor een raming: PVGIS. Schaduw, dakvensters en schoorstenen niet meegerekend.</p>
+    </>
   );
 }

@@ -15,7 +15,7 @@ import type { Muur, Project, Verdieping } from "./schema.ts";
 
 export interface ExtraPost {
   code: string;
-  groep: "Afbraak" | "Ruwbouw" | "Elektriciteit" | "Sanitair" | "Gas" | "Ventilatie";
+  groep: "Afbraak" | "Ruwbouw" | "Elektriciteit" | "Sanitair" | "Gas" | "Ventilatie" | "Verwarming";
   omschrijving: string;
   eenheid: Eenheid;
   hoeveelheid: number;
@@ -106,8 +106,8 @@ export function extraPosten(p: Project): ExtraPost[] {
   zet({ code: "R05", groep: "Ruwbouw", omschrijving: verbouwing ? "Chape en vloeropbouw (alle ruimtes; schrap wat niet nodig is)" : "Chape en vloeropbouw (ruimtes met een gekozen vloer)", eenheid: "m²", hoeveelheid: chape });
 
   // ---- installaties (uit de materiaallijst)
-  const groep = { elektriciteit: "Elektriciteit", sanitair: "Sanitair", gas: "Gas", ventilatie: "Ventilatie" } as const;
-  const letter = { elektriciteit: "E", sanitair: "S", gas: "G", ventilatie: "V" } as const;
+  const groep = { elektriciteit: "Elektriciteit", sanitair: "Sanitair", gas: "Gas", ventilatie: "Ventilatie", verwarming: "Verwarming" } as const;
+  const letter = { elektriciteit: "E", sanitair: "S", gas: "G", ventilatie: "V", verwarming: "W" } as const;
   for (const m of materiaallijst(p)) {
     // vaste code per omschrijving: een ingegeven prijs blijft bij dezelfde post
     zet({ code: `${letter[m.net]}-${kort(m.omschrijving)}`, groep: groep[m.net], omschrijving: m.omschrijving, eenheid: m.eenheid, hoeveelheid: m.hoeveelheid });

@@ -225,3 +225,18 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
 - [ ] **Architect:**
   - Is dit een bruikbare basis voor het vergunningsdossier?
   - Wat ontbreekt er in titelblok, legende, maatvoering of de stedenbouwkundige gegevens?
+
+## 16. Verwarming en energie (installateur)
+
+- [ ] **Installaties → Verwarming**:
+  - kies de ontwerpbuitentemperatuur (bv. −7 °C, kouder in de Ardennen) en het regime (45/35 warmtepomp, 75/65 ketel);
+  - het warmteverlies per ruimte verschijnt (W en W/m²).
+- [ ] Ruimtes met een sterretje (*) gebruiken een aangenomen U-waarde. Vul bij **Energie** de samenstelling in: het verlies wordt nauwkeuriger.
+- [ ] Per ruimte **radiator** of **vloer**: het radiatorvermogen (ΔT50) bij het gekozen regime, en een opmerking als vloerverwarming te weinig vermogen geeft.
+- [ ] **Warmtepomp** en **buffervat**: het voorgestelde vermogen. Plaats de warmtepomp (binnen/buiten), het buffervat, radiatoren of de collector op het plan.
+- [ ] **Zonnepanelen** (stel eerst een dak in bij Ontwerp): aantal panelen per dakvlak, richting, kWp en indicatieve opbrengst. Vergelijk met PVGIS.
+- [ ] **Installaties (PDF)**: tabel warmteverlies, warmtepomp, buffervat, zonnepanelen, methode.
+- [ ] **Installateur:**
+  - Kloppen de binnentemperaturen en de temperatuurcorrecties?
+  - Klopt de ventilatie-aanname?
+  - Is de warmtepompraming (+10 %, zonder sanitair warm water) en de buffervuistregel juist?
