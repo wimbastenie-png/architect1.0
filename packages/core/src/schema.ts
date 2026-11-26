@@ -150,7 +150,7 @@ export type Sparing = z.infer<typeof Sparing>;
  */
 export const InstallatiePunt = z.object({
   id,
-  net: z.enum(["elektriciteit", "sanitair", "gas", "ventilatie"]),
+  net: z.enum(["elektriciteit", "sanitair", "gas", "ventilatie", "verwarming"]),
   /** Soort toestel of punt (zie SOORTEN in installaties.ts). */
   soort: z.string().min(1),
   positie: Punt,
@@ -311,6 +311,15 @@ export const Project = z.object({
   gevelmaterialen: z.record(z.string(), z.string()).optional(),
   /** Opmerkingen (pins) op het plan, zichtbaar voor iedereen met wie het project gedeeld is. */
   opmerkingen: z.array(z.object({ id, verdiepingId: id, positie: Punt, tekst: z.string(), auteur: z.string().optional(), datum: z.string(), opgelost: z.boolean().optional() })).default([]),
+  /** Verwarming: ontwerpbuitentemperatuur, afgiftesysteem per ruimte, zonnepanelen. */
+  verwarming: z.object({
+    buitentemperatuur: z.number().default(-7),
+    /** Afgifte per ruimte-id: radiatoren of vloerverwarming (standaard radiatoren). */
+    afgifte: z.record(z.string(), z.enum(["radiator", "vloer"])).default({}),
+    /** Aanvoer/retour: hoge temperatuur (75/65) of lage temperatuur (45/35, warmtepomp). */
+    regime: z.enum(["75/65", "55/45", "45/35"]).default("45/35"),
+    zonnepanelen: z.boolean().default(false),
+  }).optional(),
   /** Ventilatie: gekozen systeem (A natuurlijk, B mechanische toevoer, C mechanische afvoer, D balans). */
   ventilatie: z.object({ systeem: z.enum(["A", "B", "C", "D"]) }).optional(),
   /** Oriëntatie: richting van het noorden op het plan, in graden met de klok mee vanaf "boven" (0 = noorden boven). */

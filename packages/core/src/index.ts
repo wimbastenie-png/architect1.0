@@ -35,3 +35,4 @@ export * from "./pdf-keuken.ts";
 export * from "./statica.ts";
 export * from "./architect.ts";
 export * from "./pdf-vergunning.ts";
+export * from "./verwarming.ts";
