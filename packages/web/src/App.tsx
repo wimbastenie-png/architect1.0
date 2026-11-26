@@ -4,30 +4,22 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
-  offerteNaarPDF,
-  vorderingsstaatNaarPDF,
   projectNieuweToestand,
   trapVoorstel,
-  vergunningNaarPDF,
   kastenlijstCSV,
-  keukenNaarPDF,
   wandAanzichtDXF,
   type Maatwerk,
   epbCSV,
-  epbNaarPDF,
   VAKMAN_ZIN,
   ruimteVan,
   voegMeubelToe,
   wijzigMeubel,
-  rekennotaNaarPDF,
   maakHaaks,
-  ontwerpNaarPDF,
   vangPunt,
   verdiepingInToestand,
   voegNieuweMuurToe,
   voegNieuweOpeningToe,
   type Punt,
-  installatiesNaarPDF,
   voegInstallatiepuntToe,
   wijzigInstallatiepunt,
   type Net,
@@ -43,7 +35,6 @@ import {
   meetstaat,
   meetstaatCSV,
   muurLengte,
-  projectNaarPDF,
   rechthoekigProject,
   verdiepingNaarDXF,
   verdiepingNaarSVG,
@@ -76,17 +67,28 @@ import {
 } from "@scanapp/core";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 const Drie3D = lazy(() => import("./Drie3D.tsx"));
+/** PDF-functies pas laden bij de eerste export. */
+const pdf = () => import("./pdfLaden.ts");
+// modi en panelen pas laden als ze geopend worden
+const KeukenPaneel = lazy(() => import("./Keuken.tsx").then((m) => ({ default: m.KeukenPaneel })));
+const WerfPaneel = lazy(() => import("./Werf.tsx").then((m) => ({ default: m.WerfPaneel })));
+const EpbBalk = lazy(() => import("./Epb.tsx").then((m) => ({ default: m.EpbBalk })));
+const EpbPaneel = lazy(() => import("./Epb.tsx").then((m) => ({ default: m.EpbPaneel })));
+const InrichtingBalk = lazy(() => import("./Inrichting.tsx").then((m) => ({ default: m.InrichtingBalk })));
+const InrichtingPaneel = lazy(() => import("./Inrichting.tsx").then((m) => ({ default: m.InrichtingPaneel })));
+const LiggerPaneel = lazy(() => import("./Liggers.tsx").then((m) => ({ default: m.LiggerPaneel })));
+const OntwerpBalk = lazy(() => import("./Ontwerp.tsx").then((m) => ({ default: m.OntwerpBalk })));
+const OntwerpPaneel = lazy(() => import("./Ontwerp.tsx").then((m) => ({ default: m.OntwerpPaneel })));
+const InstallatieBalk = lazy(() => import("./Installaties.tsx").then((m) => ({ default: m.InstallatieBalk })));
+const InstallatiePaneel = lazy(() => import("./Installaties.tsx").then((m) => ({ default: m.InstallatiePaneel })));
+const CloudPaneel = lazy(() => import("./Cloud.tsx").then((m) => ({ default: m.CloudPaneel })));
+const Laden = () => <p className="laden" role="status">Laden…</p>;
 import { appartement } from "../../core/examples/appartement.ts";
-import { KeukenPaneel } from "./Keuken.tsx";
 import { LaserKnop, useLaser } from "./Laser.tsx";
-import { WerfPaneel } from "./Werf.tsx";
-import { EpbBalk, EpbPaneel, type EpbSelectie } from "./Epb.tsx";
-import { InrichtingBalk, InrichtingPaneel } from "./Inrichting.tsx";
+import type { EpbSelectie } from "./Epb.tsx";
 import { NieuweVersie, VERSIE } from "./Versie.tsx";
-import { CloudPaneel, ConflictBalk, statusTekst, useCloud } from "./Cloud.tsx";
-import { LiggerPaneel } from "./Liggers.tsx";
-import { OntwerpBalk, OntwerpPaneel, type OntwerpGereedschap, type OntwerpWeergave } from "./Ontwerp.tsx";
-import { InstallatieBalk, InstallatiePaneel } from "./Installaties.tsx";
+import { ConflictBalk, statusTekst, useCloud } from "./Cloud.tsx";
+import type { OntwerpGereedschap, OntwerpWeergave } from "./Ontwerp.tsx";
 import { ArOpmeting, ArResultaat, DEMO_KAMERS, arOndersteund, type GemetenKamer } from "./ArOpmeting.tsx";
 import { LastenboekWeergave } from "./Lastenboek.tsx";
 import { RuimtePaneel } from "./RuimtePaneel.tsx";
@@ -295,7 +297,7 @@ export function App() {
       {bericht && <div className="melding bericht" role="status">{bericht}<button onClick={() => zetBericht(null)} aria-label="Sluiten">×</button></div>}
       <NieuweVersie />
       <ConflictBalk cloud={cloud} />
-      {cloudOpen && <CloudPaneel cloud={cloud} project={project} sluit={() => zetCloudOpen(false)} meld={zetMelding} />}
+      {cloudOpen && <Suspense fallback={<Laden />}><CloudPaneel cloud={cloud} project={project} sluit={() => zetCloudOpen(false)} meld={zetMelding} /></Suspense>}
 
       {!project ? (
         <NieuwProject onMaak={nieuwProject} onVoorbeeld={() => nieuwProject(appartement)} />
@@ -701,16 +703,16 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
   const exporteer = async (soort: "pdf" | "dxf" | "ifc" | "csv" | "lastenboek" | "json" | "installaties" | "ontwerp" | "rekennota" | "epb-pdf" | "epb-csv" | "keuken-pdf" | "keuken-csv" | "keuken-dxf" | "vergunning", mw?: Maatwerk) => {
     try {
-      if (soort === "vergunning") download(`${naam}-vergunningsklare-basis.pdf`, await vergunningNaarPDF(project) as BlobPart, "application/pdf");
-      if (soort === "keuken-pdf") download(`${naam}-keuken.pdf`, await keukenNaarPDF(project) as BlobPart, "application/pdf");
+      if (soort === "vergunning") download(`${naam}-vergunningsklare-basis.pdf`, await (await pdf()).vergunningNaarPDF(project) as BlobPart, "application/pdf");
+      if (soort === "keuken-pdf") download(`${naam}-keuken.pdf`, await (await pdf()).keukenNaarPDF(project) as BlobPart, "application/pdf");
       if (soort === "keuken-csv" && mw) download(`${naam}-kasten-wand${mw.rand + 1}.csv`, kastenlijstCSV(project, mw), "text/csv;charset=utf-8");
       if (soort === "keuken-dxf" && mw) download(`${naam}-wand${mw.rand + 1}.dxf`, wandAanzichtDXF(project, mw), "application/dxf");
-      if (soort === "epb-pdf") download(`${naam}-epb-inventaris.pdf`, await epbNaarPDF(project) as BlobPart, "application/pdf");
+      if (soort === "epb-pdf") download(`${naam}-epb-inventaris.pdf`, await (await pdf()).epbNaarPDF(project) as BlobPart, "application/pdf");
       if (soort === "epb-csv") download(`${naam}-epb-invoerlijst.csv`, epbCSV(project), "text/csv;charset=utf-8");
-      if (soort === "rekennota") download(`${naam}-rekennota-liggers.pdf`, await rekennotaNaarPDF(project) as BlobPart, "application/pdf");
-      if (soort === "ontwerp") download(`${naam}-ontwerp.pdf`, await ontwerpNaarPDF(project) as BlobPart, "application/pdf");
-      if (soort === "installaties") download(`${naam}-installaties.pdf`, await installatiesNaarPDF(project) as BlobPart, "application/pdf");
-      if (soort === "pdf") download(`${naam}.pdf`, await projectNaarPDF(project, { prijzen, btwPct: btw }) as BlobPart, "application/pdf");
+      if (soort === "rekennota") download(`${naam}-rekennota-liggers.pdf`, await (await pdf()).rekennotaNaarPDF(project) as BlobPart, "application/pdf");
+      if (soort === "ontwerp") download(`${naam}-ontwerp.pdf`, await (await pdf()).ontwerpNaarPDF(project) as BlobPart, "application/pdf");
+      if (soort === "installaties") download(`${naam}-installaties.pdf`, await (await pdf()).installatiesNaarPDF(project) as BlobPart, "application/pdf");
+      if (soort === "pdf") download(`${naam}.pdf`, await (await pdf()).projectNaarPDF(project, { prijzen, btwPct: btw }) as BlobPart, "application/pdf");
       if (soort === "ifc") download(`${naam}.ifc`, projectNaarIFC(project), "application/x-step");
       if (soort === "dxf") download(`${naam}-${bestandsnaam(v.naam)}.dxf`, verdiepingNaarDXF(v, { labels }), "application/dxf");
       if (soort === "lastenboek") download(`${naam}-lastenboek.csv`, lastenboekCSV(lb, project.naam, prijzen, btw), "text/csv;charset=utf-8");
@@ -742,6 +744,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           ))}
           <button className="tab-nieuw" onClick={() => { zetNieuweVerdieping(true); zetSelectie(null); }}>+ Verdieping</button>
         </div>
+        <Suspense fallback={<Laden />}>
         {modus === "werf" && <p className="hint-kort">Tik een ruimte aan voor foto's en punten van die ruimte; tik naast het gebouw om alles te zien.</p>}
         {modus === "keuken" && <p className="hint-kort">Tik in het plan dicht bij de wand waar de keuken of de kast komt; de gekozen wand wordt rood.</p>}
         {modus === "energie" && <EpbBalk noord={project.noord ?? 0} zetNoord={(n) => wijzigProject({ ...project, noord: n })} />}
@@ -749,6 +752,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         {modus === "liggers" && <p className="hint-kort">Tik een raam, deur of muur aan in het plan: een nieuwe ligger neemt dan de breedte en muurdikte over.</p>}
         {modus === "ontwerp" && <OntwerpBalk gereedschap={gereedschap} zetGereedschap={(g) => { zetGereedschap(g); zetEerstePunt(null); }} weergave={ontwerpWeergave} zetWeergave={zetOntwerpWeergave} eerstePunt={!!eerstePunt} dikte={nieuweDikte} zetDikte={zetNieuweDikte} />}
         {modus === "installaties" && <InstallatieBalk net={net} zetNet={(n) => { zetNet(n); zetInstSel(null); }} plaatsen={plaatsen} zetPlaatsen={(x) => { zetPlaatsen(x); zetInstSel(null); }} />}
+        </Suspense>
         <div className="plan-houder">
           <div
             className={`plan${zoom.factor > 1 ? " ingezoomd" : ""}`}
@@ -798,12 +802,13 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
       <aside className="paneel">
         {kort && <div className="bevestiging" role="status">{kort}</div>}
+        <Suspense fallback={<Laden />}>
         {modus === "werf" ? (
           <WerfPaneel project={project} v={v} ruimteId={werfRuimte} zetRuimteId={zetWerfRuimte} wijzigProject={wijzigProject} prijzen={prijzen}
             exporteer={async (soort, d) => {
               try {
-                if (soort === "offerte" && d.offerte) download(`${naam}-offerte-${bestandsnaam(d.offerte.nummer)}.pdf`, await offerteNaarPDF(project, prijzen, d.firma, d.offerte) as BlobPart, "application/pdf");
-                if (soort === "vordering" && d.nr) download(`${naam}-vorderingsstaat-${d.nr}.pdf`, await vorderingsstaatNaarPDF(project, prijzen, d.firma, d.nr, d.btw ?? 21) as BlobPart, "application/pdf");
+                if (soort === "offerte" && d.offerte) download(`${naam}-offerte-${bestandsnaam(d.offerte.nummer)}.pdf`, await (await pdf()).offerteNaarPDF(project, prijzen, d.firma, d.offerte) as BlobPart, "application/pdf");
+                if (soort === "vordering" && d.nr) download(`${naam}-vorderingsstaat-${d.nr}.pdf`, await (await pdf()).vorderingsstaatNaarPDF(project, prijzen, d.firma, d.nr, d.btw ?? 21) as BlobPart, "application/pdf");
               } catch (err) { zetMelding(`Export mislukt: ${(err as Error).message}`); }
             }} />
         ) : modus === "keuken" ? (
@@ -875,6 +880,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
             )}
           </section>
         )}
+        </Suspense>
 
         <section className="kaart">
           <div className="kaart-kop">

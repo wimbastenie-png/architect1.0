@@ -18,4 +18,15 @@ const versieBestand = (): Plugin => ({
 });
 
 // base "./" zodat de gebouwde app ook vanuit een submap of als los bestand werkt
-export default defineConfig({ plugins: [react(), versieBestand()], base: "./", define: { __VERSIE__: JSON.stringify(VERSIE) } });
+export default defineConfig({
+  plugins: [react(), versieBestand()],
+  base: "./",
+  define: { __VERSIE__: JSON.stringify(VERSIE) },
+  build: {
+    rollupOptions: {
+      // De rekenkern (packages/core) heeft geen neveneffecten bij het laden: wat niet gebruikt wordt,
+      // mag weg, zodat de PDF-code (pdf-lib) alleen in het apart geladen stuk komt.
+      treeshake: { moduleSideEffects: (id) => !/[\\/]packages[\\/]core[\\/]src[\\/]/.test(id) },
+    },
+  },
+});
