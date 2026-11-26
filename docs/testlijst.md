@@ -306,3 +306,11 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
 - [ ] **Creditnota**: bedrag en reden; telt negatief.
 - [ ] **Nummering**: 2026-001, 2026-002 … ook als je in een ander project factureert (op hetzelfde toestel). Alleen de laatste factuur kan je verwijderen.
 - [ ] **Boekhouder:** kloppen de vermeldingen (6 %, verlegd), de nummering en de opbouw voorschot/vordering/eind? Ontbreekt er iets (bv. KBO-nummer, RPR, algemene voorwaarden)?
+
+## F1-6. Boekhouding en groothandel
+
+- [ ] **E-factuur (UBL)**: maak een factuur voor een **firma** (met btw-nummer) en tik **E-factuur (UBL)** in de lijst van facturen. Je krijgt een .xml-bestand. Voor een particulier legt de app uit dat de PDF volstaat.
+- [ ] **Laat de eerste e-factuur valideren**: lees ze in je boekhoudpakket in of laat je Peppol-toegangspunt ze controleren. Noteer elke foutmelding (code, bv. BR-CO-15).
+- [ ] **Werf → Boekhouding en groothandel**: **Klantenlijst** en **Verkoopdagboek** (CSV) openen in Excel: kolommen netjes gescheiden, bedragen met komma? Lukt het inlezen in je boekhoudpakket?
+- [ ] **Bestellijst**: geef bij een paar posten je artikelnummer en de verpakking (bv. 1,44 m² per doos), zet het snijverlies → **Bestellijst (CSV)**. Lukt het om dit bestand in de webshop van je groothandel op te laden? Welke kolommen verwacht die?
+- [ ] Herlaad de app: de artikelnummers staan er nog (ook in een ander project).

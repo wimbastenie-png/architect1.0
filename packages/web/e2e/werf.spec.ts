@@ -227,3 +227,45 @@ test("werf: facturen — controle, voorschot met QR-PDF, vorderingsfactuur, beta
   await expect(page.locator(".werf table")).toContainText("€ 767,97"); // 724,50 + 6 % (regime blijft zoals de vorige factuur)
   expect(fouten).toEqual([]);
 });
+
+test("werf: e-factuur (UBL), verkoopdagboek en bestellijst voor de groothandel", async ({ page }) => {
+  const fouten = await start(page);
+  await openVoorbeeld(page);
+  await page.getByRole("tab", { name: "Lastenboek" }).click();
+  await page.getByLabel("Prijs Vloerafwerking").fill("50");
+  await page.getByLabel("Prijs Vloerafwerking").blur();
+  await page.getByRole("tab", { name: "Werf", exact: true }).click();
+  await page.getByRole("tab", { name: "Vordering en offerte" }).click();
+  await page.getByText("Firmagegevens en logo").click();
+  await page.getByLabel("Firmanaam").fill("Bouwbedrijf Voorbeeld");
+  await page.getByLabel("Adres", { exact: true }).fill("Werfstraat 1, 9000 Gent");
+  await page.getByLabel("Btw-nummer").fill("BE0123.456.789");
+  await page.getByLabel("IBAN").fill("BE68 5390 0754 7034");
+  await page.getByRole("tab", { name: "Facturen" }).click();
+  await page.getByLabel("Klant (naam)").fill("Immo Peeters nv");
+  await page.getByLabel("Klant (adres)").fill("Kerkstraat 5, 2000 Antwerpen");
+  await page.getByLabel("Klant (btw-nummer, firma)").fill("BE0999.888.777");
+  await page.getByRole("button", { name: "Factuur opmaken" }).click();
+  const [ubl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "E-factuur (UBL)" }).click()]);
+  const xml = readFileSync((await ubl.path())!, "utf8");
+  expect(xml).toContain("urn:fdc:peppol.eu:2017:poacc:billing:3.0");
+  expect(xml).toContain('<cbc:EndpointID schemeID="0208">0999888777</cbc:EndpointID>');
+
+  await page.getByRole("tab", { name: "Boekhouding en groothandel" }).click();
+  const [vk] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Verkoopdagboek (CSV)" }).click()]);
+  expect(readFileSync((await vk.path())!, "utf8")).toContain("Immo Peeters nv");
+  await page.getByLabel("Artikelnummer Vloerafwerking").fill("TEG-6060");
+  await page.getByLabel("Artikelnummer Vloerafwerking").blur();
+  await page.getByLabel("Per verpakking Vloerafwerking").fill("1.44");
+  await page.getByLabel("Per verpakking Vloerafwerking").blur();
+  await page.getByLabel("Snijverlies (%)").fill("10");
+  await expect(page.getByRole("button", { name: "Bestellijst (CSV, 1 artikels)" })).toBeEnabled();
+  const [bl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /Bestellijst \(CSV/ }).click()]);
+  expect(readFileSync((await bl.path())!, "utf8")).toContain("TEG-6060;32;");
+  // artikelnummers blijven bewaard op het toestel
+  await page.reload();
+  await page.getByRole("tab", { name: "Werf", exact: true }).click();
+  await page.getByRole("tab", { name: "Boekhouding en groothandel" }).click();
+  await expect(page.getByLabel("Artikelnummer Vloerafwerking")).toHaveValue("TEG-6060");
+  expect(fouten).toEqual([]);
+});
