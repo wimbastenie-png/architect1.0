@@ -222,6 +222,22 @@ export const Project = z.object({
     lasten: z.array(z.object({ omschrijving: z.string(), soort: z.enum(["G", "Q", "S"]), waarde: z.number().nonnegative() })),
     reeksen: z.array(z.enum(["IPE", "HEA", "HEB"])).optional(),
     muurId: z.string().optional(),
+    puntlasten: z.array(z.object({ omschrijving: z.string(), soort: z.enum(["G", "Q", "S"]), waarde: z.number().nonnegative(), a: z.number().nonnegative() })).optional(),
+    tweede: mmPositief.optional(),
+    metselwerkFd: z.number().positive().optional(),
+  })).default([]),
+  /** Stalen kolommen (voordimensionering, eenvoudige knikcontrole). */
+  kolommen: z.array(z.object({
+    id,
+    naam: z.string(),
+    /** Kniklengte (mm), bv. de verdiepingshoogte. */
+    lengte: mmPositief,
+    staal: z.enum(["S235", "S355"]),
+    /** Karakteristieke normaalkracht: permanent en variabel (kN), of uit de reactie van een ligger. */
+    gk: z.number().nonnegative().default(0),
+    qk: z.number().nonnegative().default(0),
+    liggerId: z.string().optional(),
+    reeksen: z.array(z.enum(["IPE", "HEA", "HEB"])).optional(),
   })).default([]),
   /** Keuken en maatwerk: per wand (rand van een ruimte) de precisiemeting, kasten en aansluitingen. */
   maatwerk: z.array(z.object({

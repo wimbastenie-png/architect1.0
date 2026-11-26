@@ -177,3 +177,28 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
   - Kloppen de standaardmaten (plint 100, kast 720, werkblad 38/620, bovenkast op 1450)?
   - Is de werkbladlengte van max. 3 m juist?
   - Wat heb je nodig voor je eigen software?
+
+## 14. Liggers en stabiliteit uitbreiden (ingenieur)
+
+- [ ] Maak een project met 2 verdiepingen. **Liggers** → tik een opening aan → **+ Nieuwe ligger** → **Lasten uit het model**:
+  - de muur boven de opening;
+  - de muren erboven;
+  - de vloeren en het dak met hun invloedsbreedte.
+
+  Kloppen de aannames (vloer draagt af op deze muur)?
+- [ ] **+ Puntlast**: een balk die op de ligger rust (kN en afstand vanaf links). Het voorstel past zich aan.
+- [ ] **Tweede overspanning**: een doorgaande ligger over een tussensteun. De reactie op de tussensteun verschijnt.
+- [ ] **Metselwerk f_d** ingeven: de controle "Oplegging metselwerk" en het advies voor een oplegblok verschijnen.
+- [ ] De controles **Lijf (oplegging)** en, bij een doorgaande ligger, **Lijf (tussensteun)** verschijnen (lijfstuik/lijfplooi).
+- [ ] **+ Kolom**: kniklengte, belasting of de reactie van een ligger → voorstel HEA/HEB.
+- [ ] **Rekennota (PDF)**:
+  - schema;
+  - puntlasten;
+  - reacties per steunpunt;
+  - kolommen;
+  - "niet voor uitvoering" en het aftekenvak.
+- [ ] **Ingenieur:**
+  - Klopt de patroonbelasting bij een doorgaande ligger?
+  - Klopt lijfstuik/lijfplooi volgens EN 1993-1-5?
+  - Zijn de knikkrommen juist?
+  - Is de lastendaling uit het model bruikbaar?
