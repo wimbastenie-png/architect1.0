@@ -145,3 +145,29 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--lijn); border
 /* Ingezoomd: één vinger verschuift het beeld (zoals een kaart), de browser scrolt niet op het plan */
 .plan.ingezoomd { touch-action: none; }
 .melding.bericht { background: var(--kaart); color: var(--laser); border: 1px solid var(--laser); }
+/* modi boven het plan (plan, installaties …) en segmentknoppen */
+.modi, .segment { display: flex; gap: 0; margin-bottom: 8px; flex-wrap: wrap; }
+.modi button, .segment button { border-radius: 0; margin-left: -1px; }
+.modi button:first-child, .segment button:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
+.modi button:last-child, .segment button:last-child { border-radius: 0 8px 8px 0; }
+.modi .actief, .segment .actief { background: var(--accent); color: var(--accent-tekst); border-color: var(--accent); font-weight: 600; }
+.soorten { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.soorten button { font-size: 14px; }
+.soorten .actief { border-color: var(--accent); background: var(--accent); color: var(--accent-tekst); }
+.soorten .code { font-weight: 700; font-size: 12px; opacity: 0.8; }
+.gas-waarschuwing { background: #fef9c3; color: #713f12; border: 2px solid #ca8a04; border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+@media (prefers-color-scheme: dark) { .gas-waarschuwing { background: #422006; color: #fde68a; } }
+.aandachtspunten { padding-left: 18px; font-size: 14px; }
+.aandachtspunten li { margin-bottom: 6px; }
+.aandachtspunten .let-op { color: var(--scan); }
+.aandachtspunten button.link { background: none; border: none; padding: 0; min-height: 0; color: inherit; text-align: left; text-decoration: underline dotted; cursor: pointer; font: inherit; }
+.schema { overflow-x: auto; margin: 8px 0; border: 1px solid var(--lijn); border-radius: 8px; }
+.schema svg { min-width: 640px; width: 100%; height: auto; display: block; }
+.tabel.klein { font-size: 13px; width: 100%; border-collapse: collapse; }
+.tabel.klein td, .tabel.klein th { padding: 4px 6px; border-bottom: 1px solid var(--lijn); text-align: left; vertical-align: top; }
+.tabel.klein .getal { text-align: right; white-space: nowrap; }
+.zacht { color: var(--zacht); }
+.installatie-balk .soorten { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+.installatie-balk .soorten button { flex: 0 0 auto; }
+.soorten .code { margin-right: 4px; }
+.hint-kort { font-size: 13px; color: var(--zacht); margin: 0 0 6px; }

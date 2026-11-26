@@ -97,6 +97,24 @@ export const Sparing = z.object({
 });
 export type Sparing = z.infer<typeof Sparing>;
 
+/**
+ * Installatiepunt op het plan: stopcontact, lichtpunt, wastafel, gasketel …
+ * Leidingen en kringen worden hieruit berekend (zie installaties.ts).
+ */
+export const InstallatiePunt = z.object({
+  id,
+  net: z.enum(["elektriciteit", "sanitair", "gas"]),
+  /** Soort toestel of punt (zie SOORTEN in installaties.ts). */
+  soort: z.string().min(1),
+  positie: Punt,
+  /** Hoogte boven de afgewerkte vloer (mm). */
+  hoogte: mm.nonnegative(),
+  /** Vaste kring (bv. "K3"); leeg = automatisch ingedeeld. */
+  kring: z.string().optional(),
+  opmerking: z.string().optional(),
+});
+export type InstallatiePunt = z.infer<typeof InstallatiePunt>;
+
 export const Verdieping = z.object({
   id,
   naam: z.string(),
@@ -106,6 +124,7 @@ export const Verdieping = z.object({
   openingen: z.array(Opening).default([]),
   ruimtes: z.array(Ruimte).default([]),
   sparingen: z.array(Sparing).default([]),
+  installaties: z.array(InstallatiePunt).default([]),
 });
 export type Verdieping = z.infer<typeof Verdieping>;
 

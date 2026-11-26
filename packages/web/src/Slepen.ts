@@ -63,6 +63,8 @@ export function useSlepen(opties: {
   wijzig: (f: (v: Verdieping) => Verdieping) => boolean;
   kiesMuur: (id: string) => void;
   houder: RefObject<HTMLDivElement | null>;
+  /** Slepen van muren en openingen uitschakelen (bv. in de modus installaties). */
+  uit?: boolean;
 }) {
   const laatst = useRef(opties);
   laatst.current = opties;
@@ -98,7 +100,7 @@ export function useSlepen(opties: {
   /** Wat ligt er onder het aanraakpunt? Hoek (enkel bij de geselecteerde muur), opening of muur. */
   const begin = (doel: EventTarget | null, x: number, y: number): Sleep | null => {
     const houder = laatst.current.houder.current;
-    if (!houder || !(doel instanceof Element)) return null;
+    if (laatst.current.uit || !houder || !(doel instanceof Element)) return null;
     const start = naarPlan(houder, x, y);
     if (!start) return null;
     const hoekEl = doel.closest("[data-hoek]");

@@ -3,7 +3,8 @@ import { vloerNetto } from "./bewerken.ts";
 import { maatketens, tekstBreedte } from "./maatvoering.ts";
 import { openingLabelPunt, openingLabels } from "./openingen.ts";
 import { binnenmaten, m2Tekst, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
-import type { MeetMethode, Punt, Verdieping } from "./schema.ts";
+import { installatiesSVG, type Net } from "./installaties.ts";
+import type { MeetMethode, Project, Punt, Verdieping } from "./schema.ts";
 
 const KLEUR: Record<MeetMethode, string> = {
   gescand: "#b45309", // oranje: indicatief
@@ -34,6 +35,8 @@ export interface SvgOpties {
    * gsm), zodat een vinger ook raakt als het plan ver uitgezoomd is.
    */
   raak?: number;
+  /** Installaties tekenen (symbolen en leidingen); het project is nodig voor bronnen op andere verdiepingen en kringnummers. */
+  installaties?: { project: Project; netten?: Net[]; geselecteerd?: string };
 }
 
 export type Kader = { minX: number; maxX: number; minY: number; maxY: number };
@@ -154,6 +157,10 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
   }
 
   const sel = v.muren.find((m) => m.id === opties.geselecteerd);
+  if (opties.installaties) {
+    const ti = (q: Punt) => ({ x: q.x - minX, y: maxY - q.y });
+    el.push(...installatiesSVG(opties.installaties.project, v, ti, { netten: opties.installaties.netten, geselecteerd: opties.installaties.geselecteerd, interactief: ia }));
+  }
   if (sel) {
     for (const [p, letter] of [[sel.start, "A"], [sel.eind, "B"]] as const) {
       const [x, y] = t(p).split(",");

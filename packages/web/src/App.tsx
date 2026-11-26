@@ -4,6 +4,10 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
+  installatiesNaarPDF,
+  voegInstallatiepuntToe,
+  wijzigInstallatiepunt,
+  type Net,
   isRoomPlan,
   roomPlanNaarProject,
   projectNaarIFC,
@@ -49,10 +53,11 @@ import {
 } from "@scanapp/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { appartement } from "../../core/examples/appartement.ts";
+import { InstallatieBalk, InstallatiePaneel } from "./Installaties.tsx";
 import { ArOpmeting, ArResultaat, DEMO_KAMERS, arOndersteund, type GemetenKamer } from "./ArOpmeting.tsx";
 import { LastenboekWeergave } from "./Lastenboek.tsx";
 import { RuimtePaneel } from "./RuimtePaneel.tsx";
-import { useSlepen } from "./Slepen.ts";
+import { naarPlan, useSlepen } from "./Slepen.ts";
 import { MAX_ZOOM, useZoom } from "./Zoom.ts";
 import { Veld, getal, leesOpslag, schrijfOpslag } from "./ui.tsx";
 
@@ -325,11 +330,23 @@ interface WerkbladProps {
   zetMelding: (s: string | null) => void;
 }
 
+type Modus = "plan" | "installaties";
+const MODI: Array<{ modus: Modus; naam: string }> = [
+  { modus: "plan", naam: "Plan" },
+  { modus: "installaties", naam: "Installaties" },
+];
+
 function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigProject, zetMelding }: WerkbladProps) {
   const v = project.verdiepingen[vi] ?? project.verdiepingen[0]!;
   const labels = useMemo(() => openingLabels(project), [project]);
   const planRef = useRef<HTMLDivElement>(null);
+  const [modus, zetModus] = useState<Modus>("plan");
+  const [net, zetNet] = useState<Net>("elektriciteit");
+  const [plaatsen, zetPlaatsen] = useState<string | null>(null);
+  const [instSel, zetInstSel] = useState<string | null>(null);
+  const [verplaatsen, zetVerplaatsen] = useState(false);
   const slepen = useSlepen({
+    uit: modus !== "plan",
     houder: planRef,
     v,
     geselecteerdeMuur: selectie?.soort === "muur" ? selectie.id : undefined,
@@ -355,8 +372,12 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     return () => window.removeEventListener("resize", meet);
   });
   const svg = useMemo(
-    () => verdiepingNaarSVG(v, { interactief: true, labels, raak, kader: zoom.kader, geselecteerd: selectie?.soort === "muur" ? selectie.id : undefined }),
-    [v, selectie, labels, raak, zoom.kader],
+    () => verdiepingNaarSVG(v, {
+      interactief: true, labels, raak, kader: zoom.kader,
+      geselecteerd: modus === "plan" && selectie?.soort === "muur" ? selectie.id : undefined,
+      installaties: modus === "installaties" ? { project, netten: [net], geselecteerd: instSel ?? undefined } : undefined,
+    }),
+    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel],
   );
   // Tijdens het slepen: voorbeeld in een aparte laag bovenop, met het vaste kader van de
   // tekening eronder. Die onderste tekening blijft ongewijzigd onder de vinger staan.
@@ -412,6 +433,22 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const klik = (e: React.MouseEvent) => {
     const naSlepen = slepen.klikNegeren(), naVerschuiven = zoom.klikNegeren();
     if (naSlepen || naVerschuiven) return;
+    if (modus === "installaties") {
+      const q = planRef.current ? naarPlan(planRef.current, e.clientX, e.clientY) : null;
+      const doel = (e.target as Element).closest("[data-installatie]");
+      if (verplaatsen && instSel && q) {
+        wijzig((x) => wijzigInstallatiepunt(x, instSel, { positie: { x: Math.round(q.x), y: Math.round(q.y) } }));
+        zetVerplaatsen(false);
+        return;
+      }
+      if (doel && !plaatsen) { zetInstSel(doel.getAttribute("data-installatie")); return; }
+      if (plaatsen && q) {
+        wijzig((x) => voegInstallatiepuntToe(x, plaatsen, q).verdieping);
+        return;
+      }
+      zetInstSel(null);
+      return;
+    }
     if ((e.target as Element).closest("[data-hoek]")) return; // tik op hoek A/B: selectie behouden
     const el = (e.target as Element).closest("[data-muur],[data-ruimte]");
     if (!el) return zetSelectie(null);
@@ -441,8 +478,9 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     }
   };
 
-  const exporteer = async (soort: "pdf" | "dxf" | "ifc" | "csv" | "lastenboek" | "json") => {
+  const exporteer = async (soort: "pdf" | "dxf" | "ifc" | "csv" | "lastenboek" | "json" | "installaties") => {
     try {
+      if (soort === "installaties") download(`${naam}-installaties.pdf`, await installatiesNaarPDF(project) as BlobPart, "application/pdf");
       if (soort === "pdf") download(`${naam}.pdf`, await projectNaarPDF(project, { prijzen, btwPct: btw }) as BlobPart, "application/pdf");
       if (soort === "ifc") download(`${naam}.ifc`, projectNaarIFC(project), "application/x-step");
       if (soort === "dxf") download(`${naam}-${bestandsnaam(v.naam)}.dxf`, verdiepingNaarDXF(v, { labels }), "application/dxf");
@@ -465,6 +503,12 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           ))}
           <button className="tab-nieuw" onClick={() => { zetNieuweVerdieping(true); zetSelectie(null); }}>+ Verdieping</button>
         </div>
+        <div className="modi" role="tablist" aria-label="Weergave">
+          {MODI.map((m) => (
+            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); }}>{m.naam}</button>
+          ))}
+        </div>
+        {modus === "installaties" && <InstallatieBalk net={net} zetNet={(n) => { zetNet(n); zetInstSel(null); }} plaatsen={plaatsen} zetPlaatsen={(x) => { zetPlaatsen(x); zetInstSel(null); }} />}
         <div className="plan-houder">
           <div
             className={`plan${zoom.factor > 1 ? " ingezoomd" : ""}`}
@@ -484,7 +528,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           {voorbeeldSvg && <div className="plan plan-voorbeeld" aria-hidden="true" dangerouslySetInnerHTML={{ __html: voorbeeldSvg }} />}
           {slepen.info && <div className={`sleep-info${slepen.info.fout ? " fout" : ""}`} role="status">{slepen.info.tekst}</div>}
         </div>
-        <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. <strong>Slepen:</strong> een muur haaks verschuiven, een raam of deur naar een andere plaats of muur, of de hoek A of B van een geselecteerde muur (maakt de muur schuin). <strong>Op de gsm:</strong> houd een muur, raam of hoek ingedrukt tot de gsm trilt, en sleep dan; gewoon vegen scrolt. <strong>Inzoomen:</strong> knoppen + en −, knijpen met twee vingers, of Ctrl + muiswiel. Ingezoomd verschuif je het beeld met één vinger (of met de muis op een lege plek); de pagina scroll je dan naast het plan. Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>
+        {modus === "plan" && <p className="hint">Klik op een muur of maat om ze aan te passen, of op een ruimte om naam en hoogte te wijzigen. <strong>Slepen:</strong> een muur haaks verschuiven, een raam of deur naar een andere plaats of muur, of de hoek A of B van een geselecteerde muur (maakt de muur schuin). <strong>Op de gsm:</strong> houd een muur, raam of hoek ingedrukt tot de gsm trilt, en sleep dan; gewoon vegen scrolt. <strong>Inzoomen:</strong> knoppen + en −, knijpen met twee vingers, of Ctrl + muiswiel. Ingezoomd verschuif je het beeld met één vinger (of met de muis op een lege plek); de pagina scroll je dan naast het plan. Maatkleur: <span className="k-scan">gescand</span> · <span className="k-corr">ingegeven</span> · <span className="k-laser">laser</span> · <span className="legende-overgenomen">overgenomen</span>. Codes R/D/O verwijzen naar de openingenlijst in de PDF.</p>}
         <div className="export">
           <button className="primair" onClick={() => exporteer("pdf")}>PDF-plan</button>
           <button onClick={() => exporteer("dxf")}>DXF (CAD)</button>
@@ -514,7 +558,13 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
       <aside className="paneel">
         {kort && <div className="bevestiging" role="status">{kort}</div>}
-        {nieuweVerdieping ? (
+        {modus === "installaties" ? (
+          <InstallatiePaneel
+            project={project} v={v} net={net} zetNet={zetNet} plaatsen={plaatsen} zetPlaatsen={(x) => { zetPlaatsen(x); zetInstSel(null); }}
+            geselecteerd={instSel} zetGeselecteerd={(x) => { zetInstSel(x); zetVerplaatsen(false); zetPlaatsen(null); }}
+            verplaatsen={verplaatsen} zetVerplaatsen={zetVerplaatsen} wijzig={wijzig} exporteerPdf={() => exporteer("installaties")}
+          />
+        ) : nieuweVerdieping ? (
           <NieuweVerdieping
             project={project}
             huidige={v}
