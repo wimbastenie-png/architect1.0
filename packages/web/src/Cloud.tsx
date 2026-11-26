@@ -6,11 +6,17 @@
  * naar de app en elke 30 s kijken of een ander toestel een nieuwere versie
  * bewaarde. Elke bewaring draagt de versie waarop je verder werkte: was er
  * intussen een nieuwere, dan meldt de app een conflict en kies je zelf.
+ *
+ * Offline: zonder netwerk blijft alles op dit toestel bewaard (status "offline,
+ * wacht"). Zodra er weer netwerk is, gaan de wijzigingen en de foto's vanzelf
+ * mee. Het verschil tussen het project en de laatst bewaarde versie IS de
+ * wachtrij: zo gaat er niets verloren, ook niet als je de app tussendoor sluit.
  */
 import { leesProject, type Project } from "@scanapp/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { stuurWachtendeFotos, useWachtendeFotos, zetFotoCloud } from "./Fotos.tsx";
 import {
-  bewaarInstelling, controleerSleutel, controleerUrl, maakOpslag, vanBuitenIngesteld,
+  bewaarInstelling, controleerSleutel, controleerUrl, isNetwerkFout, maakOpslag, vanBuitenIngesteld,
   type CloudOpslag, type CloudProject, type Lid, type Rol,
 } from "./cloudOpslag.ts";
 import { Veld } from "./ui.tsx";
@@ -23,6 +29,7 @@ const schrijfKoppeling = (k: Koppeling) => { try { localStorage.setItem(KOPPELIN
 export type CloudStatus =
   | { soort: "uit" } | { soort: "afgemeld" } | { soort: "los" } | { soort: "bezig" }
   | { soort: "gelijk"; versie: number; om: string } | { soort: "lezen" } | { soort: "fout"; tekst: string }
+  | { soort: "offline"; wacht: boolean }
   | { soort: "conflict"; cloud: Project; versie: number; door?: string };
 
 export function useCloud(project: Project | null, vervang: (p: Project, bericht: string) => void) {
@@ -47,7 +54,7 @@ export function useCloud(project: Project | null, vervang: (p: Project, bericht:
   const k = project ? koppeling[project.id] : undefined;
   // status afleiden als er niets bijzonders loopt
   useEffect(() => {
-    if (status.soort === "conflict" || status.soort === "bezig" || status.soort === "fout") return;
+    if (status.soort === "conflict" || status.soort === "bezig" || status.soort === "fout" || status.soort === "offline") return;
     if (!opslag) zetStatus({ soort: "uit" });
     else if (!gebruiker) zetStatus({ soort: "afgemeld" });
     else if (!k) zetStatus({ soort: "los" });
@@ -71,15 +78,53 @@ export function useCloud(project: Project | null, vervang: (p: Project, bericht:
       const kk = ref.current.koppeling;
       zetKoppeling({ ...kk, [p.id]: { versie: n, json, rol: kk[p.id]?.rol ?? "eigenaar" } });
       zetStatus({ soort: "gelijk", versie: n, om: new Date().toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" }) });
+      void stuurWachtendeFotos();
     } catch (e) {
-      zetStatus({ soort: "fout", tekst: (e as Error).message || "Geen verbinding met de cloud. Je werk staat veilig op dit toestel; de app probeert later opnieuw." });
+      if (isNetwerkFout(e)) zetStatus({ soort: "offline", wacht: true });
+      else zetStatus({ soort: "fout", tekst: (e as Error).message || "Bewaren in de cloud lukt niet. Je werk staat veilig op dit toestel; de app probeert later opnieuw." });
     }
   }, [opslag]);
+
+  // weer netwerk (of elke 30 s na een probleem): opnieuw proberen
+  const opnieuw = useCallback(() => {
+    const st = ref.current.status;
+    if (st.soort !== "offline" && st.soort !== "fout") { void stuurWachtendeFotos(); return; }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    const p = ref.current.project, kk = p ? ref.current.koppeling[p.id] : undefined;
+    zetStatus(kk ? { soort: "gelijk", versie: kk.versie, om: "" } : { soort: "los" }); // het automatisch bewaren pikt de wachtende wijziging op
+  }, []);
+  useEffect(() => {
+    const weg = () => { const p = ref.current.project, kk = p ? ref.current.koppeling[p.id] : undefined; if (kk && ref.current.status.soort !== "conflict") zetStatus({ soort: "offline", wacht: JSON.stringify(p) !== kk.json }); };
+    window.addEventListener("online", opnieuw);
+    window.addEventListener("offline", weg);
+    const iv = setInterval(opnieuw, 30000);
+    return () => { window.removeEventListener("online", opnieuw); window.removeEventListener("offline", weg); clearInterval(iv); };
+  }, [opnieuw]);
+
+  // offline en toch iets gewijzigd: tonen dat er iets wacht
+  useEffect(() => {
+    if (status.soort !== "offline" || status.wacht || !project || !k) return;
+    if (JSON.stringify(project) !== k.json) zetStatus({ soort: "offline", wacht: true });
+  }, [project, status, k]);
+
+  // foto's: de cloud kennen zolang het project gekoppeld is
+  const fotoIds = project?.fotos.map((f) => f.id).join(",") ?? "";
+  useEffect(() => {
+    if (!opslag || !gebruiker || !project || !k) { zetFotoCloud(null); return; }
+    const pid = project.id;
+    zetFotoCloud({
+      projectId: pid, ids: fotoIds ? fotoIds.split(",") : [], magSchrijven: k.rol !== "lezen",
+      stuur: (id, b) => opslag.stuurFoto(pid, id, b), haal: (id) => opslag.haalFoto(pid, id), wis: (id) => opslag.wisFoto(pid, id),
+    });
+  }, [opslag, gebruiker, project?.id, k?.rol, !!k, fotoIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => zetFotoCloud(null), []);
+  const wachtendeFotos = useWachtendeFotos();
+  const wachtend = useMemo(() => !!(project && k && k.rol !== "lezen" && JSON.stringify(project) !== k.json), [project, k]);
 
   // automatisch bewaren na een wijziging
   useEffect(() => {
     if (!opslag || !gebruiker || !project || !k || k.rol === "lezen") return;
-    if (status.soort === "conflict" || status.soort === "bezig") return;
+    if (status.soort === "conflict" || status.soort === "bezig" || status.soort === "offline") return;
     const json = JSON.stringify(project);
     if (json === k.json) return;
     const t = setTimeout(() => { void bewaar(project, k.versie); }, 1500);
@@ -89,7 +134,7 @@ export function useCloud(project: Project | null, vervang: (p: Project, bericht:
   // nieuwere versie van een ander toestel ophalen
   const haalNieuwere = useCallback(async () => {
     const { project: p, koppeling: kk, gebruiker: g, status: st } = ref.current;
-    if (!opslag || !g || !p || !kk[p.id] || st.soort === "conflict" || st.soort === "bezig") return;
+    if (!opslag || !g || !p || !kk[p.id] || st.soort === "conflict" || st.soort === "bezig" || st.soort === "offline") return;
     try {
       const c = await opslag.haal(p.id);
       if (!c || c.versie <= kk[p.id]!.versie) return;
@@ -100,7 +145,7 @@ export function useCloud(project: Project | null, vervang: (p: Project, bericht:
       zetKoppeling({ ...kk, [p.id]: { ...kk[p.id]!, versie: c.versie, json: JSON.stringify(r.project) } });
       vervang(r.project, `Bijgewerkt met de nieuwste versie uit de cloud${c.gewijzigdDoor ? ` (bewaard door ${c.gewijzigdDoor})` : ""}.`);
       zetStatus({ soort: "gelijk", versie: c.versie, om: "" });
-    } catch { /* offline: later opnieuw */ }
+    } catch (e) { if (isNetwerkFout(e) && ref.current.status.soort !== "conflict") zetStatus({ soort: "offline", wacht: JSON.stringify(p) !== kk[p.id]!.json }); }
   }, [opslag, vervang]);
 
   useEffect(() => {
@@ -113,7 +158,10 @@ export function useCloud(project: Project | null, vervang: (p: Project, bericht:
   }, [haalNieuwere, gebruiker, project?.id]);
 
   return {
-    opslag, gebruiker, status, gekoppeld: !!k,
+    opslag, gebruiker, status, gekoppeld: !!k, wachtendeFotos,
+    /** wijzigingen op dit toestel die nog niet in de cloud staan */
+    wachtend,
+    opnieuw,
     herlaadInstelling: () => zetInstellingVersie((x) => x + 1),
     koppel: async () => { if (project) await bewaar(project, 0); },
     open: async (id: string, rol: Rol) => {
@@ -148,6 +196,7 @@ export function statusTekst(s: CloudStatus): string {
     case "lezen": return "Cloud: alleen lezen";
     case "fout": return "Cloud: probleem";
     case "conflict": return "Cloud: conflict";
+    case "offline": return s.wacht ? "Offline: wijzigingen wachten" : "Offline";
   }
 }
 
@@ -234,6 +283,9 @@ export function CloudPaneel({ cloud, project, sluit, meld }: { cloud: CloudApi; 
                   <p className="uitleg">{statusTekst(status)}{status.soort === "gelijk" ? ` (versie ${status.versie})` : ""}. Wijzigingen gaan vanzelf naar de cloud; andere toestellen halen ze op als je de app opent.</p>
                 )}
                 {status.soort === "fout" && <p className="melding" role="alert">{status.tekst}</p>}
+                {status.soort === "offline" && <p className="uitleg">Geen netwerk. Je werk staat veilig op dit toestel{cloud.wachtend ? "; de wijzigingen gaan vanzelf naar de cloud zodra er weer netwerk is" : ""}.</p>}
+                {cloud.wachtendeFotos > 0 && <p className="uitleg">{cloud.wachtendeFotos} foto{cloud.wachtendeFotos === 1 ? "" : "'s"} wacht{cloud.wachtendeFotos === 1 ? "" : "en"} om naar de cloud te gaan.</p>}
+                {(status.soort === "offline" || status.soort === "fout" || cloud.wachtendeFotos > 0) && <button onClick={cloud.opnieuw}>Nu opnieuw proberen</button>}
                 {cloud.gekoppeld && eigen?.rol === "eigenaar" && (
                   <>
                     <h3>Delen met klant, architect of ingenieur</h3>

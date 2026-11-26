@@ -33,3 +33,14 @@ select 'cas maakt project met andere eigenaar' t;
 do $$ begin insert into public.projecten (id, eigenaar, naam, data) values ('p9', '11111111-1111-1111-1111-111111111111', 'x', '{}'); raise exception 'MOCHT NIET'; exception when insufficient_privilege then raise notice 'geweigerd ok'; end $$;
 select pg_temp.als('11111111-1111-1111-1111-111111111111', 'an@voorbeeld.be');
 select 'an leest' t, naam, versie, data, gewijzigd_door from public.projecten;
+-- foto's (Storage): An is eigenaar van p1, Bo mag bewerken, Cas niets
+select pg_temp.als('11111111-1111-1111-1111-111111111111', 'an@voorbeeld.be');
+insert into storage.objects (bucket_id, name) values ('fotos', 'p1/f1.jpg');
+select 'an fotos' t, count(*) from storage.objects;
+select pg_temp.als('22222222-2222-2222-2222-222222222222', 'bo@voorbeeld.be');
+insert into storage.objects (bucket_id, name) values ('fotos', 'p1/f2.jpg');
+select 'bo fotos' t, count(*) from storage.objects;
+select pg_temp.als('33333333-3333-3333-3333-333333333333', 'cas@voorbeeld.be');
+select 'cas fotos' t, count(*) from storage.objects;
+do $$ begin insert into storage.objects (bucket_id, name) values ('fotos', 'p1/x.jpg'); raise exception 'MOCHT NIET'; exception when insufficient_privilege then raise notice 'geweigerd ok'; end $$;
+with x as (delete from storage.objects returning 1) select 'cas wist fotos' t, count(*) from x;

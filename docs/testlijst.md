@@ -263,3 +263,13 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
 - [ ] Tik elke modus één keer aan (Installaties, Ontwerp, Liggers, Inrichting, Energie, Keuken, Werf): even "Laden…" is normaal, daarna moet alles werken zoals vroeger.
 - [ ] Maak één PDF per modus (de eerste keer duurt het een tel langer, de PDF-maker wordt dan geladen).
 - [ ] Knop **Cloud** en knop **3D** openen nog.
+
+## F1-2. Offline werken
+
+- [ ] **Eén keer** (in Supabase): voer `supabase/migrations/0002_fotos.sql` uit in de SQL Editor (zie docs/cloud-instellen.md, stap 3).
+- [ ] **Installeren**: open de app in Chrome op Android → menu ⋮ → **App installeren** (of "Toevoegen aan startscherm"). Op iPhone: Safari → Deel → **Zet op beginscherm**. Het icoon verschijnt op je startscherm.
+- [ ] **Zonder netwerk**: open de app één keer met netwerk, zet daarna de vliegtuigmodus aan en open de app opnieuw. Je ziet "Offline: de app werkt gewoon verder". Tik elke modus aan en maak een PDF.
+- [ ] **Wachtende wijzigingen** (project in de cloud): in vliegtuigmodus iets wijzigen → knop bovenaan wordt **Offline: wijzigingen wachten**. Vliegtuigmodus uit → binnen enkele seconden **Cloud: bewaard**. Open het project op de pc: de wijziging staat erin.
+- [ ] **Foto's in de cloud**: neem een werffoto op de gsm (mag offline). Zodra er netwerk is, gaat ze mee. Open het project op de pc: de foto verschijnt (ook na een tel wachten).
+- [ ] Sluit de app terwijl er wijzigingen wachten en open ze later met netwerk: de wijzigingen gaan alsnog mee.
+- [ ] Eerste keer openen zonder netwerk (nooit eerder geopend): de app kan niet starten; dat is normaal. Een modus die niet geladen raakt, toont een melding met **Opnieuw laden** i.p.v. een leeg scherm.

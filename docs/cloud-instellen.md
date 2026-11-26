@@ -14,6 +14,7 @@ Met de cloud blijven je projecten vanzelf gelijk op gsm en pc, en kan je een pro
 
 1. Open in Supabase **SQL Editor** → **New query**.
 2. Kopieer de volledige inhoud van `supabase/migrations/0001_projecten.sql` uit deze repository, plak en klik **Run**. (Twee keer uitvoeren kan geen kwaad.)
+3. Daarna hetzelfde met `supabase/migrations/0002_fotos.sql` (foto's in de cloud: een afgeschermde bucket "fotos" met dezelfde regels als de projecten).
 
 Wat dit doet: een tabel `projecten` en `project_leden`, met Row Level Security: iedereen ziet alleen zijn eigen projecten en wat met zijn e-mailadres gedeeld is; "alleen bekijken" kan niet bewaren; alleen de eigenaar kan delen of verwijderen; bewaren op een oude versie wordt geweigerd (conflict).
 
@@ -59,4 +60,4 @@ Open de app met `?cloud-demo` achter het adres. Alles blijft dan in die browser.
 
 ## Testen van de databaseregels (voor ontwikkelaars)
 
-`bash supabase/test/draai.sh` start een tijdelijke PostgreSQL 16, voert de migratie uit (twee keer) en speelt een scenario met drie gebruikers af (eigen projecten, delen om te lezen of te bewerken, conflicten, weigeringen).
+`bash supabase/test/draai.sh` start een tijdelijke PostgreSQL 16, voert de migraties uit (twee keer) en speelt een scenario met drie gebruikers af (eigen projecten, delen om te lezen of te bewerken, conflicten, weigeringen, foto's).
