@@ -65,7 +65,7 @@ import {
   type Project,
   type Verdieping,
 } from "@scanapp/core";
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 const Drie3D = lazy(() => import("./Drie3D.tsx"));
 /** PDF-functies pas laden bij de eerste export. */
 const pdf = () => import("./pdfLaden.ts");
@@ -83,6 +83,21 @@ const InstallatieBalk = lazy(() => import("./Installaties.tsx").then((m) => ({ d
 const InstallatiePaneel = lazy(() => import("./Installaties.tsx").then((m) => ({ default: m.InstallatiePaneel })));
 const CloudPaneel = lazy(() => import("./Cloud.tsx").then((m) => ({ default: m.CloudPaneel })));
 const Laden = () => <p className="laden" role="status">Laden…</p>;
+/** Vangnet: lukt het laden van een deel niet (bv. geen netwerk en de app nog niet bewaard), dan een melding i.p.v. een lege app. */
+class Vangnet extends Component<{ children: React.ReactNode }, { fout: boolean }> {
+  state = { fout: false };
+  static getDerivedStateFromError() { return { fout: true }; }
+  componentDidCatch(e: unknown) { console.error("Laden of tonen mislukt:", e); }
+  render() {
+    if (!this.state.fout) return this.props.children;
+    return (
+      <section className="kaart" role="alert">
+        <p>Dit deel van de app kon niet geladen worden. Geen netwerk? Je werk staat veilig op dit toestel.</p>
+        <button onClick={() => window.location.reload()}>Opnieuw laden</button>
+      </section>
+    );
+  }
+}
 import { appartement } from "../../core/examples/appartement.ts";
 import { LaserKnop, useLaser } from "./Laser.tsx";
 import type { EpbSelectie } from "./Epb.tsx";
@@ -273,6 +288,12 @@ export function App() {
   const cloud = useCloud(project, vervangUitCloud);
   const laser = useLaser();
   const [cloudOpen, zetCloudOpen] = useState(false);
+  const [online, zetOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine !== false);
+  useEffect(() => {
+    const aan = () => zetOnline(true), uit = () => zetOnline(false);
+    window.addEventListener("online", aan); window.addEventListener("offline", uit);
+    return () => { window.removeEventListener("online", aan); window.removeEventListener("offline", uit); };
+  }, []);
 
   return (
     <div className="app">
@@ -295,9 +316,10 @@ export function App() {
 
       {melding && <div className="melding" role="alert">{melding}<button onClick={() => zetMelding(null)} aria-label="Sluiten">×</button></div>}
       {bericht && <div className="melding bericht" role="status">{bericht}<button onClick={() => zetBericht(null)} aria-label="Sluiten">×</button></div>}
+      {!online && cloud.status.soort !== "offline" && <div className="melding bericht offline-balk" role="status">Offline: de app werkt gewoon verder, je werk wordt op dit toestel bewaard.</div>}
       <NieuweVersie />
       <ConflictBalk cloud={cloud} />
-      {cloudOpen && <Suspense fallback={<Laden />}><CloudPaneel cloud={cloud} project={project} sluit={() => zetCloudOpen(false)} meld={zetMelding} /></Suspense>}
+      {cloudOpen && <Vangnet><Suspense fallback={<Laden />}><CloudPaneel cloud={cloud} project={project} sluit={() => zetCloudOpen(false)} meld={zetMelding} /></Suspense></Vangnet>}
 
       {!project ? (
         <NieuwProject onMaak={nieuwProject} onVoorbeeld={() => nieuwProject(appartement)} />
@@ -731,9 +753,9 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           ))}
         </div>
       {toon3D && (
-        <Suspense fallback={<div className="dialoog-achtergrond"><section className="kaart dialoog"><p>3D laden…</p></section></div>}>
+        <Vangnet><Suspense fallback={<div className="dialoog-achtergrond"><section className="kaart dialoog"><p>3D laden…</p></section></div>}>
           <Drie3D project={project} verdiepingId={v.id} sluit={() => zetToon3D(false)} />
-        </Suspense>
+        </Suspense></Vangnet>
       )}
       <section className="plan-kolom">
         <div className="tabs">
@@ -744,7 +766,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           ))}
           <button className="tab-nieuw" onClick={() => { zetNieuweVerdieping(true); zetSelectie(null); }}>+ Verdieping</button>
         </div>
-        <Suspense fallback={<Laden />}>
+        <Vangnet><Suspense fallback={<Laden />}>
         {modus === "werf" && <p className="hint-kort">Tik een ruimte aan voor foto's en punten van die ruimte; tik naast het gebouw om alles te zien.</p>}
         {modus === "keuken" && <p className="hint-kort">Tik in het plan dicht bij de wand waar de keuken of de kast komt; de gekozen wand wordt rood.</p>}
         {modus === "energie" && <EpbBalk noord={project.noord ?? 0} zetNoord={(n) => wijzigProject({ ...project, noord: n })} />}
@@ -752,7 +774,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         {modus === "liggers" && <p className="hint-kort">Tik een raam, deur of muur aan in het plan: een nieuwe ligger neemt dan de breedte en muurdikte over.</p>}
         {modus === "ontwerp" && <OntwerpBalk gereedschap={gereedschap} zetGereedschap={(g) => { zetGereedschap(g); zetEerstePunt(null); }} weergave={ontwerpWeergave} zetWeergave={zetOntwerpWeergave} eerstePunt={!!eerstePunt} dikte={nieuweDikte} zetDikte={zetNieuweDikte} />}
         {modus === "installaties" && <InstallatieBalk net={net} zetNet={(n) => { zetNet(n); zetInstSel(null); }} plaatsen={plaatsen} zetPlaatsen={(x) => { zetPlaatsen(x); zetInstSel(null); }} />}
-        </Suspense>
+        </Suspense></Vangnet>
         <div className="plan-houder">
           <div
             className={`plan${zoom.factor > 1 ? " ingezoomd" : ""}`}
@@ -802,7 +824,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
       <aside className="paneel">
         {kort && <div className="bevestiging" role="status">{kort}</div>}
-        <Suspense fallback={<Laden />}>
+        <Vangnet><Suspense fallback={<Laden />}>
         {modus === "werf" ? (
           <WerfPaneel project={project} v={v} ruimteId={werfRuimte} zetRuimteId={zetWerfRuimte} wijzigProject={wijzigProject} prijzen={prijzen}
             exporteer={async (soort, d) => {
@@ -880,7 +902,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
             )}
           </section>
         )}
-        </Suspense>
+        </Suspense></Vangnet>
 
         <section className="kaart">
           <div className="kaart-kop">

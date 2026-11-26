@@ -190,6 +190,7 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--lijn); border
 /* cloud */
 .cloud-knop { white-space: nowrap; }
 .cloud-knop.gelijk { border-color: var(--laser); color: var(--laser); }
+.cloud-knop.offline { border-color: #b06000; color: #b06000; }
 .cloud-knop.conflict, .cloud-knop.fout { border-color: var(--gevaar); color: var(--gevaar); }
 .dialoog-achtergrond { position: fixed; inset: 0; background: rgb(0 0 0 / 0.35); display: flex; align-items: flex-start; justify-content: center; padding: 16px; overflow-y: auto; z-index: 50; }
 .dialoog { width: min(560px, 100%); margin-top: 24px; }

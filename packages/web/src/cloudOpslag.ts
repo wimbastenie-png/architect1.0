@@ -30,6 +30,17 @@ export interface CloudOpslag {
   leden(id: string): Promise<Lid[]>;
   deel(id: string, email: string, rol: Lid["rol"]): Promise<void>;
   stopDelen(id: string, email: string): Promise<void>;
+  /** Foto's: bestand per project in de cloud (Supabase Storage, bucket "fotos", map = project-id). */
+  stuurFoto(projectId: string, fotoId: string, blob: Blob): Promise<void>;
+  haalFoto(projectId: string, fotoId: string): Promise<Blob | null>;
+  wisFoto(projectId: string, fotoId: string): Promise<void>;
+}
+
+/** Is dit een fout door een ontbrekende verbinding (en niet door een weigering)? */
+export function isNetwerkFout(e: unknown): boolean {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  const m = e instanceof Error ? e.message : String(e);
+  return /failed to fetch|networkerror|network request failed|load failed|fetch failed|err_internet|offline/i.test(m);
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +165,27 @@ export class SupabaseOpslag implements CloudOpslag {
     const { error } = await (await this.klant).from("project_leden").delete().eq("project_id", id).eq("email", email);
     if (error) throw new Error(error.message);
   }
+  async stuurFoto(projectId: string, fotoId: string, blob: Blob) {
+    const { error } = await (await this.klant).storage.from("fotos").upload(`${projectId}/${fotoId}.jpg`, blob, { upsert: true, contentType: blob.type || "image/jpeg" });
+    if (error) throw new Error(`Foto versturen lukt niet: ${error.message}`);
+  }
+  async haalFoto(projectId: string, fotoId: string) {
+    const { data, error } = await (await this.klant).storage.from("fotos").download(`${projectId}/${fotoId}.jpg`);
+    if (error) { if (isNetwerkFout(error)) throw new Error(error.message); return null; }
+    return data ?? null;
+  }
+  async wisFoto(projectId: string, fotoId: string) {
+    await (await this.klant).storage.from("fotos").remove([`${projectId}/${fotoId}.jpg`]);
+  }
+}
+
+// foto's van de demo-cloud: aparte IndexedDB-databank in deze browser
+function demoFotoDb(): Promise<IDBDatabase> {
+  return new Promise((ok, nok) => { const r = indexedDB.open("architect1.0-cloud-demo-fotos", 1); r.onupgradeneeded = () => r.result.createObjectStore("fotos"); r.onsuccess = () => ok(r.result); r.onerror = () => nok(r.error); });
+}
+async function demoFoto<T>(modus: IDBTransactionMode, f: (s: IDBObjectStore) => IDBRequest): Promise<T> {
+  const db = await demoFotoDb();
+  return new Promise((ok, nok) => { const r = f(db.transaction("fotos", modus).objectStore("fotos")); r.onsuccess = () => ok(r.result as T); r.onerror = () => nok(r.error); });
 }
 
 // ---------------------------------------------------------------------------
@@ -181,8 +213,9 @@ export class DemoOpslag implements CloudOpslag {
     return Object.entries(this.lees().projecten).map(([id, x]) => ({ id, naam: x.naam, versie: x.versie, gewijzigd: x.gewijzigd, gewijzigdDoor: x.gewijzigdDoor, rol: "eigenaar" as const }))
       .sort((a, b) => b.gewijzigd.localeCompare(a.gewijzigd));
   }
-  async haal(id: string) { const x = this.lees().projecten[id]; return x ? { data: x.data, versie: x.versie, gewijzigdDoor: x.gewijzigdDoor } : null; }
+  async haal(id: string) { this.netwerk(); const x = this.lees().projecten[id]; return x ? { data: x.data, versie: x.versie, gewijzigdDoor: x.gewijzigdDoor } : null; }
   async bewaar(p: Project, versie: number) {
+    this.netwerk();
     const d = this.lees();
     const x = d.projecten[p.id];
     if (versie === 0 ? !!x : !x || x.versie !== versie) return null;
@@ -195,6 +228,11 @@ export class DemoOpslag implements CloudOpslag {
   async leden(id: string) { return this.lees().projecten[id]?.leden ?? []; }
   async deel(id: string, email: string, rol: Lid["rol"]) { const d = this.lees(); const x = d.projecten[id]; if (!x) throw new Error("Project niet gevonden."); x.leden = [...x.leden.filter((l) => l.email !== email.trim().toLowerCase()), { email: email.trim().toLowerCase(), rol }]; this.schrijf(d); }
   async stopDelen(id: string, email: string) { const d = this.lees(); const x = d.projecten[id]; if (x) x.leden = x.leden.filter((l) => l.email !== email); this.schrijf(d); }
+  /** Zonder netwerk (of met architect1.0:demo-offline = 1) doet de demo-cloud alsof er geen netwerk is (om offline werken te testen). */
+  private netwerk() { if (navigator.onLine === false || localStorage.getItem("architect1.0:demo-offline") === "1") throw new Error("Failed to fetch (demo offline)"); }
+  async stuurFoto(projectId: string, fotoId: string, blob: Blob) { this.netwerk(); await demoFoto("readwrite", (s) => s.put(blob, `${projectId}/${fotoId}`)); }
+  async haalFoto(projectId: string, fotoId: string) { this.netwerk(); return (await demoFoto<Blob | undefined>("readonly", (s) => s.get(`${projectId}/${fotoId}`))) ?? null; }
+  async wisFoto(projectId: string, fotoId: string) { await demoFoto("readwrite", (s) => s.delete(`${projectId}/${fotoId}`)); }
 }
 
 export function maakOpslag(): CloudOpslag | null {

@@ -16,6 +16,8 @@ export default defineConfig({
     baseURL: "http://localhost:4173",
     trace: "off",
     screenshot: "only-on-failure",
+    // service worker uit (anders ziet page.route de verzoeken niet); offline.spec.ts zet hem zelf aan
+    serviceWorkers: "block",
   },
   projects: [
     { name: "pc", testIgnore: /\.gsm\.spec\.ts$/, use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } } },
