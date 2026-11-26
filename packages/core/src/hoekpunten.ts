@@ -111,7 +111,7 @@ export function verdiepingUitHoekpunten(binnen: Punt[], i: UitHoekpunten, id = "
     bron,
   }));
   return {
-    id, naam: "Gelijkvloers", peil: 0, muren, openingen: [], sparingen: [],
+    id, naam: "Gelijkvloers", peil: 0, muren, openingen: [], sparingen: [], installaties: [],
     ruimtes: [{ id: `r-1@${id}`, naam: i.ruimteNaam ?? "Ruimte 1", contour: c, plafondhoogte: Math.round(i.plafondhoogte), muurIds: muren.map((m) => m.id), bron }],
   };
 }

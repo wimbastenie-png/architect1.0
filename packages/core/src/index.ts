@@ -17,3 +17,6 @@ export * from "./vloeren.ts";
 export * from "./deellink.ts";
 export * from "./ifc.ts";
 export * from "./roomplan.ts";
+export * from "./installaties.ts";
+export * from "./pdf-installaties.ts";
+export * from "./pdf-lijst.ts";
