@@ -4,6 +4,8 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
+  isRoomPlan,
+  roomPlanNaarProject,
   projectNaarIFC,
   codeNaarProject,
   codeUitLink,
@@ -194,8 +196,21 @@ export function App() {
   }, [ongedaan]);
 
   const openBestand = async (f: File) => {
+    let data: unknown;
+    try { data = JSON.parse(await f.text()); } catch { return zetMelding("Dit is geen geldig projectbestand (JSON)."); }
+    if (isRoomPlan(data)) {
+      try {
+        const naam = f.name.replace(/\.json$/i, "") || "RoomPlan-scan";
+        const r = roomPlanNaarProject(data, { naam });
+        nieuwProject(r.project);
+        zetBericht(`RoomPlan-scan omgezet. ${r.meldingen.join(" ")} Kijk de maten na: gescande maten zijn ±3 cm.`);
+      } catch (e) {
+        zetMelding(`RoomPlan-scan niet om te zetten: ${(e as Error).message}`);
+      }
+      return;
+    }
     try {
-      const r = leesProject(JSON.parse(await f.text()));
+      const r = leesProject(data);
       if (!r.ok) return zetMelding(`Bestand niet geldig: ${r.fouten.slice(0, 3).map((x) => `${x.pad} ${x.melding}`).join("; ")}`);
       const recht = zetVloerenRecht(r.project);
       nieuwProject(recht.project);

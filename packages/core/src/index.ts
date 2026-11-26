@@ -16,3 +16,4 @@ export * from "./hoekpunten.ts";
 export * from "./vloeren.ts";
 export * from "./deellink.ts";
 export * from "./ifc.ts";
+export * from "./roomplan.ts";
