@@ -213,3 +213,4 @@ a.knop { text-decoration: none; color: inherit; }
 /* modi: alle knoppen zichtbaar, ook op een smal scherm (over twee regels) */
 .modi { flex-wrap: wrap; overflow: visible; gap: 6px; }
 .modi button, .modi button:first-child, .modi button:last-child { border-radius: 8px; margin-left: 0; flex: 1 1 auto; }
+.lastenboek tr.groep th { text-align: left; padding-top: 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--zacht); }

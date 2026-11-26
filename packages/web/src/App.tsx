@@ -4,6 +4,7 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
+  VAKMAN_ZIN,
   ruimteVan,
   voegMeubelToe,
   wijzigMeubel,
@@ -293,7 +294,7 @@ export function App() {
           zetMelding={zetMelding}
         />
       )}
-      <footer className="voet">architect1.0 · versie {VERSIE}</footer>
+      <footer className="voet">{VAKMAN_ZIN}<br />architect1.0 · versie {VERSIE}</footer>
     </div>
   );
 }

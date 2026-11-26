@@ -14,15 +14,19 @@
  */
 import { plafondNetto, vloerNetto } from "./bewerken.ts";
 import { m2, omtrek, ruimteWandVlak } from "./geometrie.ts";
+import { AANNAMES_EXTRA, extraPosten } from "./lastenboek-extra.ts";
 import type { Prijzen } from "./prijzen.ts";
 import type { Project } from "./schema.ts";
 
-export type Eenheid = "m²" | "m" | "st";
+export type Eenheid = "m²" | "m" | "st" | "m³" | "ton";
 
 export interface PostDefinitie {
   code: string;
   omschrijving: string;
   eenheid: Eenheid;
+  /** Groep voor de extra posten (Afbraak, Ruwbouw, Elektriciteit …); leeg = afwerking per ruimte. */
+  groep?: string;
+  toelichting?: string;
 }
 
 export const POSTEN: PostDefinitie[] = [
@@ -37,6 +41,9 @@ export const POSTEN: PostDefinitie[] = [
   { code: "09", omschrijving: "Buitenschrijnwerk (ramen en buitendeuren)", eenheid: "m²" },
   { code: "10", omschrijving: "Binnendeuren", eenheid: "st" },
 ];
+
+/** Vaste zin in elke export: de app bereidt voor, een vakman controleert. */
+export const VAKMAN_ZIN = "De app bereidt voor; een bevoegde vakman controleert en tekent af. De app geeft nooit een oordeel 'conform'.";
 
 export const LASTENBOEK_AANNAMES =
   "Hoeveelheden ter indicatie, berekend uit de opmeting; na te meten vóór bestelling. Eigen postindeling, niet volgens Standaardbestek 250. " +
@@ -89,10 +96,12 @@ export function lastenboek(p: Project): Lastenboek {
       }
     }
   }
-  const totalen = POSTEN.map((post) => ({
+  const totalen: Lastenboek["totalen"] = POSTEN.map((post) => ({
     ...post,
+    groep: "Afwerking",
     hoeveelheid: r2(regels.filter((x) => x.code === post.code).reduce((s, x) => s + x.hoeveelheid, 0)),
   })).filter((t) => t.hoeveelheid > 0);
+  totalen.push(...extraPosten(p));
   return { regels, totalen };
 }
 
@@ -126,6 +135,8 @@ export function lastenboekCSV(lb: Lastenboek, projectnaam: string, prijzen: Prij
   r.push("");
   r.push(tekst(`Project: ${projectnaam}`));
   r.push(tekst(LASTENBOEK_AANNAMES));
+  if (lb.totalen.some((t) => t.groep && t.groep !== "Afwerking")) r.push(tekst(AANNAMES_EXTRA));
+  r.push(tekst(VAKMAN_ZIN));
   return "﻿" + r.join("\r\n") + "\r\n";
 }
 

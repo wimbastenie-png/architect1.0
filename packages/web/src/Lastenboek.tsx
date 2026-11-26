@@ -1,4 +1,5 @@
-import { euro, raming, type Lastenboek, type Prijzen } from "@scanapp/core";
+import { euro, raming, VAKMAN_ZIN, type Lastenboek, type Prijzen } from "@scanapp/core";
+import { Fragment } from "react";
 import { getal } from "./ui.tsx";
 
 export const BTW_TARIEVEN = [21, 12, 6, 0];
@@ -18,8 +19,10 @@ export function LastenboekWeergave({ lb, prijzen, zetPrijs, btw, zetBtw, kopieer
         <table className="lastenboek">
           <thead><tr><th>Post</th><th>Hoev.</th><th>€/eenh.</th><th>Bedrag</th></tr></thead>
           <tbody>
-            {r.regels.map((t) => (
-              <tr key={t.code}>
+            {r.regels.map((t, i) => (
+              <Fragment key={t.code}>
+              {(i === 0 || r.regels[i - 1]!.groep !== t.groep) && t.groep && <tr className="groep"><th colSpan={4}>{t.groep}</th></tr>}
+              <tr title={t.toelichting}>
                 <td>{t.code} {t.omschrijving}</td>
                 <td>{t.eenheid === "st" ? t.hoeveelheid : getal(t.hoeveelheid)} {t.eenheid}</td>
                 <td>
@@ -29,6 +32,7 @@ export function LastenboekWeergave({ lb, prijzen, zetPrijs, btw, zetBtw, kopieer
                 </td>
                 <td>{t.bedrag === undefined ? "–" : euro(t.bedrag)}</td>
               </tr>
+              </Fragment>
             ))}
           </tbody>
           <tfoot>
@@ -49,7 +53,8 @@ export function LastenboekWeergave({ lb, prijzen, zetPrijs, btw, zetBtw, kopieer
       <div className="acties"><button onClick={kopieer}>Kopiëren voor offerte</button></div>
       <p className="uitleg klein">
         Prijzen worden op dit toestel onthouden voor al je projecten. Kies zelf het juiste btw-tarief: de voorwaarden voor 6 % hangen af van de woning en de werken.
-        Hoeveelheden ter indicatie; eigen postindeling (niet Standaardbestek 250).
+        Hoeveelheden ter indicatie; eigen postindeling (niet Standaardbestek 250). Afbraak en ruwbouw komen uit <strong>Ontwerp</strong> en <strong>Liggers</strong>, installatieposten uit <strong>Installaties</strong> (aannames: zie de Excel en de PDF).
+        {" "}{VAKMAN_ZIN}
       </p>
     </>
   );

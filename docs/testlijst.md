@@ -118,3 +118,21 @@ Per blok: wat werkt, en wat niet (met toestel, wat je deed, wat je zag, schermaf
 ## Stap 10–17 (per vakgebied)
 
 Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De volgorde van mergen staat telkens in de pull request.
+
+## 10. Lastenboek uitbreiden (aannemer)
+
+- [ ] **Ontwerp**: breek een muur af en teken een nieuwe muur. Ga naar **Plan** → **Meetstaat** → **Lastenboek**.
+- [ ] De groepen **Afwerking**, **Afbraak** en **Ruwbouw** verschijnen. Controleer:
+  - af te breken m² en m³;
+  - puin in m³ (los) en ton;
+  - containers;
+  - stutten;
+  - metselwerk per dikte;
+  - lateien met lengte;
+  - dichtmaken;
+  - chape.
+- [ ] Met installatiepunten: groepen **Elektriciteit**, **Sanitair** en **Gas**. Een prijs die je ingeeft, blijft na het verplaatsen van een punt bij dezelfde post.
+- [ ] Een prijs ingeven → bedrag en totaal kloppen.
+- [ ] **Lastenboek (Excel)** en **PDF-plan**: de nieuwe posten en de aannames (puin × 1,4; 1,8 t/m³; containers 10 m³; stutten ± 1 per meter) staan erin.
+- [ ] Onderaan de app en op elk PDF-blad: "De app bereidt voor; een bevoegde vakman controleert en tekent af."
+- [ ] **Aannemer:** kloppen de aannames (losheid, gewicht, containergrootte, stutten, latei-oplegging)? Welke posten mis je?
