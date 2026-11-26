@@ -26,3 +26,4 @@ export * from "./profielen.ts";
 export * from "./liggers.ts";
 export * from "./pdf-liggers.ts";
 export * from "./inrichting.ts";
+export * from "./lastenboek-extra.ts";

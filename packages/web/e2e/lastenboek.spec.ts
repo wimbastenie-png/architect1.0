@@ -11,8 +11,8 @@ test("codes op het plan, lastenboek kopiëren en exporteren", async ({ page }) =
   for (const code of ["D1", "D2 · 830", "R1", "R2"]) expect(tekst).toContain(code);
 
   await page.getByRole("tab", { name: "Lastenboek" }).click();
-  await expect(page.locator(".paneel tbody tr").first()).toContainText("Vloerafwerking");
-  await expect(page.locator(".paneel tbody tr").first()).toContainText("41,40");
+  await expect(page.locator(".paneel tbody tr:not(.groep)").first()).toContainText("Vloerafwerking");
+  await expect(page.locator(".paneel tbody tr:not(.groep)").first()).toContainText("41,40");
   await page.getByRole("button", { name: "Kopiëren voor offerte" }).click();
   const klembord = await page.evaluate(() => navigator.clipboard.readText());
   expect(klembord.split("\n")[0]).toMatch(/^01\tVloerafwerking\tm²\t41,40/);

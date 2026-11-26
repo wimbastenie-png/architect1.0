@@ -9,7 +9,8 @@
  */
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { GAS_WAARSCHUWING } from "./installaties.ts";
-import { LASTENBOEK_AANNAMES, lastenboek } from "./lastenboek.ts";
+import { LASTENBOEK_AANNAMES, lastenboek, VAKMAN_ZIN } from "./lastenboek.ts";
+import { AANNAMES_EXTRA } from "./lastenboek-extra.ts";
 import { euro, raming, type Prijzen } from "./prijzen.ts";
 import { vloerNetto } from "./bewerken.ts";
 import { maatketens, tekstBreedte } from "./maatvoering.ts";
@@ -365,7 +366,8 @@ export function tekenTitelblok(
 
   // Disclaimer
   label("Belangrijk", xDisc + 3, y0 + hb - 5);
-  const disc = o.disclaimer ?? DISCLAIMER;
+  const basis = o.disclaimer ?? DISCLAIMER;
+  const disc = /vakman controleert/.test(basis) ? basis : `${basis} ${VAKMAN_ZIN}`;
   let grootte = 7, stap = 3.4;
   let lijnen = regels(disc, f.gewoon, grootte, kolDisc - 6);
   while (lijnen.length * stap > hb - 9 && grootte > 4.6) { grootte -= 0.4; stap = grootte * 0.47; lijnen = regels(disc, f.gewoon, grootte, kolDisc - 6); }
@@ -524,7 +526,7 @@ function tekenLijsten(doc: PDFDocument, f: Fonts, p: Project, opties: PdfOpties 
   }
 
   // aannames
-  const regelsTekst = regels(LASTENBOEK_AANNAMES, f.gewoon, 7, kolB);
+  const regelsTekst = regels(LASTENBOEK_AANNAMES + (lb.totalen.some((t) => t.groep && t.groep !== "Afwerking") ? ` ${AANNAMES_EXTRA}` : ""), f.gewoon, 7, kolB);
   plaats(regelsTekst.length * 3.4 + 8);
   y -= 6;
   tekst("Aannames", x0(), y, 8, f.vet, GRIJS);

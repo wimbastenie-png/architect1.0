@@ -5,7 +5,7 @@
  */
 import type { Lastenboek, PostDefinitie } from "./lastenboek.ts";
 
-/** Eenheidsprijs in euro per postcode ("01" … "10"), excl. btw. */
+/** Eenheidsprijs in euro per postcode ("01" … "10", "A01", "R01-100", "E-1A2B" …), excl. btw. */
 export type Prijzen = Partial<Record<string, number>>;
 
 export interface RamingRegel extends PostDefinitie {
@@ -51,7 +51,7 @@ export function leesPrijzen(data: unknown): Prijzen {
   const uit: Prijzen = {};
   if (!data || typeof data !== "object") return uit;
   for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
-    if (/^\d{2}$/.test(k) && typeof v === "number" && Number.isFinite(v) && v >= 0 && v < 1e6) uit[k] = v;
+    if (/^[A-Z0-9][A-Za-z0-9-]{0,24}$/.test(k) && typeof v === "number" && Number.isFinite(v) && v >= 0 && v < 1e6) uit[k] = v;
   }
   return uit;
 }
