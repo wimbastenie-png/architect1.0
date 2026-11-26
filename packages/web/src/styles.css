@@ -130,8 +130,11 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--lijn); border
   position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
   background: var(--tekst); color: var(--bg); padding: 6px 12px; border-radius: 999px;
   font-size: 13px; font-weight: 600; pointer-events: none; max-width: calc(100% - 24px);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 8px rgb(0 0 0 / .2);
+  box-shadow: 0 2px 8px rgb(0 0 0 / .2);
+  /* lange meldingen over meerdere regels, zodat ze op een gsm volledig leesbaar zijn */
+  white-space: normal; text-align: center; line-height: 1.35; width: max-content;
 }
+.sleep-info.fout { border-radius: 12px; font-size: 14px; padding: 8px 14px; z-index: 2; }
 .sleep-info.fout { background: var(--gevaar); color: #fff; }
 .plan-voorbeeld { position: absolute; inset: 0; pointer-events: none; }
 /* Inzoomen: de browser zoomt niet zelf in het plan (knijpen doen wij), één vinger scrolt wel nog */
