@@ -1,0 +1,31 @@
+import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { midden, openVoorbeeld, start } from "./hulp.ts";
+
+test("liggers: 2 verdiepingen, lasten uit het model, puntlast, doorgaand, kolom, rekennota", async ({ page }) => {
+  const fouten = await start(page);
+  await openVoorbeeld(page);
+  await page.getByRole("button", { name: "+ Verdieping" }).click();
+  await page.getByRole("button", { name: "Verdieping maken" }).click();
+  await page.locator(".tabs button", { hasText: "Gelijkvloers" }).click();
+  await page.getByRole("tab", { name: "Liggers" }).click();
+  const m = await midden(page, '.plan svg polygon[data-opening^="o-binnendeur"]');
+  await page.mouse.click(m.x, m.y);
+  await page.getByRole("button", { name: /Nieuwe ligger \(deur 830 mm\)/ }).click();
+  await page.getByRole("button", { name: "Lasten uit het model (verdiepingen erboven)" }).click();
+  const omschrijvingen = () => page.locator('input[aria-label="Omschrijving last"]').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value).join("\n"));
+  await expect.poll(omschrijvingen).toContain("Vloer boven Gelijkvloers");
+  expect(await omschrijvingen()).toContain("Muur erboven");
+  await page.getByRole("button", { name: "+ Puntlast" }).click();
+  await expect(page.locator(".ligger-keuze .groot")).toBeVisible();
+  await page.getByLabel("Tweede overspanning: dagmaat (mm, leeg = één overspanning)").fill("1200");
+  await expect(page.locator(".liggers")).toContainText("Tussensteun: R");
+  await page.getByLabel(/Metselwerk f_d/).fill("6");
+  await expect(page.locator(".ligger-keuze")).toContainText("Oplegging metselwerk");
+  await page.getByRole("button", { name: "+ Kolom" }).click();
+  await page.getByLabel("Plus reactie van ligger").selectOption({ index: 1 });
+  await expect(page.locator(".liggers")).toContainText(/HEA|HEB/);
+  const [pdf] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Rekennota (PDF)" }).click()]);
+  expect(readFileSync((await pdf.path())!).subarray(0, 4).toString()).toBe("%PDF");
+  expect(fouten).toEqual([]);
+});

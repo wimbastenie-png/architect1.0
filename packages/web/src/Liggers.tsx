@@ -2,6 +2,7 @@
  * Voordimensionering stalen liggers: invoer, lasten met hulpjes, resultaat en rekennota.
  */
 import {
+  lastenUitModel, rekenKolom,
   GEBRUIK_WONING, LIGGER_DISCLAIMER, muurLast, nieuweLigger, rekenLigger, SNEEUW, vloerLast, VLOERTYPES, VOLUMEGEWICHT,
   type Last, type LiggerInvoer, type Project,
 } from "@scanapp/core";
@@ -55,6 +56,10 @@ export function LiggerPaneel(props: {
               <select value={l.doorbuiging} onChange={(e) => zet({ ...l, doorbuiging: +e.target.value })}><option value={500}>L/500 (draagt metselwerk)</option><option value={300}>L/300</option></select>
             </Veld>
           </div>
+          <div className="velden">
+            <Veld label="Tweede overspanning: dagmaat (mm, leeg = één overspanning)"><input type="number" inputMode="numeric" min={100} value={l.tweede ?? ""} onChange={(e) => zet({ ...l, tweede: e.target.value === "" ? undefined : Math.max(100, Math.round(+e.target.value)) })} /></Veld>
+            <Veld label="Metselwerk f_d onder de oplegging (N/mm², door de ingenieur)"><input type="number" inputMode="decimal" step="0.1" min={0.1} value={l.metselwerkFd ?? ""} placeholder="leeg = niet gecontroleerd" onChange={(e) => zet({ ...l, metselwerkFd: e.target.value === "" ? undefined : Math.max(0.1, +e.target.value) })} /></Veld>
+          </div>
           <label className="vinkje"><input type="checkbox" checked={l.kipVerhinderd} onChange={(e) => zet({ ...l, kipVerhinderd: e.target.checked })} /> Kip verhinderd (bovenflens gesteund door metselwerk of vloer — door de ingenieur te bevestigen)</label>
 
           <h3>Lasten op de ligger (karakteristiek, kN/m)</h3>
@@ -71,6 +76,30 @@ export function LiggerPaneel(props: {
             </tbody>
           </table>
           <LastHulp voegToe={(xs) => zet({ ...l, lasten: [...l.lasten, ...xs] })} dikte={props.voorstel?.dikte ?? 300} />
+          {l.muurId && (
+            <div className="acties">
+              <button onClick={() => {
+                const uitModel = lastenUitModel(project, l.muurId!);
+                if (!uitModel.length) { window.alert("Geen lasten gevonden in het model voor deze muur."); return; }
+                zet({ ...l, lasten: [...l.lasten.filter((x) => !/uit model/.test(x.omschrijving)), ...uitModel] });
+              }}>Lasten uit het model (verdiepingen erboven)</button>
+            </div>
+          )}
+          <h3>Puntlasten (bv. een balk die op de ligger rust)</h3>
+          <table className="tabel klein lasten">
+            <tbody>
+              {(l.puntlasten ?? []).map((x, i) => (
+                <tr key={i}>
+                  <td><input value={x.omschrijving} aria-label="Omschrijving puntlast" onChange={(e) => zet({ ...l, puntlasten: l.puntlasten!.map((y, j) => (j === i ? { ...y, omschrijving: e.target.value } : y)) })} /></td>
+                  <td><select value={x.soort} aria-label="Soort puntlast" onChange={(e) => zet({ ...l, puntlasten: l.puntlasten!.map((y, j) => (j === i ? { ...y, soort: e.target.value as "G" | "Q" | "S" } : y)) })}><option value="G">G</option><option value="Q">Q</option><option value="S">S</option></select></td>
+                  <td><input type="number" inputMode="decimal" step="0.1" min={0} aria-label="Puntlast kN" value={x.waarde} onChange={(e) => zet({ ...l, puntlasten: l.puntlasten!.map((y, j) => (j === i ? { ...y, waarde: Math.max(0, +e.target.value || 0) } : y)) })} /></td>
+                  <td><input type="number" inputMode="numeric" min={0} aria-label="Afstand vanaf links (mm)" value={x.a} onChange={(e) => zet({ ...l, puntlasten: l.puntlasten!.map((y, j) => (j === i ? { ...y, a: Math.max(0, Math.round(+e.target.value) || 0) } : y)) })} /></td>
+                  <td><button aria-label="Puntlast verwijderen" onClick={() => zet({ ...l, puntlasten: l.puntlasten!.filter((_, j) => j !== i) })}>×</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={() => zet({ ...l, puntlasten: [...(l.puntlasten ?? []), { omschrijving: "Balk", soort: "G", waarde: 10, a: Math.round((l.dagmaat + l.oplegging) / 2) }] })}>+ Puntlast</button>
 
           <h3>Resultaat</h3>
           {r.keuze ? (
@@ -87,6 +116,7 @@ export function LiggerPaneel(props: {
               <p className="uitleg">Alternatieven: {Object.values(r.perReeks).filter((x) => x && x.profiel.naam !== r.keuze!.profiel.naam).map((x) => `${x!.profiel.naam} (${Math.round(x!.ucMax * 100)} %)`).join(", ") || "–"}</p>
             </div>
           ) : <p className="melding" role="alert">Geen enkel profiel uit de tabel voldoet.</p>}
+          {r.reacties.length === 3 && <p className="uitleg">Tussensteun: R<sub>d</sub> = {g2(r.reacties[1]!)} kN (op de kolom of muur in het midden).</p>}
           <p className="uitleg">Oplegreactie per kant: G<sub>k</sub> {g2(r.reactie.gk)} kN, Q<sub>k</sub> {g2(r.reactie.qk)} kN, R<sub>d</sub> {g2(r.reactie.ed)} kN. {r.opleg.advies}</p>
           {r.waarschuwingen.length > 0 && <ul className="aandachtspunten">{r.waarschuwingen.map((w) => <li key={w} className="let-op">{w}</li>)}</ul>}
           <div className="acties">
@@ -95,7 +125,39 @@ export function LiggerPaneel(props: {
           </div>
         </>
       )}
+      <Kolommen project={project} wijzigProject={props.wijzigProject} />
     </section>
+  );
+}
+
+function Kolommen({ project, wijzigProject }: { project: Project; wijzigProject: (p: Project) => void }) {
+  const zet = (k: Project["kolommen"][number]) => wijzigProject({ ...project, kolommen: project.kolommen.map((x) => (x.id === k.id ? k : x)) });
+  return (
+    <>
+      <h3>Kolommen</h3>
+      {project.kolommen.map((k) => {
+        const r = rekenKolom(k, project);
+        return (
+          <div key={k.id} className="punt-bewerken">
+            <div className="velden">
+              <Veld label="Naam"><input value={k.naam} onChange={(e) => zet({ ...k, naam: e.target.value })} /></Veld>
+              <Veld label="Kniklengte (mm)"><input type="number" inputMode="numeric" min={500} value={k.lengte} onChange={(e) => zet({ ...k, lengte: Math.max(500, Math.round(+e.target.value) || 500) })} /></Veld>
+              <Veld label="G_k (kN)"><input type="number" inputMode="decimal" min={0} value={k.gk} onChange={(e) => zet({ ...k, gk: Math.max(0, +e.target.value || 0) })} /></Veld>
+              <Veld label="Q_k (kN)"><input type="number" inputMode="decimal" min={0} value={k.qk} onChange={(e) => zet({ ...k, qk: Math.max(0, +e.target.value || 0) })} /></Veld>
+              <Veld label="Plus reactie van ligger">
+                <select value={k.liggerId ?? ""} onChange={(e) => zet({ ...k, liggerId: e.target.value || undefined })}>
+                  <option value="">— geen —</option>{project.liggers.map((l) => <option key={l.id} value={l.id}>{l.naam}</option>)}
+                </select>
+              </Veld>
+            </div>
+            <p>N<sub>Ed</sub> = {g2(r.NEd)} kN → {r.keuze ? <strong>{r.keuze.profiel.naam} {k.staal} (UC {Math.round(r.keuze.uc * 100)} %)</strong> : <strong>geen profiel voldoet</strong>} <span className="zacht">{r.keuze?.uitleg}</span></p>
+            <button className="gevaar" onClick={() => wijzigProject({ ...project, kolommen: project.kolommen.filter((x) => x.id !== k.id) })}>Kolom verwijderen</button>
+          </div>
+        );
+      })}
+      <button onClick={() => wijzigProject({ ...project, kolommen: [...project.kolommen, { id: `kol-${Date.now().toString(36)}`, naam: `Kolom ${project.kolommen.length + 1}`, lengte: 2700, staal: "S235", gk: 50, qk: 20 }] })}>+ Kolom</button>
+      <p className="uitleg klein">Kolom: scharnierend aan beide uiteinden, centrische druk, eenvoudige knikcontrole. Voetplaat, verankering en fundering: ingenieur.</p>
+    </>
   );
 }
 
