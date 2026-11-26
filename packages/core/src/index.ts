@@ -20,3 +20,5 @@ export * from "./roomplan.ts";
 export * from "./installaties.ts";
 export * from "./pdf-installaties.ts";
 export * from "./pdf-lijst.ts";
+export * from "./ontwerp.ts";
+export * from "./pdf-ontwerp.ts";
