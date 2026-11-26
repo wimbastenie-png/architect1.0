@@ -129,7 +129,7 @@ export function ontwerpWaarschuwingen(p: Project): OntwerpWaarschuwing[] {
 // eenvoudige lijntekening (doorsnede, aanzicht) → SVG en PDF
 
 export type TekenEl =
-  | { t: "rect"; x: number; y: number; b: number; h: number; vul?: string; lijn?: string; dikte?: number; streep?: boolean }
+  | { t: "rect"; x: number; y: number; b: number; h: number; vul?: string; lijn?: string; dikte?: number; streep?: boolean; data?: string }
   | { t: "lijn"; a: Punt; b: Punt; lijn: string; dikte: number; streep?: boolean }
   | { t: "tekst"; p: Punt; s: string; grootte: number; kleur?: string; anker?: "start" | "middle" | "end"; vet?: boolean };
 
@@ -150,9 +150,9 @@ function kader(titel: string, el: TekenEl[], marge = 600): Tekening {
 export function tekeningNaarSVG(t: Tekening): string {
   const X = (x: number) => (x - t.minX).toFixed(0), Y = (y: number) => (t.maxY - y).toFixed(0);
   const out = t.elementen.map((e) => {
-    if (e.t === "rect") return `<rect x="${X(e.x)}" y="${Y(e.y + e.h)}" width="${e.b.toFixed(0)}" height="${e.h.toFixed(0)}" fill="${e.vul ?? "none"}" stroke="${e.lijn ?? "none"}" stroke-width="${e.dikte ?? 10}"${e.streep ? ' stroke-dasharray="60 40"' : ""}/>`;
-    if (e.t === "lijn") return `<line x1="${X(e.a.x)}" y1="${Y(e.a.y)}" x2="${X(e.b.x)}" y2="${Y(e.b.y)}" stroke="${e.lijn}" stroke-width="${e.dikte}"${e.streep ? ' stroke-dasharray="60 40"' : ""}/>`;
-    return `<text x="${X(e.p.x)}" y="${Y(e.p.y)}" font-size="${e.grootte}" text-anchor="${e.anker ?? "start"}" fill="${e.kleur ?? "#1c1917"}"${e.vet ? ' font-weight="700"' : ""}>${esc(e.s)}</text>`;
+    if (e.t === "rect") return `<rect x="${X(e.x)}" y="${Y(e.y + e.h)}" width="${e.b.toFixed(0)}" height="${e.h.toFixed(0)}" fill="${e.vul ?? "none"}" stroke="${e.lijn ?? "none"}" stroke-width="${e.dikte ?? 10}"${e.streep ? ' stroke-dasharray="60 40"' : ""}${e.data ? ` data-kast="${esc(e.data)}" style="cursor:pointer"` : ""}/>`;
+    if (e.t === "lijn") return `<line pointer-events="none" x1="${X(e.a.x)}" y1="${Y(e.a.y)}" x2="${X(e.b.x)}" y2="${Y(e.b.y)}" stroke="${e.lijn}" stroke-width="${e.dikte}"${e.streep ? ' stroke-dasharray="60 40"' : ""}/>`;
+    return `<text pointer-events="none" x="${X(e.p.x)}" y="${Y(e.p.y)}" font-size="${e.grootte}" text-anchor="${e.anker ?? "start"}" fill="${e.kleur ?? "#1c1917"}"${e.vet ? ' font-weight="700"' : ""}>${esc(e.s)}</text>`;
   });
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${(t.maxX - t.minX).toFixed(0)} ${(t.maxY - t.minY).toFixed(0)}" font-family="Helvetica, Arial, sans-serif" style="background:#fff">\n${out.join("\n")}\n</svg>\n`;
 }

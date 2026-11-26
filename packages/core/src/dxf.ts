@@ -11,7 +11,7 @@ import type { Punt, Verdieping } from "./schema.ts";
 
 const LAGEN: Record<string, number> = { MUREN: 7, OPENINGEN: 4, RUIMTES: 8, MATEN: 1, TEKST: 3, SPARINGEN: 5 };
 
-class Dxf {
+export class Dxf {
   private r: string[] = [];
   g(code: number, waarde: string | number) {
     this.r.push(String(code), typeof waarde === "number" ? fmt(waarde) : waarde);

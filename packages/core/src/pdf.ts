@@ -288,7 +288,7 @@ export function tekenTitelblok(
   f: Fonts,
   p: Project,
   titel: string,
-  o: PdfOpties & { datum: string; papier: Papier; schaal?: Schaal; past: boolean; blad: number; bladen: number; muren?: Verdieping["muren"]; legende?: Array<[RGB, string]>; middenTekst?: [string, string] },
+  o: Omit<PdfOpties, "schaal"> & { datum: string; papier: Papier; schaal?: number; past: boolean; blad: number; bladen: number; muren?: Verdieping["muren"]; legende?: Array<[RGB, string]>; middenTekst?: [string, string] },
   b: number,
 ) {
   const x0 = RAND / 2, y0 = RAND / 2, w = b - RAND, hb = TITELBLOK_H - 2;

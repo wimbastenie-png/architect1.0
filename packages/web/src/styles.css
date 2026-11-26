@@ -222,3 +222,5 @@ a.knop { text-decoration: none; color: inherit; }
 .duim-leeg { display: inline-flex; width: 72px; height: 72px; font-size: 11px; color: var(--zacht); border: 1px dashed var(--lijn); border-radius: 6px; align-items: center; text-align: center; }
 .samenstelling { border-left: 3px solid var(--lijn); padding-left: 10px; margin-bottom: 12px; }
 .u-waarde { font-size: 15px; }
+.schema.aanzicht svg { min-width: 560px; }
+.schema.aanzicht [data-kast] { cursor: pointer; }
