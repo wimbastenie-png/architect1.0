@@ -158,7 +158,7 @@ export function zetMuurLengte(
 
 interface Lijn { p: Punt; d: Punt }
 
-const richting = (m: Muur): Punt => {
+export const richting = (m: Muur): Punt => {
   const L = muurLengte(m);
   return { x: (m.eind.x - m.start.x) / L, y: (m.eind.y - m.start.y) / L };
 };

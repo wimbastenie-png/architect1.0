@@ -17,7 +17,7 @@ exportbestanden (PDF/DXF/IFC) van maakt. Zie het plan in het document
 - **Prijzen**: eenheidsprijs per post, onthouden op het toestel; raming met btw-tarief naar keuze (21/12/6/0 %); prijzen mee in Excel, kopie en PDF.
 - **Opmeten met de camera** (Chrome op Android met ARCore, via WebXR): hoeken van de vloer aantikken → haaks maken → plan. Op iPhone en pc niet beschikbaar. Demo zonder camera: `?ar-demo` achter het webadres.
 - **Lastenboek-meetstaat**: posten per ruimte (vloer, plinten, pleister- en schilderwerk wanden/plafond, dagkanten, vensterbanken, buitenschrijnwerk, binnendeuren); "Kopiëren voor offerte" (plakken in offerte of Excel) en export naar Excel met kolommen eenheidsprijs en totaal.
-- Meetstaat live; export naar PDF, DXF, CSV (Excel) en projectbestand (JSON).
+- Meetstaat live; export naar PDF, DXF, **IFC (BIM, IFC4)**, CSV (Excel) en projectbestand (JSON). Het IFC-bestand bevat verdiepingen op peil, muren (met verstek), ramen en deuren in hun opening, ruimtes en sparingen, met eigenschappen zoals dragend en meetmethode; te openen in Revit, ArchiCAD, BricsCAD, BIMcollab Zoom ….
 - Ongedaan maken (ook Ctrl+Z) en automatisch bewaren in de browser.
 - **Delen (link)**: één knop maakt een link met het hele project erin, om het van de gsm naar de desktop te brengen (of omgekeerd). Op de gsm opent het deelmenu (mail, WhatsApp …), op de pc wordt de link gekopieerd. Open je de link op het andere toestel, dan vraagt de app eerst of het huidige project daar vervangen mag worden (ongedaan maken kan). Geen live synchronisatie: na wijzigingen opnieuw delen. Privacy: het project zit achter het `#` in de link en wordt niet naar een server gestuurd, maar **wie de link heeft, kan het project openen** — deel hem dus enkel met wie het mag zien. Zeer grote projecten geven een lange link; lukt die niet, gebruik dan het projectbestand.
 
@@ -75,7 +75,7 @@ npm run voorbeeld   # voorbeelduitvoer
 - Prijzen staan alleen op het toestel waarop je ze ingaf en gaan niet mee in een deellink. Gsm en desktop lopen nog niet vanzelf gelijk: de deellink is een kopie van dat moment (echte synchronisatie: stap 8 van de roadmap).
 - Ruimtes zijn rechthoekig en worden haaks tegen een bestaande muur gezet. Schuine muren, L-vormige ruimtes en een ruimte die tegen twee bestaande ruimtes tegelijk komt (bv. een hoek opvullen) kunnen nog niet.
 - Bij een aanbouw tegen een gevel kunnen gevelmaten en maten van de aanbouw elkaar kruisen; maatlijnen worden nog niet automatisch in rijen geschikt.
-- Nog geen IFC-export.
+- IFC: gecontroleerd met IfcOpenShell (geldig IFC4, geometrie aanmaakbaar), nog niet geopend in Revit of ArchiCAD. Geen vloerplaten, daken of trappen; ramen en deuren zijn eenvoudige blokken zonder kader of draairichting.
 - PDF gebruikt de standaardletter Helvetica: tekens buiten West-Europese talen (bv. Pools, Grieks) worden nog niet ondersteund.
 
 ## Werftest
