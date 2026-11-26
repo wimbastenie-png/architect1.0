@@ -314,3 +314,11 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
 - [ ] **Werf → Boekhouding en groothandel**: **Klantenlijst** en **Verkoopdagboek** (CSV) openen in Excel: kolommen netjes gescheiden, bedragen met komma? Lukt het inlezen in je boekhoudpakket?
 - [ ] **Bestellijst**: geef bij een paar posten je artikelnummer en de verpakking (bv. 1,44 m² per doos), zet het snijverlies → **Bestellijst (CSV)**. Lukt het om dit bestand in de webshop van je groothandel op te laden? Welke kolommen verwacht die?
 - [ ] Herlaad de app: de artikelnummers staan er nog (ook in een ander project).
+
+## F1-7. Werftestprotocol
+
+- [ ] **Werf → Controlemetingen**: kies hoe je het plan opgemeten hebt (bv. camera) en de tolerantie (standaard ± 10 mm).
+- [ ] Meet minstens 10 maten na met een rolmeter of laser: binnenmaten van muren, plafondhoogtes, breedte en hoogte van ramen en deuren, een diagonaal. Met de Bluetooth-laser komt de maat vanzelf in **Gemeten (mm)**.
+- [ ] Rijen buiten de tolerantie worden rood (⚠). Bovenaan: % binnen de tolerantie, gemiddelde, RMS en grootste afwijking.
+- [ ] **Nauwkeurigheidsrapport (PDF)**: samenvatting, tabel per soort maat, alle metingen en opmerkingen.
+- [ ] Herhaal per opmeetmethode (rolmeter, laser, camera, scan). Welke methode is goed genoeg voor offerte, bestelling of maatwerk?

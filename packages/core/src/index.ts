@@ -41,3 +41,5 @@ export * from "./pdf-offerte.ts";
 export * from "./laser.ts";
 export * from "./factuur.ts";
 export * from "./boekhouding.ts";
+export * from "./werftest.ts";
+export * from "./pdf-werftest.ts";

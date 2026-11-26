@@ -4,6 +4,7 @@
  */
 import {
   bestelbaar, bestellijst, bestellijstCSV, controleerUBL, factuurNaarUBL, klantenCSV, verkoopCSV, type Artikels,
+  binnenLengte, METHODE, nieuweWerftest, SOORT_MAAT, werftestRapport, type Controlemeting, type Werftest,
   aanneming, BTW_NAAM, controleerFactuur, FACTUUR_SOORT, factuurTotalen, gefactureerd, stelFactuurOp, volgendNummer,
   BTW6_VOORWAARDEN, bewaarDag, dagboekTotalen, dagVan, meerwerkBedrag, meerwerkTotalen, nieuweVordering, nieuwMeerwerk, offerteRegels, STANDAARD_BETALING,
   vorderingsstaat, WEER, zetMeerwerkStatus, euro,
@@ -19,9 +20,9 @@ const leesFirma = (x: unknown): Firma => (x && typeof x === "object" && typeof (
 export function WerfPaneel(props: {
   project: Project; v: Verdieping; ruimteId: string | null; zetRuimteId: (id: string | null) => void;
   wijzigProject: (p: Project) => void; prijzen: Prijzen;
-  exporteer: (soort: "offerte" | "vordering" | "meerwerk" | "dagboek" | "factuur", data: { firma: Firma; offerte?: OfferteInvoer; nr?: number; btw?: 6 | 21; id?: string }) => void;
+  exporteer: (soort: "offerte" | "vordering" | "meerwerk" | "dagboek" | "factuur" | "werftest", data: { firma: Firma; offerte?: OfferteInvoer; nr?: number; btw?: 6 | 21; id?: string }) => void;
 }) {
-  const [tab, zetTab] = useState<"fotos" | "dagboek" | "meerwerk" | "geld" | "facturen" | "export">("fotos");
+  const [tab, zetTab] = useState<"fotos" | "dagboek" | "meerwerk" | "geld" | "facturen" | "export" | "werftest">("fotos");
   const { project, v, ruimteId } = props;
   const r = v.ruimtes.find((x) => x.id === ruimteId);
   const [punt, zetPunt] = useState("");
@@ -43,7 +44,7 @@ export function WerfPaneel(props: {
     <section className="kaart werf">
       <div className="kaart-kop"><h2>Werf{r ? `: ${r.naam}` : ""}</h2>{r && <button onClick={() => props.zetRuimteId(null)} aria-label="Alle ruimtes">×</button>}</div>
       <div className="soorten" role="tablist" aria-label="Werf">
-        {([["fotos", "Foto's en punten"], ["dagboek", "Dagboek"], ["meerwerk", "Meer- en minwerk"], ["geld", "Vordering en offerte"], ["facturen", "Facturen"], ["export", "Boekhouding en groothandel"]] as const).map(([k, n]) => (
+        {([["fotos", "Foto's en punten"], ["dagboek", "Dagboek"], ["meerwerk", "Meer- en minwerk"], ["geld", "Vordering en offerte"], ["facturen", "Facturen"], ["export", "Boekhouding en groothandel"], ["werftest", "Controlemetingen"]] as const).map(([k, n]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "actief" : ""} onClick={() => zetTab(k)}>{n}</button>
         ))}
       </div>
@@ -52,6 +53,7 @@ export function WerfPaneel(props: {
       {tab === "facturen" && <Facturen project={project} prijzen={props.prijzen} firma={firma} wijzigProject={props.wijzigProject} exporteer={(id) => props.exporteer("factuur", { firma, id })}
         standaardKlant={{ naam: off.klant, adres: off.klantAdres }} />}
       {tab === "export" && <Export project={project} />}
+      {tab === "werftest" && <Controle project={project} v={v} ruimteId={ruimteId} wijzigProject={props.wijzigProject} exporteer={() => props.exporteer("werftest", { firma })} />}
       {tab === "fotos" && (<>
       <p className="uitleg">Tik een ruimte aan in het plan om foto's en punten per ruimte te zien; zonder keuze zie je alles.</p>
 
@@ -365,6 +367,75 @@ function Export({ project }: { project: Project }) {
       </div>
       <div className="acties"><button className="primair" disabled={!regels.length} onClick={() => download(`${naam}-bestellijst.csv`, bestellijstCSV(regels, project.naam), "text/csv;charset=utf-8")}>Bestellijst (CSV, {regels.length} artikels)</button></div>
       <p className="uitleg klein">Controleer hoeveelheden en verpakkingen vóór je bestelt. De groothandel bepaalt prijzen en beschikbaarheid.</p>
+    </>
+  );
+}
+
+function Controle({ project, v, ruimteId, wijzigProject, exporteer }: { project: Project; v: Verdieping; ruimteId: string | null; wijzigProject: (p: Project) => void; exporteer: () => void }) {
+  const t = project.werftest ?? nieuweWerftest();
+  const zetT = (n: Partial<Werftest>) => wijzigProject({ ...project, werftest: { ...t, ...n } });
+  const [soort, zetSoort] = useState<Controlemeting["soort"]>("muur");
+  const [rid, zetRid] = useState<string>(ruimteId ?? v.ruimtes[0]?.id ?? "");
+  const r = v.ruimtes.find((x) => x.id === (ruimteId ?? rid)) ?? v.ruimtes[0];
+  const [ref, zetRef] = useState("");
+  const [gemeten, zetGemeten] = useState("");
+  const [instrument, zetInstrument] = useState<Controlemeting["instrument"]>("laser");
+  const [vrij, zetVrij] = useState({ model: "", omschrijving: "" });
+  const muren = r ? v.muren.filter((m) => r.muurIds.includes(m.id)) : [];
+  const openingen = r ? v.openingen.filter((o) => r.muurIds.includes(o.muurId)) : [];
+  const keuzes: Array<[string, string]> = soort === "muur" ? muren.map((m) => [m.id, `muur ${v.muren.indexOf(m) + 1} · ${Math.round(binnenLengte(m, v.muren))} mm`])
+    : soort === "opening-breedte" || soort === "opening-hoogte" ? openingen.map((o, i) => [o.id, `${o.soort} ${i + 1} · ${soort === "opening-breedte" ? o.breedte : o.hoogte} mm`]) : [];
+  const gekozen = keuzes.some(([id]) => id === ref) ? ref : keuzes[0]?.[0] ?? "";
+  const rap = werftestRapport(project);
+  const voegToe = () => {
+    const g = Math.round(+gemeten);
+    if (!(g > 0)) return;
+    const refId = soort === "plafond" || soort === "diagonaal" ? r?.id : soort === "vrij" ? undefined : gekozen;
+    if (soort !== "vrij" && !refId) return;
+    if (soort === "vrij" && !(+vrij.model > 0)) return;
+    const m: Controlemeting = { id: `cm-${Date.now().toString(36)}`, soort, verdiepingId: v.id, refId, gemeten: g, instrument, datum: new Date().toISOString().slice(0, 10),
+      ...(soort === "vrij" ? { model: Math.round(+vrij.model), omschrijving: vrij.omschrijving || undefined } : {}) };
+    zetT({ metingen: [...t.metingen, m] });
+    zetGemeten("");
+  };
+  return (
+    <>
+      <h3>Werftestprotocol: controlemetingen</h3>
+      <p className="uitleg">Meet maten na met een rolmeter of laser, los van je opmeting. De app vergelijkt ze met het plan en maakt een nauwkeurigheidsrapport. Meet er minstens 10, verdeeld over muren, hoogtes en openingen.</p>
+      <div className="rij">
+        <Veld label="Plan opgemeten met"><select value={t.methode} onChange={(e) => zetT({ methode: e.target.value as Werftest["methode"] })}>{Object.entries(METHODE).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></Veld>
+        <Veld label="Tolerantie (± mm)"><input type="number" min={1} value={t.tolerantie} onChange={(e) => zetT({ tolerantie: Math.max(1, +e.target.value || 10) })} /></Veld>
+        <Veld label="Controle door"><input defaultValue={t.door ?? ""} onBlur={(e) => zetT({ door: e.target.value.trim() || undefined })} /></Veld>
+      </div>
+      <h3>Nieuwe controlemeting</h3>
+      <div className="velden">
+        <Veld label="Soort maat"><select value={soort} onChange={(e) => zetSoort(e.target.value as Controlemeting["soort"])}>{Object.entries(SOORT_MAAT).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></Veld>
+        {soort !== "vrij" && <Veld label="Ruimte"><select value={r?.id ?? ""} onChange={(e) => zetRid(e.target.value)}>{v.ruimtes.map((x) => <option key={x.id} value={x.id}>{x.naam}</option>)}</select></Veld>}
+        {keuzes.length > 0 && <Veld label="Element"><select value={gekozen} onChange={(e) => zetRef(e.target.value)}>{keuzes.map(([id, n]) => <option key={id} value={id}>{n}</option>)}</select></Veld>}
+        {soort === "vrij" && <><Veld label="Omschrijving maat"><input value={vrij.omschrijving} onChange={(e) => zetVrij({ ...vrij, omschrijving: e.target.value })} /></Veld>
+          <Veld label="Maat volgens plan (mm)"><input type="number" inputMode="numeric" value={vrij.model} onChange={(e) => zetVrij({ ...vrij, model: e.target.value })} /></Veld></>}
+        <Veld label="Gemeten (mm)"><input type="number" inputMode="numeric" value={gemeten} onChange={(e) => zetGemeten(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") voegToe(); }} /></Veld>
+        <Veld label="Gemeten met"><select value={instrument} onChange={(e) => zetInstrument(e.target.value as Controlemeting["instrument"])}><option value="laser">laser</option><option value="rolmeter">rolmeter</option><option value="andere">andere</option></select></Veld>
+      </div>
+      <button onClick={voegToe}>+ Controlemeting</button>
+      {rap.resultaten.length > 0 && (
+        <>
+          <p>{rap.totaal.n} metingen · binnen ± {t.tolerantie} mm: <strong>{rap.totaal.binnenPct} %</strong> · gemiddeld {rap.totaal.gemiddeld > 0 ? "+" : ""}{rap.totaal.gemiddeld} mm · RMS {rap.totaal.rms} mm · max {rap.totaal.max} mm</p>
+          <table className="tabel klein">
+            <thead><tr><th>Maat</th><th className="getal">Plan</th><th className="getal">Gemeten</th><th className="getal">Verschil</th><th></th></tr></thead>
+            <tbody>{rap.resultaten.map((x) => (
+              <tr key={x.meting.id} className={x.binnen ? "" : "let-op"}>
+                <td>{x.naam}</td><td className="getal">{x.model}</td><td className="getal">{x.meting.gemeten}</td>
+                <td className="getal">{x.verschil > 0 ? "+" : ""}{x.verschil}{x.binnen ? "" : " ⚠"}</td>
+                <td><button aria-label="Controlemeting verwijderen" onClick={() => zetT({ metingen: t.metingen.filter((y) => y.id !== x.meting.id) })}>×</button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </>
+      )}
+      {rap.opmerkingen.length > 0 && <ul className="aandachtspunten">{rap.opmerkingen.map((o) => <li key={o}>{o}</li>)}</ul>}
+      <div className="acties"><button className="primair" disabled={!rap.resultaten.length} onClick={exporteer}>Nauwkeurigheidsrapport (PDF)</button></div>
+      <p className="uitleg klein">Het rapport geeft verschillen en statistiek, geen oordeel over het gebouw of de werken. De vakman bepaalt of de nauwkeurigheid volstaat voor zijn doel.</p>
     </>
   );
 }

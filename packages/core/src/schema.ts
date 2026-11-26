@@ -349,6 +349,25 @@ export const Project = z.object({
     regels: z.array(z.object({ omschrijving: z.string(), bedrag: z.number(), verrekening: z.boolean().optional() })),
     mededeling: z.string(), vorderingNr: z.number().int().optional(), betaald: z.boolean().default(false), betaaldOp: z.string().optional(),
   })).default([]),
+  /** Werftestprotocol: controlemetingen tegenover het model, voor het nauwkeurigheidsrapport. */
+  werftest: z.object({
+    /** Hoe het plan opgemeten werd (de methode die getest wordt). */
+    methode: z.enum(["rolmeter", "laser", "camera", "scan", "gemengd"]).default("laser"),
+    /** Tolerantie in mm (standaard ±10 mm). */
+    tolerantie: z.number().positive().default(10),
+    door: z.string().optional(),
+    metingen: z.array(z.object({
+      id, soort: z.enum(["muur", "plafond", "opening-breedte", "opening-hoogte", "diagonaal", "vrij"]),
+      verdiepingId: z.string(), refId: z.string().optional(),
+      /** Controlemeting (mm), met een ander/beter instrument dan de opmeting. */
+      gemeten: z.number().positive(),
+      instrument: z.enum(["rolmeter", "laser", "andere"]).default("laser"),
+      /** Alleen bij "vrij": de waarde volgens het plan. */
+      model: z.number().positive().optional(),
+      omschrijving: z.string().optional(),
+      datum: z.string(),
+    })).default([]),
+  }).optional(),
   /** Ventilatie: gekozen systeem (A natuurlijk, B mechanische toevoer, C mechanische afvoer, D balans). */
   ventilatie: z.object({ systeem: z.enum(["A", "B", "C", "D"]) }).optional(),
   /** Oriëntatie: richting van het noorden op het plan, in graden met de klok mee vanaf "boven" (0 = noorden boven). */

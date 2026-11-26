@@ -24,6 +24,10 @@ opschrijven wat ontbreekt. Reken op 1 à 2 uur voor een woning van 3 à 5 ruimte
 7. **Exporteer**: PDF-plan, DXF en Lastenboek (Excel). Vul je eigen prijzen in.
 8. **Controle**: meet thuis of op de werf 5 maten na op de **afgedrukte PDF**
    (schaal 1:50, afgedrukt op 100 %) en vergelijk met de werkelijkheid.
+9. **Werftestprotocol in de app**: *Werf → Controlemetingen*. Kies hoe het plan
+   opgemeten werd (rolmeter, laser, camera, scan) en meet minstens 10 maten na
+   (muren, plafondhoogtes, ramen en deuren). Maak het **nauwkeurigheidsrapport (PDF)**.
+   Herhaal dit per opmeetmethode om ze te vergelijken.
 
 ## Invulblad: nauwkeurigheid
 
