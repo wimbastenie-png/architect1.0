@@ -23,6 +23,7 @@ exportbestanden (PDF/DXF/IFC) van maakt. Zie het plan in het document
 - **Lastenboek-meetstaat**: posten per ruimte (vloer, plinten, pleister- en schilderwerk wanden/plafond, dagkanten, vensterbanken, buitenschrijnwerk, binnendeuren); "Kopiëren voor offerte" (plakken in offerte of Excel) en export naar Excel met kolommen eenheidsprijs en totaal.
 - Meetstaat live; export naar PDF, DXF, **IFC (BIM, IFC4)**, CSV (Excel) en projectbestand (JSON). Het IFC-bestand bevat verdiepingen op peil, muren (met verstek), ramen en deuren in hun opening, ruimtes en sparingen, met eigenschappen zoals dragend en meetmethode; te openen in Revit, ArchiCAD, BricsCAD, BIMcollab Zoom ….
 - Ongedaan maken (ook Ctrl+Z) en automatisch bewaren in de browser.
+- **Cloud** (knop in de kopbalk): aanmelden met een link per e-mail, projecten bewaren in de cloud (Supabase, EU-regio) en **vanzelf gelijk houden** tussen gsm en pc: na elke wijziging bewaren, bij het openen van de app de nieuwste versie ophalen; werkten twee toestellen tegelijk, dan kies je welke versie je houdt. **Delen** met klant, architect of ingenieur per e-mailadres (alleen bekijken of bewerken). Instellen: zie [docs/cloud-instellen.md](docs/cloud-instellen.md). Proberen zonder account: `?cloud-demo`.
 - **Delen (link)**: één knop maakt een link met het hele project erin, om het van de gsm naar de desktop te brengen (of omgekeerd). Op de gsm opent het deelmenu (mail, WhatsApp …), op de pc wordt de link gekopieerd. Open je de link op het andere toestel, dan vraagt de app eerst of het huidige project daar vervangen mag worden (ongedaan maken kan). Geen live synchronisatie: na wijzigingen opnieuw delen. Privacy: het project zit achter het `#` in de link en wordt niet naar een server gestuurd, maar **wie de link heeft, kan het project openen** — deel hem dus enkel met wie het mag zien. Zeer grote projecten geven een lange link; lukt die niet, gebruik dan het projectbestand.
 
 Online via GitHub Pages zodra dat aan staat (zie onder). Lokaal: `npm run web`.
@@ -81,6 +82,7 @@ npm run voorbeeld   # voorbeelduitvoer
 - Ontwerp: schetsontwerp, geen vergunningsplan. Doorsneden tonen alleen wat de snijlijn raakt (niets erachter); gevels zonder dak, goot of buitenaanleg. Nieuwe muren delen ruimtes nog niet op (meetstaat en lastenboek blijven op de bestaande ruimtes). Een nieuwe opening komt in het midden van de muur; de maten pas je aan via *Plan*.
 - Liggers: alleen vrij opgelegde liggers met gelijkmatige last. Niet gecontroleerd: lijfplooi/lijfstuik aan de opleggingen, wringing, brand, verbindingen, samenwerking van profielen naast elkaar, stempeling, draagkracht van het metselwerk en de fundering. Nog niet nagekeken door een ingenieur.
 - PDF: Griekse letters en tekens buiten de standaardletter worden uitgeschreven (bv. "gamma") of als "?" getoond.
+- Cloud: werkt pas als er een Supabase-project is ingesteld (zie docs/cloud-instellen.md). Getest met een nagebootste server en de databaseregels op een lokale PostgreSQL, nog niet tegen een echt Supabase-project. Gelijk houden is niet live (bij openen van de app en elke 30 s); geen samenvoegen van gelijktijdige wijzigingen, je kiest een van beide versies.
 - Prijzen staan alleen op het toestel waarop je ze ingaf en gaan niet mee in een deellink. Gsm en desktop lopen nog niet vanzelf gelijk: de deellink is een kopie van dat moment (echte synchronisatie: stap 8 van de roadmap).
 - Ruimtes zijn rechthoekig en worden haaks tegen een bestaande muur gezet. Schuine muren, L-vormige ruimtes en een ruimte die tegen twee bestaande ruimtes tegelijk komt (bv. een hoek opvullen) kunnen nog niet.
 - Bij een aanbouw tegen een gevel kunnen gevelmaten en maten van de aanbouw elkaar kruisen; maatlijnen worden nog niet automatisch in rijen geschikt.
@@ -108,7 +110,7 @@ De MVP staat online: opmeten (rolmeter, laser, camera op Android), plannen op sc
 | 5. Installaties | Elektriciteit, sanitair en gas op het plan, met schema's, materiaallijsten en aandachtspunten (zie hieronder) | Installateur; keuring waar verplicht. De app vervangt die niet |
 | 6. Ontwerp | Nieuwe toestand naast de bestaande, aanzichten en doorsneden | Architect waar de wet dat vraagt |
 | 7. Voordimensionering stalen liggers | Samen met een ingenieur uitgewerkt: rekennota met alle aannames, ter controle en aftekening. Fundering blijft buiten bereik: enkel voorbereiding | Ingenieur tekent af |
-| 8. Accounts en cloudopslag | Projecten bewaren en automatisch gelijk houden tussen gsm en pc (Supabase, servers in de EU), en delen met klant, architect en ingenieur. Tot dan: de deellink | – |
+| 8. Accounts en cloudopslag | Projecten bewaren en automatisch gelijk houden tussen gsm en pc (Supabase, servers in de EU), en delen met klant, architect en ingenieur | – |
 | 9. Inrichting en renders | Meubels en materialen, fotorealistische beelden | – |
 
 ### Installaties in detail
