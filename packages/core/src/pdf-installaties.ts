@@ -13,7 +13,7 @@ import { lijstBladen } from "./pdf-lijst.ts";
 import { kiesBlad, PT, tekenBlad, type Fonts, type PdfOpties } from "./pdf.ts";
 import type { InstallatiePunt, Project, Punt } from "./schema.ts";
 
-const hex = (h: string): RGB => rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
+const hex = (k: string): RGB => { const h = k.length === 4 ? `#${k[1]}${k[1]}${k[2]}${k[2]}${k[3]}${k[3]}` : k; return rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255); };
 const KLEUR: Record<LeidingSoort | "elektriciteit" | "sanitairPunt", RGB> = {
   koud: hex("#2563eb"), warm: hex("#dc2626"), afvoer: hex("#78716c"), gas: hex("#ca8a04"), elektriciteit: hex("#7c3aed"), sanitairPunt: hex("#0369a1"),
 };

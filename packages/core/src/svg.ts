@@ -3,6 +3,7 @@ import { vloerNetto } from "./bewerken.ts";
 import { maatketens, tekstBreedte } from "./maatvoering.ts";
 import { openingLabelPunt, openingLabels } from "./openingen.ts";
 import { binnenmaten, m2Tekst, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
+import { TOESTAND_KLEUR } from "./ontwerp.ts";
 import { installatiesSVG, type Net } from "./installaties.ts";
 import type { MeetMethode, Project, Punt, Verdieping } from "./schema.ts";
 
@@ -37,6 +38,8 @@ export interface SvgOpties {
   raak?: number;
   /** Installaties tekenen (symbolen en leidingen); het project is nodig voor bronnen op andere verdiepingen en kringnummers. */
   installaties?: { project: Project; netten?: Net[]; geselecteerd?: string };
+  /** Lijnen of punten bovenop het plan (snijlijnen, eerste punt van een nieuwe muur …). */
+  markeringen?: Array<{ a: Punt; b?: Punt; label?: string; kleur?: string }>;
 }
 
 export type Kader = { minX: number; maxX: number; minY: number; maxY: number };
@@ -83,7 +86,10 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
   for (const m of v.muren) {
     const sel = m.id === opties.geselecteerd;
     const stijl = sel ? "cursor:grab" : "cursor:pointer";
-    el.push(`<polygon points="${muurVorm(m, v.muren).map(t).join(" ")}" fill="${sel ? "#dc2626" : "#292524"}"${ia ? ` data-muur="${esc(m.id)}" style="${stijl}"` : ""}/>`);
+    const tst = m.toestand ?? "bestaand";
+    const vul = tst !== "bestaand" ? TOESTAND_KLEUR[tst] : sel ? "#dc2626" : "#292524";
+    const rand = tst === "afbreken" ? ` stroke="${sel ? "#2563eb" : "#292524"}" stroke-width="${sel ? 50 : 14}" stroke-dasharray="60 40"` : tst === "nieuw" && sel ? ' stroke="#2563eb" stroke-width="50"' : "";
+    el.push(`<polygon points="${muurVorm(m, v.muren).map(t).join(" ")}" fill="${vul}"${rand}${ia ? ` data-muur="${esc(m.id)}" style="${stijl}"` : ""}/>`);
   }
   const muren = new Map(v.muren.map((m) => [m.id, m]));
   for (const o of v.openingen) {
@@ -92,7 +98,9 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     const deel = { ...m, start: puntLangsMuur(m, o.offset), eind: puntLangsMuur(m, o.offset + o.breedte) };
     const actief = o.id === opties.opening;
     const stijl = m.id === opties.geselecteerd ? "cursor:grab" : "cursor:pointer";
-    el.push(`<polygon points="${muurRechthoek(deel).map(t).join(" ")}" fill="${actief ? "#fde68a" : "#fff"}" stroke="${actief ? "#b45309" : "#0e7490"}" stroke-width="${actief ? 40 : 20}"${ia ? ` data-muur="${esc(m.id)}" data-opening="${esc(o.id)}" style="${stijl}"` : ""}/>`);
+    const ot = o.toestand ?? "bestaand";
+    const ovul = actief ? "#fde68a" : ot === "nieuw" ? TOESTAND_KLEUR.afbreken : ot === "dicht" ? TOESTAND_KLEUR.nieuw : "#fff";
+    el.push(`<polygon points="${muurRechthoek(deel).map(t).join(" ")}" fill="${ovul}" stroke="${actief ? "#b45309" : "#0e7490"}" stroke-width="${actief ? 40 : 20}"${ia ? ` data-muur="${esc(m.id)}" data-opening="${esc(o.id)}" style="${stijl}"` : ""}/>`);
     if (o.soort === "raam") el.push(`<line pointer-events="none" x1="${t(deel.start).split(",")[0]}" y1="${t(deel.start).split(",")[1]}" x2="${t(deel.eind).split(",")[0]}" y2="${t(deel.eind).split(",")[1]}" stroke="#0e7490" stroke-width="20"/>`);
   }
   // aanraaklaag: onzichtbare brede lijnen langs muren en openingen (vaste grootte op het scherm)
@@ -157,6 +165,17 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
   }
 
   const sel = v.muren.find((m) => m.id === opties.geselecteerd);
+  for (const mk of opties.markeringen ?? []) {
+    const k = mk.kleur ?? "#7c3aed";
+    const [ax, ay] = t(mk.a).split(",");
+    if (mk.b) {
+      const [bx, by] = t(mk.b).split(",");
+      el.push(`<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="${k}" stroke-width="30" stroke-dasharray="200 60 30 60" pointer-events="none"/>`);
+      if (mk.label) for (const [x, y] of [[ax, ay], [bx, by]]) el.push(`<text x="${x}" y="${y}" font-size="220" font-weight="700" fill="${k}" text-anchor="middle" dy="-80" paint-order="stroke" stroke="#fff" stroke-width="40" pointer-events="none">${esc(mk.label)}</text>`);
+    } else {
+      el.push(`<circle cx="${ax}" cy="${ay}" r="90" fill="${k}" stroke="#fff" stroke-width="30" pointer-events="none"/>`);
+    }
+  }
   if (opties.installaties) {
     const ti = (q: Punt) => ({ x: q.x - minX, y: maxY - q.y });
     el.push(...installatiesSVG(opties.installaties.project, v, ti, { netten: opties.installaties.netten, geselecteerd: opties.installaties.geselecteerd, interactief: ia }));

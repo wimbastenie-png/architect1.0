@@ -44,6 +44,15 @@ export type Bron = z.infer<typeof Bron>;
 export const Dragend = z.enum(["onbekend", "vermoeden", "bevestigd", "niet-dragend"]);
 export type Dragend = z.infer<typeof Dragend>;
 
+/**
+ * Ontwerp (verbouwing): bestaand blijft, afbreken (geel op plan), nieuw (rood).
+ * Openingen: nieuw = nieuwe opening in een bestaande muur; dicht = bestaande opening dichtmaken.
+ */
+export const MuurToestand = z.enum(["bestaand", "afbreken", "nieuw"]);
+export type MuurToestand = z.infer<typeof MuurToestand>;
+export const OpeningToestand = z.enum(["bestaand", "nieuw", "dicht"]);
+export type OpeningToestand = z.infer<typeof OpeningToestand>;
+
 export const Muur = z.object({
   id,
   start: Punt,
@@ -52,6 +61,8 @@ export const Muur = z.object({
   hoogte: mmPositief,
   dragend: Dragend.default("onbekend"),
   bron: Bron,
+  /** Ontwerp: leeg = bestaand. */
+  toestand: MuurToestand.optional(),
 });
 export type Muur = z.infer<typeof Muur>;
 
@@ -66,6 +77,8 @@ export const Opening = z.object({
   /** Borstwering: hoogte onderkant opening boven de vloer. */
   borstwering: mm.nonnegative().default(0),
   bron: Bron,
+  /** Ontwerp: leeg = bestaand. */
+  toestand: OpeningToestand.optional(),
 });
 export type Opening = z.infer<typeof Opening>;
 
@@ -146,6 +159,8 @@ export const Project = z.object({
   aangemaakt: z.string().datetime(),
   gewijzigd: z.string().datetime(),
   verdiepingen: z.array(Verdieping).min(1),
+  /** Ontwerp: snijlijnen voor doorsneden (plan-mm, over alle verdiepingen). */
+  doorsneden: z.array(z.object({ id, naam: z.string(), a: Punt, b: Punt })).default([]),
 });
 export type Project = z.infer<typeof Project>;
 /** Invoer vóór defaults (bv. ruw JSON-bestand). */

@@ -4,6 +4,13 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
+  maakHaaks,
+  ontwerpNaarPDF,
+  vangPunt,
+  verdiepingInToestand,
+  voegNieuweMuurToe,
+  voegNieuweOpeningToe,
+  type Punt,
   installatiesNaarPDF,
   voegInstallatiepuntToe,
   wijzigInstallatiepunt,
@@ -53,6 +60,7 @@ import {
 } from "@scanapp/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { appartement } from "../../core/examples/appartement.ts";
+import { OntwerpBalk, OntwerpPaneel, type OntwerpGereedschap, type OntwerpWeergave } from "./Ontwerp.tsx";
 import { InstallatieBalk, InstallatiePaneel } from "./Installaties.tsx";
 import { ArOpmeting, ArResultaat, DEMO_KAMERS, arOndersteund, type GemetenKamer } from "./ArOpmeting.tsx";
 import { LastenboekWeergave } from "./Lastenboek.tsx";
@@ -330,10 +338,11 @@ interface WerkbladProps {
   zetMelding: (s: string | null) => void;
 }
 
-type Modus = "plan" | "installaties";
+type Modus = "plan" | "installaties" | "ontwerp";
 const MODI: Array<{ modus: Modus; naam: string }> = [
   { modus: "plan", naam: "Plan" },
   { modus: "installaties", naam: "Installaties" },
+  { modus: "ontwerp", naam: "Ontwerp" },
 ];
 
 function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigProject, zetMelding }: WerkbladProps) {
@@ -345,6 +354,11 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const [plaatsen, zetPlaatsen] = useState<string | null>(null);
   const [instSel, zetInstSel] = useState<string | null>(null);
   const [verplaatsen, zetVerplaatsen] = useState(false);
+  const [gereedschap, zetGereedschap] = useState<OntwerpGereedschap>("kies");
+  const [ontwerpWeergave, zetOntwerpWeergave] = useState<OntwerpWeergave>("verbouwing");
+  const [eerstePunt, zetEerstePunt] = useState<Punt | null>(null);
+  const [nieuweDikte, zetNieuweDikte] = useState("100");
+  const [ontwerpMuur, zetOntwerpMuur] = useState<string | null>(null);
   const slepen = useSlepen({
     uit: modus !== "plan",
     houder: planRef,
@@ -372,12 +386,16 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     return () => window.removeEventListener("resize", meet);
   });
   const svg = useMemo(
-    () => verdiepingNaarSVG(v, {
+    () => verdiepingNaarSVG(modus === "ontwerp" && ontwerpWeergave !== "verbouwing" ? verdiepingInToestand(v, ontwerpWeergave) : v, {
       interactief: true, labels, raak, kader: zoom.kader,
-      geselecteerd: modus === "plan" && selectie?.soort === "muur" ? selectie.id : undefined,
+      geselecteerd: modus === "plan" && selectie?.soort === "muur" ? selectie.id : modus === "ontwerp" ? ontwerpMuur ?? undefined : undefined,
       installaties: modus === "installaties" ? { project, netten: [net], geselecteerd: instSel ?? undefined } : undefined,
+      markeringen: modus === "ontwerp" ? [
+        ...project.doorsneden.map((d) => ({ a: d.a, b: d.b, label: d.naam.split("-")[0] })),
+        ...(eerstePunt ? [{ a: eerstePunt, kleur: gereedschap === "muur" ? "#dc2626" : "#7c3aed" }] : []),
+      ] : undefined,
     }),
-    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel],
+    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel, ontwerpWeergave, ontwerpMuur, eerstePunt, gereedschap],
   );
   // Tijdens het slepen: voorbeeld in een aparte laag bovenop, met het vaste kader van de
   // tekening eronder. Die onderste tekening blijft ongewijzigd onder de vinger staan.
@@ -433,6 +451,40 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const klik = (e: React.MouseEvent) => {
     const naSlepen = slepen.klikNegeren(), naVerschuiven = zoom.klikNegeren();
     if (naSlepen || naVerschuiven) return;
+    if (modus === "ontwerp") {
+      const q = planRef.current ? naarPlan(planRef.current, e.clientX, e.clientY) : null;
+      if (gereedschap === "kies") {
+        const el = (e.target as Element).closest("[data-muur]");
+        zetOntwerpMuur(el ? el.getAttribute("data-muur") : null);
+        return;
+      }
+      if (!q) return;
+      if (gereedschap === "muur") {
+        const p = vangPunt(v, q);
+        if (!eerstePunt) { zetEerstePunt(p); return; }
+        const b = vangPunt(v, maakHaaks(eerstePunt, q));
+        try {
+          const r = voegNieuweMuurToe(v, eerstePunt, b, +nieuweDikte || 100);
+          wijzig(() => r.verdieping);
+          zetOntwerpMuur(r.id);
+          zetMelding(null);
+        } catch (err) { zetMelding((err as Error).message); }
+        zetEerstePunt(null);
+        return;
+      }
+      if (gereedschap === "snede") {
+        const p = { x: Math.round(q.x / 10) * 10, y: Math.round(q.y / 10) * 10 };
+        if (!eerstePunt) { zetEerstePunt(p); return; }
+        if (Math.hypot(p.x - eerstePunt.x, p.y - eerstePunt.y) < 500) { zetMelding("De snijlijn is te kort (minstens 50 cm)."); zetEerstePunt(null); return; }
+        const letter = String.fromCharCode(65 + (project.doorsneden.length % 26));
+        const b = maakHaaks(eerstePunt, p);
+        wijzigProject({ ...project, doorsneden: [...project.doorsneden, { id: `d-${Date.now().toString(36)}`, naam: `${letter}-${letter}`, a: eerstePunt, b }] });
+        zetEerstePunt(null);
+        zetGereedschap("kies");
+        return;
+      }
+      return;
+    }
     if (modus === "installaties") {
       const q = planRef.current ? naarPlan(planRef.current, e.clientX, e.clientY) : null;
       const doel = (e.target as Element).closest("[data-installatie]");
@@ -478,8 +530,9 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     }
   };
 
-  const exporteer = async (soort: "pdf" | "dxf" | "ifc" | "csv" | "lastenboek" | "json" | "installaties") => {
+  const exporteer = async (soort: "pdf" | "dxf" | "ifc" | "csv" | "lastenboek" | "json" | "installaties" | "ontwerp") => {
     try {
+      if (soort === "ontwerp") download(`${naam}-ontwerp.pdf`, await ontwerpNaarPDF(project) as BlobPart, "application/pdf");
       if (soort === "installaties") download(`${naam}-installaties.pdf`, await installatiesNaarPDF(project) as BlobPart, "application/pdf");
       if (soort === "pdf") download(`${naam}.pdf`, await projectNaarPDF(project, { prijzen, btwPct: btw }) as BlobPart, "application/pdf");
       if (soort === "ifc") download(`${naam}.ifc`, projectNaarIFC(project), "application/x-step");
@@ -505,9 +558,10 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         </div>
         <div className="modi" role="tablist" aria-label="Weergave">
           {MODI.map((m) => (
-            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); }}>{m.naam}</button>
+            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); zetEerstePunt(null); zetOntwerpMuur(null); zetGereedschap("kies"); }}>{m.naam}</button>
           ))}
         </div>
+        {modus === "ontwerp" && <OntwerpBalk gereedschap={gereedschap} zetGereedschap={(g) => { zetGereedschap(g); zetEerstePunt(null); }} weergave={ontwerpWeergave} zetWeergave={zetOntwerpWeergave} eerstePunt={!!eerstePunt} dikte={nieuweDikte} zetDikte={zetNieuweDikte} />}
         {modus === "installaties" && <InstallatieBalk net={net} zetNet={(n) => { zetNet(n); zetInstSel(null); }} plaatsen={plaatsen} zetPlaatsen={(x) => { zetPlaatsen(x); zetInstSel(null); }} />}
         <div className="plan-houder">
           <div
@@ -558,7 +612,13 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
       <aside className="paneel">
         {kort && <div className="bevestiging" role="status">{kort}</div>}
-        {modus === "installaties" ? (
+        {modus === "ontwerp" ? (
+          <OntwerpPaneel
+            project={project} v={v} muurId={ontwerpMuur} zetMuurId={zetOntwerpMuur} wijzig={wijzig} wijzigProject={wijzigProject}
+            nieuweOpening={(id) => { try { const r = voegNieuweOpeningToe(v, id); wijzig(() => r.verdieping); alertKort("Nieuwe opening (raam 1000 × 1200) in het midden van de muur. Maten aanpassen: knop Plan, muur aanklikken."); } catch (err) { zetMelding((err as Error).message); } }}
+            exporteerPdf={() => exporteer("ontwerp")}
+          />
+        ) : modus === "installaties" ? (
           <InstallatiePaneel
             project={project} v={v} net={net} zetNet={zetNet} plaatsen={plaatsen} zetPlaatsen={(x) => { zetPlaatsen(x); zetInstSel(null); }}
             geselecteerd={instSel} zetGeselecteerd={(x) => { zetInstSel(x); zetVerplaatsen(false); zetPlaatsen(null); }}

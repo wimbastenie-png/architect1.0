@@ -171,3 +171,10 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--lijn); border
 .installatie-balk .soorten button { flex: 0 0 auto; }
 .soorten .code { margin-right: 4px; }
 .hint-kort { font-size: 13px; color: var(--zacht); margin: 0 0 6px; }
+.inline-veld { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; flex: 0 0 auto; }
+.inline-veld input { width: 80px; }
+.chip { display: inline-flex; }
+.chip button:first-child { border-radius: 8px 0 0 8px; }
+.chip button:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; padding: 0 10px; }
+.chip .actief { background: var(--accent); color: var(--accent-tekst); border-color: var(--accent); }
+.opening-toestand { align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; margin: 6px 0; }
