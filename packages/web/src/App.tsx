@@ -49,7 +49,7 @@ import {
 } from "@scanapp/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { appartement } from "../../core/examples/appartement.ts";
-import { ArOpmeting, ArResultaat, DEMO_PUNTEN, arOndersteund } from "./ArOpmeting.tsx";
+import { ArOpmeting, ArResultaat, DEMO_KAMERS, arOndersteund, type GemetenKamer } from "./ArOpmeting.tsx";
 import { LastenboekWeergave } from "./Lastenboek.tsx";
 import { RuimtePaneel } from "./RuimtePaneel.tsx";
 import { useSlepen } from "./Slepen.ts";
@@ -265,10 +265,10 @@ function NieuwProject({ onMaak, onVoorbeeld }: { onMaak: (p: Project) => void; o
   const demo = typeof location !== "undefined" && new URLSearchParams(location.search).has("ar-demo");
   const [ar, zetAr] = useState<boolean | null>(null);
   const [stap, zetStap] = useState<"formulier" | "camera" | "resultaat">("formulier");
-  const [punten, zetPunten] = useState<{ x: number; y: number }[]>([]);
+  const [kamers, zetKamers] = useState<GemetenKamer[]>([]);
   useEffect(() => { void arOndersteund().then(zetAr); }, []);
-  if (stap === "camera") return <main className="start"><ArOpmeting onPunten={(p) => { zetPunten(p); zetStap("resultaat"); }} onStop={() => zetStap("formulier")} /></main>;
-  if (stap === "resultaat") return <main className="start"><ArResultaat punten={punten} onMaak={onMaak} onOpnieuw={() => zetStap(demo ? "formulier" : "camera")} /></main>;
+  if (stap === "camera") return <main className="start"><ArOpmeting onKamers={(k) => { zetKamers(k); zetStap("resultaat"); }} onStop={() => zetStap("formulier")} /></main>;
+  if (stap === "resultaat") return <main className="start"><ArResultaat kamers={kamers} onMaak={onMaak} onOpnieuw={() => zetStap(demo ? "formulier" : "camera")} /></main>;
   return (
     <main className="start">
       <section className="kaart">
@@ -283,7 +283,7 @@ function NieuwProject({ onMaak, onVoorbeeld }: { onMaak: (p: Project) => void; o
             {ar === null ? "Controleren of dit toestel AR ondersteunt…" : "Niet beschikbaar op dit toestel. Werkt in Chrome op Android-toestellen met ARCore (niet op iPhone of pc). Je kan hieronder de maten ook ingeven."}
           </p>
         )}
-        {demo && <div className="acties"><button onClick={() => { zetPunten(DEMO_PUNTEN); zetStap("resultaat"); }}>AR-demo met testpunten</button></div>}
+        {demo && <div className="acties"><button onClick={() => { zetKamers(DEMO_KAMERS); zetStap("resultaat"); }}>AR-demo met testpunten</button></div>}
       </section>
       <section className="kaart">
         <h1>Nieuw project</h1>
