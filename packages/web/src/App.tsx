@@ -4,6 +4,8 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
+  offerteNaarPDF,
+  vorderingsstaatNaarPDF,
   projectNieuweToestand,
   trapVoorstel,
   vergunningNaarPDF,
@@ -76,6 +78,8 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 const Drie3D = lazy(() => import("./Drie3D.tsx"));
 import { appartement } from "../../core/examples/appartement.ts";
 import { KeukenPaneel } from "./Keuken.tsx";
+import { LaserKnop, useLaser } from "./Laser.tsx";
+import { WerfPaneel } from "./Werf.tsx";
 import { EpbBalk, EpbPaneel, type EpbSelectie } from "./Epb.tsx";
 import { InrichtingBalk, InrichtingPaneel } from "./Inrichting.tsx";
 import { NieuweVersie, VERSIE } from "./Versie.tsx";
@@ -265,6 +269,7 @@ export function App() {
     zetBericht([tekst, recht.bericht].filter(Boolean).join(" "));
   }, []);
   const cloud = useCloud(project, vervangUitCloud);
+  const laser = useLaser();
   const [cloudOpen, zetCloudOpen] = useState(false);
 
   return (
@@ -281,6 +286,7 @@ export function App() {
             <input type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && openBestand(e.target.files[0])} />
           </label>
           <button onClick={ongedaan} disabled={!geschiedenis.length} title="Ctrl+Z">Ongedaan maken</button>
+          <LaserKnop laser={laser} />
           <button className={`cloud-knop ${cloud.status.soort}`} onClick={() => zetCloudOpen(true)}>{statusTekst(cloud.status)}</button>
         </nav>
       </header>
@@ -377,6 +383,13 @@ interface WerkbladProps {
   zetMelding: (s: string | null) => void;
 }
 
+/** Werf: de gekozen ruimte omlijnd. */
+function werfMarkering(v: Verdieping, ruimteId: string) {
+  const r = v.ruimtes.find((x) => x.id === ruimteId);
+  if (!r) return [];
+  return r.contour.map((a, k) => ({ a, b: r.contour[(k + 1) % r.contour.length]!, kleur: "#0e7490" }));
+}
+
 /** Markeringen voor de keukenmodus: de gekozen wand in rood, de andere randen van de ruimte genummerd. */
 function keukenMarkeringen(v: Verdieping, ruimteId: string | null, rand: number | null) {
   const r = v.ruimtes.find((x) => x.id === ruimteId);
@@ -384,7 +397,7 @@ function keukenMarkeringen(v: Verdieping, ruimteId: string | null, rand: number 
   return r.contour.map((a, k) => ({ a, b: r.contour[(k + 1) % r.contour.length]!, label: `W${k + 1}`, kleur: k === rand ? "#dc2626" : "#a8a29e", midden: true }));
 }
 
-type Modus = "plan" | "installaties" | "ontwerp" | "liggers" | "inrichting" | "energie" | "keuken";
+type Modus = "plan" | "installaties" | "ontwerp" | "liggers" | "inrichting" | "energie" | "keuken" | "werf";
 const MODI: Array<{ modus: Modus; naam: string }> = [
   { modus: "plan", naam: "Plan" },
   { modus: "installaties", naam: "Installaties" },
@@ -393,6 +406,7 @@ const MODI: Array<{ modus: Modus; naam: string }> = [
   { modus: "inrichting", naam: "Inrichting" },
   { modus: "energie", naam: "Energie" },
   { modus: "keuken", naam: "Keuken" },
+  { modus: "werf", naam: "Werf" },
 ];
 
 function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigProject, zetMelding }: WerkbladProps) {
@@ -417,6 +431,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const [epbSel, zetEpbSel] = useState<EpbSelectie>(null);
   const [keukenRuimte, zetKeukenRuimte] = useState<string | null>(null);
   const [opmerkingSel, zetOpmerkingSel] = useState<string | null>(null);
+  const [werfRuimte, zetWerfRuimte] = useState<string | null>(null);
   const [keukenRand, zetKeukenRand] = useState<number | null>(null);
   const [liggerVoorstel, zetLiggerVoorstel] = useState<{ dagmaat: number; dikte: number; muurId?: string; tekst: string } | null>(null);
   const slepen = useSlepen({
@@ -450,7 +465,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
       interactief: true, labels, raak, kader: zoom.kader,
       geselecteerd: modus === "plan" && selectie?.soort === "muur" ? selectie.id : modus === "ontwerp" ? ontwerpMuur ?? undefined : modus === "liggers" ? liggerVoorstel?.muurId : undefined,
       installaties: modus === "installaties" ? { project, netten: [net], geselecteerd: instSel ?? undefined } : undefined,
-      markeringen: modus === "keuken" ? keukenMarkeringen(v, keukenRuimte, keukenRand) : modus === "ontwerp" ? [
+      markeringen: modus === "werf" && werfRuimte ? werfMarkering(v, werfRuimte) : modus === "keuken" ? keukenMarkeringen(v, keukenRuimte, keukenRand) : modus === "ontwerp" ? [
         ...project.doorsneden.map((d) => ({ a: d.a, b: d.b, label: d.naam.split("-")[0] })),
         ...(eerstePunt ? [{ a: eerstePunt, kleur: gereedschap === "muur" ? "#dc2626" : "#7c3aed" }] : []),
       ] : undefined,
@@ -459,7 +474,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
       noord: modus === "energie" || (project.noord ?? 0) !== 0 ? project.noord ?? 0 : undefined,
       epb: modus === "energie" ? { geselecteerd: epbSel?.soort === "muur" ? epbSel.id : undefined } : undefined,
     }),
-    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel, ontwerpWeergave, ontwerpMuur, eerstePunt, gereedschap, liggerVoorstel, meubelSel, epbSel, keukenRuimte, keukenRand, opmerkingSel],
+    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel, ontwerpWeergave, ontwerpMuur, eerstePunt, gereedschap, liggerVoorstel, meubelSel, epbSel, keukenRuimte, keukenRand, opmerkingSel, werfRuimte],
   );
   // Tijdens het slepen: voorbeeld in een aparte laag bovenop, met het vaste kader van de
   // tekening eronder. Die onderste tekening blijft ongewijzigd onder de vinger staan.
@@ -517,6 +532,11 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const klik = (e: React.MouseEvent) => {
     const naSlepen = slepen.klikNegeren(), naVerschuiven = zoom.klikNegeren();
     if (naSlepen || naVerschuiven) return;
+    if (modus === "werf") {
+      const q = planRef.current ? naarPlan(planRef.current, e.clientX, e.clientY) : null;
+      zetWerfRuimte(q ? ruimteVan(v, q)?.id ?? null : null);
+      return;
+    }
     if (modus === "keuken") {
       const q = planRef.current ? naarPlan(planRef.current, e.clientX, e.clientY) : null;
       const r = q ? ruimteVan(v, q) : undefined;
@@ -705,7 +725,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     <main className="werkblad">
         <div className="modi" role="tablist" aria-label="Weergave">
           {MODI.map((m) => (
-            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); zetEerstePunt(null); zetOntwerpMuur(null); zetGereedschap("kies"); zetLiggerVoorstel(null); zetMeubelPlaatsen(null); zetMeubelSel(null); zetInrRuimte(null); zetMeubelVerplaatsen(false); zetEpbSel(null); zetKeukenRuimte(null); zetKeukenRand(null); }}>{m.naam}</button>
+            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); zetEerstePunt(null); zetOntwerpMuur(null); zetGereedschap("kies"); zetLiggerVoorstel(null); zetMeubelPlaatsen(null); zetMeubelSel(null); zetInrRuimte(null); zetMeubelVerplaatsen(false); zetEpbSel(null); zetKeukenRuimte(null); zetKeukenRand(null); zetWerfRuimte(null); }}>{m.naam}</button>
           ))}
         </div>
       {toon3D && (
@@ -722,6 +742,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           ))}
           <button className="tab-nieuw" onClick={() => { zetNieuweVerdieping(true); zetSelectie(null); }}>+ Verdieping</button>
         </div>
+        {modus === "werf" && <p className="hint-kort">Tik een ruimte aan voor foto's en punten van die ruimte; tik naast het gebouw om alles te zien.</p>}
         {modus === "keuken" && <p className="hint-kort">Tik in het plan dicht bij de wand waar de keuken of de kast komt; de gekozen wand wordt rood.</p>}
         {modus === "energie" && <EpbBalk noord={project.noord ?? 0} zetNoord={(n) => wijzigProject({ ...project, noord: n })} />}
         {modus === "inrichting" && <InrichtingBalk plaatsen={meubelPlaatsen} zetPlaatsen={(x) => { zetMeubelPlaatsen(x); zetMeubelVerplaatsen(false); }} />}
@@ -777,7 +798,15 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
       <aside className="paneel">
         {kort && <div className="bevestiging" role="status">{kort}</div>}
-        {modus === "keuken" ? (
+        {modus === "werf" ? (
+          <WerfPaneel project={project} v={v} ruimteId={werfRuimte} zetRuimteId={zetWerfRuimte} wijzigProject={wijzigProject} prijzen={prijzen}
+            exporteer={async (soort, d) => {
+              try {
+                if (soort === "offerte" && d.offerte) download(`${naam}-offerte-${bestandsnaam(d.offerte.nummer)}.pdf`, await offerteNaarPDF(project, prijzen, d.firma, d.offerte) as BlobPart, "application/pdf");
+                if (soort === "vordering" && d.nr) download(`${naam}-vorderingsstaat-${d.nr}.pdf`, await vorderingsstaatNaarPDF(project, prijzen, d.firma, d.nr, d.btw ?? 21) as BlobPart, "application/pdf");
+              } catch (err) { zetMelding(`Export mislukt: ${(err as Error).message}`); }
+            }} />
+        ) : modus === "keuken" ? (
           <KeukenPaneel project={project} v={v} ruimteId={keukenRuimte} rand={keukenRand} zetRand={zetKeukenRand} wijzigProject={wijzigProject} exporteer={(x, w) => exporteer(x, w)} />
         ) : modus === "energie" ? (
           <EpbPaneel project={project} v={v} sel={epbSel} zetSel={zetEpbSel} wijzig={wijzig} exporteer={(x) => exporteer(x)} />

@@ -320,6 +320,10 @@ export const Project = z.object({
     regime: z.enum(["75/65", "55/45", "45/35"]).default("45/35"),
     zonnepanelen: z.boolean().default(false),
   }).optional(),
+  /** Werfopvolging: punten om op te volgen (per ruimte). */
+  opvolging: z.array(z.object({ id, ruimteId: z.string().optional(), tekst: z.string(), status: z.enum(["open", "klaar"]).default("open"), datum: z.string(), wie: z.string().optional() })).default([]),
+  /** Vorderingsstaten: per staat het cumulatieve percentage uitgevoerd per lastenboekpost. */
+  vorderingen: z.array(z.object({ nr: z.number().int().positive(), datum: z.string(), procent: z.record(z.string(), z.number().min(0).max(100)), afgesloten: z.boolean().default(false) })).default([]),
   /** Ventilatie: gekozen systeem (A natuurlijk, B mechanische toevoer, C mechanische afvoer, D balans). */
   ventilatie: z.object({ systeem: z.enum(["A", "B", "C", "D"]) }).optional(),
   /** Oriëntatie: richting van het noorden op het plan, in graden met de klok mee vanaf "boven" (0 = noorden boven). */
