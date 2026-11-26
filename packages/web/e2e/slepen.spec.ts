@@ -24,7 +24,7 @@ test.describe("slepen met de muis", () => {
     const s = await schaal(page);
     const c = await midden(page, 'polygon[data-muur="m-binnen"]');
     await muisSleep(page, c, { x: c.x + 5000 * s, y: c.y }, 25);
-    await expect(page.locator(".sleep-info.fout")).toContainText("Zo ver verschuiven");
+    await expect(page.locator(".sleep-info.fout")).toContainText(/Zo ver verschuiven|te kort voor/); // beide zijn terechte weigeringen
     await page.mouse.up();
     const slaap = await (await vloer(page, "Slaapkamer")).textContent();
     expect(Number(slaap!.replace(",", "."))).toBeGreaterThan(0);

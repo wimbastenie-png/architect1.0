@@ -447,7 +447,7 @@ export function verschuifMuur(v: Verdieping, muurId: string, afstand: number, me
   // ruimtecontouren: hoekpunten op de vlakken van de gewijzigde muren opnieuw berekenen
   const gewijzigd = new Set(muren.filter((w, k) => w !== v.muren[k]).map((w) => w.id));
   const ruimtes = herberekenContouren(v, muren, gewijzigd);
-  const uit: Verdieping = { ...v, muren, openingen, ruimtes };
+  const uit: Verdieping = houdOpeningenInMuur({ ...v, muren, openingen, ruimtes }, "verschuiven");
 
   // controles
   for (const w of muren) {
@@ -460,12 +460,7 @@ export function verschuifMuur(v: Verdieping, muurId: string, afstand: number, me
     if (Math.sign(getekend(r.contour)) !== Math.sign(getekend(oud.contour)) || oppervlakte(r.contour) < 1)
       throw new Error(`Zo ver verschuiven gaat door ruimte '${r.naam}'.`);
   }
-  for (const o of openingen) {
-    const w = nieuw.get(o.muurId)!;
-    const a = aansluitingen(w, muren);
-    if (o.offset < a.start - 0.5 || o.offset + o.breedte > muurLengte(w) - a.eind + 0.5)
-      throw new Error(`Na het verschuiven past een ${o.soort} niet meer in zijn muur. Verplaats of verwijder die eerst.`);
-  }
+
   for (const s of v.sparingen ?? []) {
     if (!ruimtes.some((r) => s.contour.every((p) => binnenVeelhoek({ x: p.x + Math.sign(zwaartepunt(s.contour).x - p.x), y: p.y + Math.sign(zwaartepunt(s.contour).y - p.y) }, r.contour))))
       throw new Error(`Na het verschuiven valt een ${s.soort} buiten zijn ruimte.`);
@@ -535,7 +530,7 @@ export function verplaatsHoek(v: Verdieping, punt: Punt, naar: Punt, methode: "g
     const verschil = muurLengte(nieuw.get(o.muurId)!) - muurLengte(oud);
     return { ...o, offset: Math.round(o.offset + verschil) };
   });
-  const uit: Verdieping = { ...v, muren, ruimtes, openingen };
+  const uit: Verdieping = houdOpeningenInMuur({ ...v, muren, ruimtes, openingen }, "verplaatsen");
 
   // controles
   for (const r of ruimtes) {
@@ -544,12 +539,7 @@ export function verplaatsHoek(v: Verdieping, punt: Punt, naar: Punt, methode: "g
       throw new Error(`Zo ver verplaatsen klapt ruimte '${r.naam}' om.`);
     if (zelfkruisend(r.contour)) throw new Error(`Zo ver verplaatsen laat ruimte '${r.naam}' zichzelf kruisen.`);
   }
-  for (const o of openingen) {
-    const w = nieuw.get(o.muurId)!;
-    const a = aansluitingen(w, muren);
-    if (o.offset < a.start - 0.5 || o.offset + o.breedte > muurLengte(w) - a.eind + 0.5)
-      throw new Error(`Na het verplaatsen past een ${o.soort} niet meer in zijn muur. Verplaats of verwijder die eerst.`);
-  }
+
   for (const s of v.sparingen ?? []) {
     const z = zwaartepunt(s.contour);
     if (!ruimtes.some((r) => s.contour.every((p) => binnenVeelhoek({ x: p.x + Math.sign(z.x - p.x), y: p.y + Math.sign(z.y - p.y) }, r.contour))))
@@ -627,6 +617,37 @@ export function herberekenContouren(v: Verdieping, muren: Muur[], gewijzigd: Set
       return { x: Math.round(l.p.x + l.d.x * t), y: Math.round(l.p.y + l.d.y * t) };
     }),
   }));
+}
+
+const LIDWOORD: Record<Opening["soort"], string> = { raam: "het raam", deur: "de deur", doorgang: "de doorgang" };
+
+/**
+ * Ramen en deuren in hun muur houden na het wijzigen van muren: past een
+ * opening niet meer, dan schuift ze zo weinig mogelijk op tot ze weer tussen
+ * de binnenhoeken past. Enkel als de muur te kort is (of de opening zou
+ * overlappen met een andere), volgt een duidelijke melding.
+ */
+export function houdOpeningenInMuur(v: Verdieping, werkwoord: string): Verdieping {
+  const openingen = v.openingen.map((o) => {
+    const w = v.muren.find((m) => m.id === o.muurId);
+    if (!w) return o;
+    const a = aansluitingen(w, v.muren);
+    const min = a.start, max = muurLengte(w) - a.eind - o.breedte;
+    if (o.offset >= min - 0.5 && o.offset <= max + 0.5) return o;
+    if (max < min - 0.5) {
+      const naam = muurOmschrijving(v, w.id).split(" · ")[0];
+      throw new Error(`Na het ${werkwoord} is de muur te kort voor ${LIDWOORD[o.soort]} van ${o.breedte} mm (${naam}: nog ${Math.max(0, Math.round(max + o.breedte - min))} mm). Maak ${LIDWOORD[o.soort]} smaller of sleep minder ver.`);
+    }
+    return { ...o, offset: Math.round(Math.min(Math.max(o.offset, min), max)) };
+  });
+  for (const o of openingen) {
+    const botsing = openingen.find((x) => x !== o && x.muurId === o.muurId && x.offset < o.offset + o.breedte && o.offset < x.offset + x.breedte);
+    if (botsing) {
+      const naam = muurOmschrijving(v, o.muurId).split(" · ")[0];
+      throw new Error(`Na het ${werkwoord} zouden ${LIDWOORD[o.soort]} en ${LIDWOORD[botsing.soort]} in ${naam} overlappen. Verplaats er eerst een.`);
+    }
+  }
+  return { ...v, openingen };
 }
 
 /** Kruisen twee niet-aangrenzende randen van de veelhoek elkaar? */

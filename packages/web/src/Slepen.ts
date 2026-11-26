@@ -70,7 +70,14 @@ export function useSlepen(opties: {
   const negeer = useRef(false);
   const beeld = useRef<number | null>(null);
   const [voorbeeld, zetVoorbeeld] = useState<Verdieping | null>(null);
-  const [info, zetInfo] = useState<{ tekst: string; fout: boolean } | null>(null);
+  const [info, zetInfoState] = useState<{ tekst: string; fout: boolean } | null>(null);
+  const laatsteInfo = useRef<{ tekst: string; fout: boolean } | null>(null);
+  const naTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zetInfo = (i: { tekst: string; fout: boolean } | null) => {
+    laatsteInfo.current = i;
+    if (naTimer.current) { clearTimeout(naTimer.current); naTimer.current = null; }
+    zetInfoState(i);
+  };
   const [actieveOpening, zetActieveOpening] = useState<string | undefined>();
   const [kader, zetKader] = useState<Kader | undefined>();
   const [sleepMuur, zetSleepMuur] = useState<string | undefined>();
@@ -188,6 +195,12 @@ export function useSlepen(opties: {
     const s = sleep.current;
     if (!s) return;
     spoel(); // de plaats van het loslaten telt
+    // Een foutmelding nog 5 s laten staan na het loslaten, zodat ze rustig te lezen is.
+    const fout = laatsteInfo.current?.fout ? laatsteInfo.current : null;
+    if (fout) queueMicrotask(() => {
+      zetInfoState(fout);
+      naTimer.current = setTimeout(() => { zetInfoState(null); naTimer.current = null; }, 5000);
+    });
     if (s.actief) {
       negeer.current = true; // de klik die na het loslaten volgt, niet als selectie behandelen
       const eind = s.geldig;
