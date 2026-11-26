@@ -1,0 +1,279 @@
+{
+  "schemaVersie": "0.1",
+  "id": "prj-voorbeeld",
+  "naam": "Stuk uit vorige versie",
+  "adres": {
+    "straat": "Voorbeeldstraat 12",
+    "postcode": "9000",
+    "gemeente": "Gent",
+    "gewest": "vlaanderen"
+  },
+  "bouwjaar": 1972,
+  "aangemaakt": "2026-11-24T10:00:00Z",
+  "gewijzigd": "2026-11-24T10:00:00Z",
+  "verdiepingen": [
+    {
+      "id": "v0",
+      "naam": "Gelijkvloers",
+      "peil": 0,
+      "muren": [
+        {
+          "id": "m-onder-links",
+          "start": {
+            "x": 1235,
+            "y": 160
+          },
+          "eind": {
+            "x": 6000,
+            "y": 0
+          },
+          "dikte": 300,
+          "hoogte": 2700,
+          "dragend": "vermoeden",
+          "bron": {
+            "methode": "gecorrigeerd"
+          }
+        },
+        {
+          "id": "m-onder-rechts",
+          "start": {
+            "x": 6000,
+            "y": 0
+          },
+          "eind": {
+            "x": 9600,
+            "y": 0
+          },
+          "dikte": 300,
+          "hoogte": 2700,
+          "dragend": "vermoeden",
+          "bron": {
+            "methode": "gescand",
+            "nauwkeurigheidMm": 30,
+            "toestel": "iPhone 15 Pro (RoomPlan)"
+          }
+        },
+        {
+          "id": "m-rechts",
+          "start": {
+            "x": 9600,
+            "y": 0
+          },
+          "eind": {
+            "x": 9600,
+            "y": 4800
+          },
+          "dikte": 300,
+          "hoogte": 2700,
+          "dragend": "vermoeden",
+          "bron": {
+            "methode": "gescand",
+            "nauwkeurigheidMm": 30,
+            "toestel": "iPhone 15 Pro (RoomPlan)"
+          }
+        },
+        {
+          "id": "m-boven-rechts",
+          "start": {
+            "x": 9600,
+            "y": 4800
+          },
+          "eind": {
+            "x": 6000,
+            "y": 4800
+          },
+          "dikte": 300,
+          "hoogte": 2700,
+          "dragend": "vermoeden",
+          "bron": {
+            "methode": "gescand",
+            "nauwkeurigheidMm": 30,
+            "toestel": "iPhone 15 Pro (RoomPlan)"
+          }
+        },
+        {
+          "id": "m-boven-links",
+          "start": {
+            "x": 6000,
+            "y": 4800
+          },
+          "eind": {
+            "x": -41,
+            "y": 4400
+          },
+          "dikte": 300,
+          "hoogte": 2700,
+          "dragend": "vermoeden",
+          "bron": {
+            "methode": "gecorrigeerd"
+          }
+        },
+        {
+          "id": "m-links",
+          "start": {
+            "x": -41,
+            "y": 4400
+          },
+          "eind": {
+            "x": 1235,
+            "y": 160
+          },
+          "dikte": 300,
+          "hoogte": 2700,
+          "dragend": "vermoeden",
+          "bron": {
+            "methode": "gecorrigeerd"
+          }
+        },
+        {
+          "id": "m-binnen",
+          "start": {
+            "x": 6000,
+            "y": 0
+          },
+          "eind": {
+            "x": 6000,
+            "y": 4800
+          },
+          "dikte": 100,
+          "hoogte": 2700,
+          "dragend": "onbekend",
+          "bron": {
+            "methode": "gescand",
+            "nauwkeurigheidMm": 30,
+            "toestel": "iPhone 15 Pro (RoomPlan)"
+          }
+        }
+      ],
+      "openingen": [
+        {
+          "id": "o-raam-leef",
+          "muurId": "m-onder-links",
+          "soort": "raam",
+          "offset": 268,
+          "breedte": 2400,
+          "hoogte": 1500,
+          "borstwering": 900,
+          "bron": {
+            "methode": "gescand",
+            "nauwkeurigheidMm": 30,
+            "toestel": "iPhone 15 Pro (RoomPlan)"
+          }
+        },
+        {
+          "id": "o-raam-slaap",
+          "muurId": "m-onder-rechts",
+          "soort": "raam",
+          "offset": 900,
+          "breedte": 1600,
+          "hoogte": 1400,
+          "borstwering": 1000,
+          "bron": {
+            "methode": "gescand",
+            "nauwkeurigheidMm": 30,
+            "toestel": "iPhone 15 Pro (RoomPlan)"
+          }
+        },
+        {
+          "id": "o-voordeur",
+          "muurId": "m-links",
+          "soort": "deur",
+          "offset": 626,
+          "breedte": 930,
+          "hoogte": 2115,
+          "borstwering": 0,
+          "bron": {
+            "methode": "gescand",
+            "nauwkeurigheidMm": 30,
+            "toestel": "iPhone 15 Pro (RoomPlan)"
+          }
+        },
+        {
+          "id": "o-binnendeur",
+          "muurId": "m-binnen",
+          "soort": "deur",
+          "offset": 3200,
+          "breedte": 830,
+          "hoogte": 2115,
+          "borstwering": 0,
+          "bron": {
+            "methode": "gescand",
+            "nauwkeurigheidMm": 30,
+            "toestel": "iPhone 15 Pro (RoomPlan)"
+          }
+        }
+      ],
+      "ruimtes": [
+        {
+          "id": "r-leef",
+          "naam": "Leefruimte",
+          "contour": [
+            {
+              "x": 150,
+              "y": 150
+            },
+            {
+              "x": 5950,
+              "y": 150
+            },
+            {
+              "x": 5950,
+              "y": 4650
+            },
+            {
+              "x": 150,
+              "y": 4650
+            }
+          ],
+          "plafondhoogte": 2700,
+          "muurIds": [
+            "m-onder-links",
+            "m-boven-links",
+            "m-links",
+            "m-binnen"
+          ],
+          "bron": {
+            "methode": "gescand",
+            "nauwkeurigheidMm": 30,
+            "toestel": "iPhone 15 Pro (RoomPlan)"
+          }
+        },
+        {
+          "id": "r-slaap",
+          "naam": "Slaapkamer",
+          "contour": [
+            {
+              "x": 6050,
+              "y": 150
+            },
+            {
+              "x": 9450,
+              "y": 150
+            },
+            {
+              "x": 9450,
+              "y": 4650
+            },
+            {
+              "x": 6050,
+              "y": 4650
+            }
+          ],
+          "plafondhoogte": 2700,
+          "muurIds": [
+            "m-onder-rechts",
+            "m-rechts",
+            "m-boven-rechts",
+            "m-binnen"
+          ],
+          "bron": {
+            "methode": "gescand",
+            "nauwkeurigheidMm": 30,
+            "toestel": "iPhone 15 Pro (RoomPlan)"
+          }
+        }
+      ],
+      "sparingen": []
+    }
+  ]
+}

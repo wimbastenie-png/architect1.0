@@ -13,3 +13,4 @@ export * from "./verdiepingen.ts";
 export * from "./bewerken.ts";
 export * from "./prijzen.ts";
 export * from "./hoekpunten.ts";
+export * from "./vloeren.ts";

@@ -335,6 +335,10 @@ function eenSamenvoeging(v: Verdieping): Verdieping | null {
     if (Math.abs(ua.x * ub.y - ua.y * ub.x) > RECHTDOOR) continue;
     const p = sleutel(a.eind) === k ? a.eind : a.start;
     const verB = sleutel(b.start) === k ? b.eind : b.start;
+    // Enkel samenvoegen als het verre uiteinde van b echt op de lijn van a ligt (± 1,5 mm,
+    // afrondingsverschil). Een klein knikje (bv. na een hoekverplaatsing) blijft twee muren:
+    // rechttrekken zou de vloer naast de muur laten liggen.
+    if (Math.abs((verB.x - a.start.x) * ua.y - (verB.y - a.start.y) * ua.x) > 1.5) continue;
     // nieuwe muur in de richting van a
     const start = sleutel(a.eind) === k ? a.start : verB;
     const eind = sleutel(a.eind) === k ? verB : a.eind;
@@ -567,9 +571,12 @@ export function herberekenContouren(v: Verdieping, muren: Muur[], gewijzigd: Set
   // buiten: hoe ver (mm) het hoekpunt voorbij de uiteinden van de muur ligt (0 = binnen de lengte)
   type Vlak = { muur: Muur; kant: 1 | -1; buiten: number };
   const nieuw = new Map(muren.map((m) => [m.id, m]));
-  const vlakkenDoor = (q: Punt): Vlak[] => {
+  // enkel de vlakken van de muren die deze ruimte begrenzen: een hoekpunt van de
+  // slaapkamer mag niet verschuiven omdat een muur van de leefruimte ernaast draait
+  const vlakkenDoor = (q: Punt, eigen: Set<string>): Vlak[] => {
     const uit: Vlak[] = [];
     for (const m of v.muren) {
+      if (!eigen.has(m.id)) continue;
       const L = muurLengte(m);
       const u = { x: (m.eind.x - m.start.x) / L, y: (m.eind.y - m.start.y) / L };
       const n = { x: -u.y, y: u.x };
@@ -587,21 +594,26 @@ export function herberekenContouren(v: Verdieping, muren: Muur[], gewijzigd: Set
     const L = muurLengte(m);
     const u = { x: (m.eind.x - m.start.x) / L, y: (m.eind.y - m.start.y) / L };
     const n = { x: -u.y, y: u.x };
-    return { p: { x: m.start.x + n.x * vl.kant * (m.dikte / 2), y: m.start.y + n.y * vl.kant * (m.dikte / 2) }, d: u };
+    return { p: { x: m.start.x + n.x * vl.kant * (m.dikte / 2), y: m.start.y + n.y * vl.kant * (m.dikte / 2) }, d: u, muur: m };
   };
-  const snij = (a: { p: Punt; d: Punt }, b: { p: Punt; d: Punt }): Punt | null => {
+  // Snijpunt van twee vlakken. Een vloerhoek ligt altijd bij een muuraansluiting: het
+  // snijpunt telt enkel als het binnen twee muurdiktes (gedeeld door de sinus van de hoek)
+  // van een uiteinde van een van beide muren ligt. Twee stukken die bijna recht doorlopen (afronding) snijden elkaar ver
+  // weg en vormen dus geen hoek; een echte, ondiepe knik (enkele graden) wel.
+  const snij = (a: ReturnType<typeof lijn>, b: ReturnType<typeof lijn>): Punt | null => {
     const k = a.d.x * b.d.y - a.d.y * b.d.x;
-    // Twee vlakken die minder dan ± 10° verschillen vormen geen hoek (bv. twee
-    // gevelstukken in elkaars verlengde met een klein knikje): hun snijpunt ligt
-    // willekeurig ver. Zelfde regel als bij het tekenen van verstekhoeken.
-    if (Math.abs(k) < 0.17) return null;
+    if (Math.abs(k) < 0.005) return null;
     const t = ((b.p.x - a.p.x) * b.d.y - (b.p.y - a.p.y) * b.d.x) / k;
-    return { x: a.p.x + a.d.x * t, y: a.p.y + a.d.y * t };
+    const x = { x: a.p.x + a.d.x * t, y: a.p.y + a.d.y * t };
+    // bij een spitse hoek ligt het snijpunt verder van het uiteinde (± dikte / sin(hoek))
+    const grens = (2 * Math.max(a.muur.dikte, b.muur.dikte)) / Math.max(Math.abs(k), 0.05);
+    const bij = [a.muur.start, a.muur.eind, b.muur.start, b.muur.eind].some((e) => Math.hypot(e.x - x.x, e.y - x.y) <= grens);
+    return bij ? x : null;
   };
   return v.ruimtes.map((r) => ({
     ...r,
     contour: r.contour.map((q) => {
-      const vl = vlakkenDoor(q);
+      const vl = vlakkenDoor(q, new Set(r.muurIds));
       const geraakt = vl.filter((x) => gewijzigd.has(x.muur.id));
       if (!geraakt.length) return q;
       for (const a of geraakt) for (const b of vl) {

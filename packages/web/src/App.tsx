@@ -2,6 +2,8 @@ import {
   aansluitingen,
   binnenLengte,
   controleerSamenhang,
+  controleerVloeren,
+  herstelVloeren,
   leesProject,
   meetstaat,
   meetstaatCSV,
@@ -50,6 +52,25 @@ const OPSLAG = "architect1.0:project";
 type Selectie = { soort: "muur" | "ruimte"; id: string } | null;
 type Methode = "manueel" | "laser" | "gecorrigeerd";
 
+/**
+ * Vloeren die hun muren niet meer raken (fout uit een vorige versie, bewaard op het
+ * toestel of in een bestand) rechtzetten bij het openen.
+ */
+function zetVloerenRecht(p: Project): { project: Project; bericht: string | null } {
+  const hersteld: string[] = [], mislukt: string[] = [];
+  const verdiepingen = p.verdiepingen.map((v) => {
+    const r = herstelVloeren(v);
+    hersteld.push(...r.hersteld);
+    mislukt.push(...r.mislukt);
+    return r.verdieping;
+  });
+  const delen = [
+    hersteld.length ? `De vloer van ${hersteld.join(", ")} raakte de muren niet meer en is rechtgezet.` : "",
+    mislukt.length ? `De vloer van ${mislukt.join(", ")} raakt de muren niet; automatisch rechtzetten lukte niet.` : "",
+  ].filter(Boolean);
+  return { project: hersteld.length ? { ...p, verdiepingen } : p, bericht: delen.length ? delen.join(" ") : null };
+}
+
 function laadOpgeslagen(): Project | null {
   try {
     const ruw = localStorage.getItem(OPSLAG);
@@ -75,11 +96,15 @@ const PRIJZEN = "architect1.0:prijzen";
 const BTW = "architect1.0:btw";
 
 export function App() {
-  const [project, zetProject] = useState<Project | null>(laadOpgeslagen);
+  const [begin] = useState(() => {
+    const p = laadOpgeslagen();
+    return p ? zetVloerenRecht(p) : { project: null, bericht: null };
+  });
+  const [project, zetProject] = useState<Project | null>(begin.project);
   const [geschiedenis, zetGeschiedenis] = useState<Project[]>([]);
   const [vi, zetVi] = useState(0);
   const [selectie, zetSelectie] = useState<Selectie>(null);
-  const [melding, zetMelding] = useState<string | null>(null);
+  const [melding, zetMelding] = useState<string | null>(begin.bericht);
 
   useEffect(() => {
     try {
@@ -136,8 +161,9 @@ export function App() {
     try {
       const r = leesProject(JSON.parse(await f.text()));
       if (!r.ok) return zetMelding(`Bestand niet geldig: ${r.fouten.slice(0, 3).map((x) => `${x.pad} ${x.melding}`).join("; ")}`);
-      nieuwProject(r.project);
-      zetMelding(null);
+      const recht = zetVloerenRecht(r.project);
+      nieuwProject(recht.project);
+      zetMelding(recht.bericht);
     } catch {
       zetMelding("Dit is geen geldig projectbestand (JSON).");
     }
@@ -326,6 +352,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   useEffect(() => { if (!kort) return; const t = setTimeout(() => alertKort(null), 3000); return () => clearTimeout(t); }, [kort]);
   const rijen = useMemo(() => meetstaat(project), [project]);
   const fouten = useMemo(() => controleerSamenhang(project), [project]);
+  const vloerProblemen = useMemo(() => controleerVloeren(v), [v]);
   const muur = selectie?.soort === "muur" ? v.muren.find((m) => m.id === selectie.id) : undefined;
   const ruimte = selectie?.soort === "ruimte" ? v.ruimtes.find((r) => r.id === selectie.id) : undefined;
   const naam = bestandsnaam(project.naam);
@@ -390,8 +417,21 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           <button onClick={() => exporteer("lastenboek")}>Lastenboek (Excel)</button>
           <button onClick={() => exporteer("json")}>Projectbestand</button>
         </div>
-        {fouten.length > 0 && (
-          <div className="fouten"><strong>Controle:</strong><ul>{fouten.map((f, i) => <li key={i}>{f.melding}</li>)}</ul></div>
+        {(fouten.length > 0 || vloerProblemen.length > 0) && (
+          <div className="fouten">
+            <strong>Controle:</strong>
+            <ul>
+              {fouten.map((f, i) => <li key={i}>{f.melding}</li>)}
+              {vloerProblemen.map((p, i) => <li key={`v${i}`}>De vloer van {p.ruimte} raakt de muur niet: {muurOmschrijving(v, p.muurId).split(" · ")[0]}.</li>)}
+            </ul>
+            {vloerProblemen.length > 0 && (
+              <button type="button" onClick={() => {
+                const r = herstelVloeren(v);
+                if (r.hersteld.length) wijzig(() => r.verdieping);
+                if (r.mislukt.length) zetMelding(`Automatisch rechtzetten lukte niet voor ${r.mislukt.join(", ")}. Verschuif een muur of verplaats een hoek, of zet de ruimte opnieuw.`);
+              }}>Vloeren rechtzetten</button>
+            )}
+          </div>
         )}
       </section>
 
