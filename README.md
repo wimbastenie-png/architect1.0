@@ -118,7 +118,7 @@ Zie [`docs/werftest.md`](docs/werftest.md): stappenplan en invulblad om de app o
 
 ## Roadmap
 
-De MVP staat online. Alle stappen hieronder zijn **gebouwd en automatisch getest**; wat nog op een echte werf, een echt toestel of door een vakman getest moet worden, staat in [docs/testlijst.md](docs/testlijst.md). Overal geldt: de app bereidt voor, een bevoegde vakman controleert en tekent af.
+De MVP staat online. Alle stappen hieronder zijn **gebouwd en automatisch getest**; wat nog op een echte werf, een echt toestel of door een vakman getest moet worden, staat in [docs/testlijst.md](docs/testlijst.md); één volledige ronde door de hele app staat in [docs/testronde.md](docs/testronde.md). Overal geldt: de app bereidt voor, een bevoegde vakman controleert en tekent af.
 
 | Stap | Inhoud | Status | Wie controleert of tekent af |
 | --- | --- | --- | --- |
@@ -152,7 +152,7 @@ De MVP staat online. Alle stappen hieronder zijn **gebouwd en automatisch getest
 | F1-6. Boekhouding en groothandel | E-factuur per factuur (UBL 2.1, Peppol BIS Billing 3.0, ook creditnota en btw verlegd); klantenlijst en verkoopdagboek (CSV); bestellijst voor de groothandel met je eigen artikelnummers, snijverlies en verpakkingen (CSV) | Gebouwd; nog geen officiële Peppol-validatie | Naam van je boekhoudpakket en groothandel; contract met een Peppol-toegangspunt; eerste e-factuur laten valideren |
 | F1-7. Werftestprotocol | Controlemetingen (muren, plafondhoogtes, openingen, diagonalen, vrije maten) tegenover het plan; verschil, binnen de tolerantie, gemiddelde, RMS en max, totaal en per soort maat; nauwkeurigheidsrapport (PDF) per project | Gebouwd | Op een echte werf 10 à 20 maten nameten per opmeetmethode |
 
-**Daarna**: fase 2 (BIM-kern en exports), fase 3 (samenwerken en ondertekenen), fase 4 (regels en rekenkernen per discipline), fase 5 (renders, AR, AI), fase 6 (eigen apps, talen, beveiliging).
+**Fase 1 is klaar.** Eerst de testronde ([docs/testronde.md](docs/testronde.md)) en verbeteren wat eruit komt. **Daarna**: fase 2 (BIM-kern en exports), fase 3 (samenwerken en ondertekenen), fase 4 (regels en rekenkernen per discipline), fase 5 (renders, AR, AI), fase 6 (eigen apps, talen, beveiliging).
 
 ### Installaties in detail
 
