@@ -102,6 +102,7 @@ import { appartement } from "../../core/examples/appartement.ts";
 import { LaserKnop, useLaser } from "./Laser.tsx";
 import type { EpbSelectie } from "./Epb.tsx";
 import { NieuweVersie, VERSIE } from "./Versie.tsx";
+import { haalFoto } from "./Fotos.tsx";
 import { ConflictBalk, statusTekst, useCloud } from "./Cloud.tsx";
 import type { OntwerpGereedschap, OntwerpWeergave } from "./Ontwerp.tsx";
 import { ArOpmeting, ArResultaat, DEMO_KAMERS, arOndersteund, type GemetenKamer } from "./ArOpmeting.tsx";
@@ -830,6 +831,12 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
             exporteer={async (soort, d) => {
               try {
                 if (soort === "offerte" && d.offerte) download(`${naam}-offerte-${bestandsnaam(d.offerte.nummer)}.pdf`, await (await pdf()).offerteNaarPDF(project, prijzen, d.firma, d.offerte) as BlobPart, "application/pdf");
+                if (soort === "meerwerk" && d.id) { const m = project.meerwerken.find((x) => x.id === d.id); download(`${naam}-${m?.soort === "min" ? "minwerk" : "meerwerk"}-${m?.nr ?? ""}.pdf`, await (await pdf()).meerwerkNaarPDF(project, d.firma, d.id, d.btw ?? 21) as BlobPart, "application/pdf"); }
+                if (soort === "dagboek") {
+                  const fotos: Record<string, Uint8Array> = {};
+                  for (const id of project.dagboek.flatMap((x) => x.fotoIds.slice(0, 4))) { const b = await haalFoto(id); if (b) fotos[id] = new Uint8Array(await b.arrayBuffer()); }
+                  download(`${naam}-werfdagboek.pdf`, await (await pdf()).dagboekNaarPDF(project, d.firma, { fotos }) as BlobPart, "application/pdf");
+                }
                 if (soort === "vordering" && d.nr) download(`${naam}-vorderingsstaat-${d.nr}.pdf`, await (await pdf()).vorderingsstaatNaarPDF(project, prijzen, d.firma, d.nr, d.btw ?? 21) as BlobPart, "application/pdf");
               } catch (err) { zetMelding(`Export mislukt: ${(err as Error).message}`); }
             }} />

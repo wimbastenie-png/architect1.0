@@ -32,6 +32,7 @@ test("werf: foto per ruimte, opvolgpunt, vorderingsstaat en offerte", async ({ p
   await page.locator(".opvolging input[type=checkbox]").check();
   await expect(page.locator(".opvolging li.klaar")).toHaveCount(1);
   // vorderingsstaat
+  await page.getByRole("tab", { name: "Vordering en offerte" }).click();
   await page.getByRole("button", { name: "Eerste vorderingsstaat beginnen" }).click();
   await page.getByLabel("Percentage Vloerafwerking").fill("50");
   await expect(page.locator(".werf")).toContainText("€ 1.035,00"); // 41,40 m² × € 50 × 50 %
@@ -125,4 +126,57 @@ test("laser: uitleg voor Hilti en iPhone", async ({ page }) => {
   await page.getByRole("button", { name: "Laser" }).click();
   await expect(page.getByRole("dialog", { name: "Laserafstandsmeter" })).toContainText("Hilti");
   await expect(page.getByRole("dialog", { name: "Laserafstandsmeter" })).toContainText("eigen gsm-app");
+});
+
+test("werf: dagboek met foto, meerwerk met akkoord in de vorderingsstaat, bon en dagboek als PDF", async ({ page }) => {
+  const fouten: string[] = [];
+  page.on("pageerror", (e) => fouten.push(e.message));
+  page.on("dialog", (d) => d.accept(d.type() === "prompt" ? "Mevr. Peeters" : undefined));
+  await page.goto("/");
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await openVoorbeeld(page);
+  await page.getByRole("tab", { name: "Lastenboek" }).click();
+  await page.getByLabel("Prijs Vloerafwerking").fill("50");
+  await page.getByLabel("Prijs Vloerafwerking").blur();
+  await page.getByRole("tab", { name: "Werf", exact: true }).click();
+
+  // dagboek
+  await page.getByRole("tab", { name: "Dagboek" }).click();
+  await page.getByLabel("Datum").fill("2026-12-02");
+  await page.getByRole("combobox", { name: /^Weer/ }).selectOption("regen");
+  await page.getByLabel("Ploeg (wie)").fill("Jan, Piet");
+  await page.getByLabel("Uren (samen)").fill("16");
+  await page.getByLabel("Uitgevoerd werk").fill("Afbraak keuken");
+  await page.getByLabel("Uitgevoerd werk").blur();
+  await page.locator('.werf input[type="file"]').setInputFiles({ name: "dag.png", mimeType: "image/png", buffer: PNG });
+  await expect(page.locator(".werf .duim img")).toHaveCount(1);
+  await expect(page.locator(".werf")).toContainText("1 dagen ingevuld · 1 werkdagen · 0 verlet · 16 uren");
+  // andere dag, dan terug: alles staat er nog
+  await page.getByLabel("Datum").fill("2026-12-03");
+  await expect(page.getByLabel("Uitgevoerd werk")).toHaveValue("");
+  await page.getByRole("button", { name: "02/12/2026" }).click();
+  await expect(page.getByLabel("Uitgevoerd werk")).toHaveValue("Afbraak keuken");
+  await expect(page.getByRole("combobox", { name: /^Weer/ })).toHaveValue("regen");
+  const [db] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Werfdagboek (PDF)" }).click()]);
+  expect(readFileSync((await db.path())!).subarray(0, 4).toString()).toBe("%PDF");
+
+  // meerwerk
+  await page.getByRole("tab", { name: "Meer- en minwerk" }).click();
+  await page.getByLabel("Omschrijving").fill("Extra stopcontact keuken");
+  await page.getByLabel("Hoeveelheid").fill("2");
+  await page.getByLabel("Eenheidsprijs (€ excl. btw)").fill("85");
+  await page.getByRole("button", { name: "+ Voorstel" }).click();
+  await expect(page.locator(".werf")).toContainText("1 voorstel(len) wachten op de klant");
+  await page.getByRole("button", { name: "Akkoord", exact: true }).click();
+  await expect(page.locator(".werf table")).toContainText("akkoord klant (Mevr. Peeters)");
+  const [bon] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Bon (PDF)" }).click()]);
+  expect((await bon.suggestedFilename())).toMatch(/meerwerk-1\.pdf$/);
+
+  // in de vorderingsstaat
+  await page.getByRole("tab", { name: "Vordering en offerte" }).click();
+  await page.getByRole("button", { name: "Eerste vorderingsstaat beginnen" }).click();
+  await page.getByLabel("Percentage Meerwerk: Extra stopcontact keuken").fill("100");
+  await expect(page.locator(".werf")).toContainText("deze staat: € 170,00");
+  expect(fouten).toEqual([]);
 });

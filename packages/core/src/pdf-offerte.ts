@@ -7,7 +7,7 @@ import { regels as breek, pdfTekst, type Fonts } from "./pdf.ts";
 import { euro } from "./prijzen.ts";
 import type { Prijzen } from "./prijzen.ts";
 import type { Project } from "./schema.ts";
-import { BTW6_VOORWAARDEN, offerteRegels, vorderingsstaat, type Firma, type OfferteInvoer } from "./werf.ts";
+import { BTW6_VOORWAARDEN, dagboekTotalen, meerwerkBedrag, meerwerkCode, offerteRegels, vorderingsstaat, WEER, type Firma, type OfferteInvoer } from "./werf.ts";
 
 const PT = 72 / 25.4;
 const ZWART = rgb(0.11, 0.1, 0.09), GRIJS = rgb(0.4, 0.38, 0.36), LIJN = rgb(0.85, 0.84, 0.82);
@@ -147,5 +147,89 @@ export async function vorderingsstaatNaarPDF(p: Project, prijzen: Prijzen, firma
   }
   d.y -= 4;
   alinea(d, "Percentages = uitgevoerd deel van elke post (cumulatief), bepaald door de aannemer en na te kijken door de klant of zijn architect.", 8, false, GRIJS);
+  return d.doc.save();
+}
+
+const datumBE = (iso?: string) => (iso ?? "").slice(0, 10).split("-").reverse().join("/");
+
+/** Bon voor een meer- of minwerk: ter ondertekening door klant en aannemer (de app zet geen handtekening). */
+export async function meerwerkNaarPDF(p: Project, firma: Firma, id: string, btwPct: 6 | 21 = 21): Promise<Uint8Array> {
+  const m = p.meerwerken.find((x) => x.id === id);
+  if (!m) throw new Error("Meer- of minwerk niet gevonden.");
+  const soort = m.soort === "min" ? "MINWERK" : "MEERWERK";
+  const d = await nieuw(firma, `${soort === "MINWERK" ? "Minwerk" : "Meerwerk"} ${m.nr} — ${p.naam}`);
+  tekst(d, `${soort} ${m.nr} (${meerwerkCode(m)})`, 15, d.y, 16, true);
+  rechts(d, `Datum: ${datumBE(m.datum)}`, 195, d.y, 9);
+  d.y -= 8; tekst(d, `Werf: ${p.naam}`, 15, d.y, 9);
+  if (p.vergunning?.bouwheer) { d.y -= 5; tekst(d, `Opdrachtgever: ${p.vergunning.bouwheer}`, 15, d.y, 9); }
+  d.y -= 10;
+  alinea(d, m.omschrijving, 10);
+  d.y -= 2;
+  tabelKop(d, [["Eenheid", 15, false], ["Hoeveelheid", 90, true], ["Eenheidsprijs", 140, true], ["Bedrag excl. btw", 195, true]]);
+  const b = meerwerkBedrag(m);
+  tekst(d, m.eenheid, 15, d.y, 9); rechts(d, g2(m.hoeveelheid), 90, d.y, 9); rechts(d, euro(m.prijs), 140, d.y, 9); rechts(d, euro(b), 195, d.y, 9, true);
+  d.y -= 8;
+  const btw = Math.round(b * btwPct) / 100;
+  for (const [lbl, x, vet] of [[`Btw ${btwPct} %`, btw, false], ["Totaal incl. btw", b + btw, true]] as const) { tekst(d, lbl, 112, d.y, 9, vet); rechts(d, euro(x), 195, d.y, 9, vet); d.y -= 5.2; }
+  d.y -= 4;
+  alinea(d, m.soort === "min"
+    ? "Dit minwerk vermindert de aanneming met het bedrag hierboven. Het wordt verrekend in de eerstvolgende vorderingsstaat na akkoord."
+    : "Dit meerwerk komt bij de aanneming. Het wordt pas uitgevoerd en gefactureerd na schriftelijk akkoord van de opdrachtgever, en verrekend in de vorderingsstaten.", 8.5);
+  if (m.status === "akkoord") alinea(d, `In de app als akkoord genoteerd door ${m.akkoordDoor} op ${datumBE(m.akkoordDatum)}. Dit vervangt de handtekening hieronder niet.`, 8, false, GRIJS);
+  if (m.status === "geweigerd") alinea(d, `Geweigerd${m.reden ? `: ${m.reden}` : ""}.`, 9, true);
+  plaats(d, 40);
+  d.y -= 14;
+  for (const [x, wie] of [[15, "Voor akkoord, de opdrachtgever"], [110, `Voor ${firma.naam || "de aannemer"}`]] as const) {
+    tekst(d, wie, x, d.y, 9, true);
+    tekst(d, "Naam, datum en handtekening:", x, d.y - 5, 8, false, GRIJS);
+    d.pagina.drawLine({ start: { x: x * PT, y: (d.y - 25) * PT }, end: { x: (x + 80) * PT, y: (d.y - 25) * PT }, thickness: 0.5, color: GRIJS });
+  }
+  return d.doc.save();
+}
+
+/** Werfdagboek (van–tot), met per dag het weer, de ploeg, het werk en tot 4 foto's (JPEG of PNG, als bytes meegegeven). */
+export async function dagboekNaarPDF(p: Project, firma: Firma, o: { van?: string; tot?: string; fotos?: Record<string, Uint8Array> } = {}): Promise<Uint8Array> {
+  const d = await nieuw(firma, `Werfdagboek — ${p.naam}`);
+  const dagen = p.dagboek.filter((x) => (!o.van || x.datum >= o.van) && (!o.tot || x.datum <= o.tot));
+  const t = dagboekTotalen(p, o.van, o.tot);
+  tekst(d, "WERFDAGBOEK", 15, d.y, 16, true);
+  rechts(d, dagen.length ? `${datumBE(dagen[0]!.datum)} – ${datumBE(dagen[dagen.length - 1]!.datum)}` : "", 195, d.y, 9);
+  d.y -= 8; tekst(d, `Werf: ${p.naam}`, 15, d.y, 9);
+  d.y -= 5; tekst(d, `${t.dagen} dagen · ${t.werkdagen} werkdagen · ${t.verlet} dagen verlet · ${g2(t.uren)} uren`, 15, d.y, 9);
+  d.y -= 8;
+  if (!dagen.length) alinea(d, "Nog geen dagen ingevuld.");
+  const dagNamen = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"];
+  for (const dag of dagen) {
+    plaats(d, 30);
+    d.pagina.drawLine({ start: { x: 15 * PT, y: (d.y + 4) * PT }, end: { x: 195 * PT, y: (d.y + 4) * PT }, thickness: 0.4, color: LIJN });
+    const dn = dagNamen[new Date(`${dag.datum}T12:00:00`).getDay()] ?? "";
+    tekst(d, `${dn} ${datumBE(dag.datum)}${dag.verlet ? " — VERLET" : ""}`, 15, d.y, 10, true);
+    rechts(d, [dag.weer && WEER[dag.weer], dag.temperatuur !== undefined && `${dag.temperatuur} °C`].filter(Boolean).join(", "), 195, d.y, 9);
+    d.y -= 6;
+    const velden: Array<[string, string | undefined]> = [["Ploeg", [dag.ploeg, dag.uren !== undefined && `${g2(dag.uren)} uren`].filter(Boolean).join(" · ") || undefined], ["Uitgevoerd", dag.werk || undefined], ["Leveringen", dag.leveringen], ["Bezoekers", dag.bezoekers], ["Problemen", dag.problemen]];
+    for (const [k, v] of velden) {
+      if (!v) continue;
+      const r = breek(v, d.f.gewoon, 8.5, 150);
+      r.forEach((x, i) => { plaats(d, 5); if (i === 0) tekst(d, k, 15, d.y, 8.5, true); tekst(d, x, 42, d.y, 8.5); d.y -= 4.2; });
+    }
+    const beelden: PDFImage[] = [];
+    for (const fid of dag.fotoIds.slice(0, 4)) {
+      const bytes = o.fotos?.[fid];
+      if (!bytes) continue;
+      try { beelden.push(bytes[0] === 0x89 ? await d.doc.embedPng(bytes) : await d.doc.embedJpg(bytes)); } catch { /* onleesbaar */ }
+    }
+    if (beelden.length) {
+      const w = 42, h = 32;
+      plaats(d, h + 4);
+      beelden.forEach((im, i) => {
+        const f = Math.min(w / im.width, h / im.height);
+        d.pagina.drawImage(im, { x: (15 + i * (w + 3)) * PT, y: (d.y - h) * PT, width: im.width * f * PT, height: im.height * f * PT });
+      });
+      d.y -= h + 3;
+    } else if (dag.fotoIds.length) { tekst(d, `${dag.fotoIds.length} foto('s) in de app`, 42, d.y, 8, false, GRIJS); d.y -= 4.2; }
+    d.y -= 3;
+  }
+  d.y -= 2;
+  alinea(d, "Opgesteld door de aannemer. Het dagboek is een feitelijk verslag van de werf en geen oordeel over de kwaliteit of de conformiteit van de werken.", 8, false, GRIJS);
   return d.doc.save();
 }

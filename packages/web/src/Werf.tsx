@@ -1,9 +1,11 @@
 /**
- * Werf: werffoto's per ruimte, opvolgpunten, vorderingsstaat en offerte.
+ * Werf: werffoto's per ruimte, opvolgpunten, werfdagboek, meer- en minwerken,
+ * vorderingsstaat en offerte.
  */
 import {
-  BTW6_VOORWAARDEN, nieuweVordering, offerteRegels, STANDAARD_BETALING, vorderingsstaat, euro,
-  type Firma, type OfferteInvoer, type Prijzen, type Project, type Verdieping,
+  BTW6_VOORWAARDEN, bewaarDag, dagboekTotalen, dagVan, meerwerkBedrag, meerwerkTotalen, nieuweVordering, nieuwMeerwerk, offerteRegels, STANDAARD_BETALING,
+  vorderingsstaat, WEER, zetMeerwerkStatus, euro,
+  type DagboekDag, type Firma, type Meerwerk, type OfferteInvoer, type Prijzen, type Project, type Verdieping,
 } from "@scanapp/core";
 import { useMemo, useState } from "react";
 import { FotoVeld, verklein } from "./Fotos.tsx";
@@ -15,8 +17,9 @@ const leesFirma = (x: unknown): Firma => (x && typeof x === "object" && typeof (
 export function WerfPaneel(props: {
   project: Project; v: Verdieping; ruimteId: string | null; zetRuimteId: (id: string | null) => void;
   wijzigProject: (p: Project) => void; prijzen: Prijzen;
-  exporteer: (soort: "offerte" | "vordering", data: { firma: Firma; offerte?: OfferteInvoer; nr?: number; btw?: 6 | 21 }) => void;
+  exporteer: (soort: "offerte" | "vordering" | "meerwerk" | "dagboek", data: { firma: Firma; offerte?: OfferteInvoer; nr?: number; btw?: 6 | 21; id?: string }) => void;
 }) {
+  const [tab, zetTab] = useState<"fotos" | "dagboek" | "meerwerk" | "geld">("fotos");
   const { project, v, ruimteId } = props;
   const r = v.ruimtes.find((x) => x.id === ruimteId);
   const [punt, zetPunt] = useState("");
@@ -37,6 +40,14 @@ export function WerfPaneel(props: {
   return (
     <section className="kaart werf">
       <div className="kaart-kop"><h2>Werf{r ? `: ${r.naam}` : ""}</h2>{r && <button onClick={() => props.zetRuimteId(null)} aria-label="Alle ruimtes">×</button>}</div>
+      <div className="soorten" role="tablist" aria-label="Werf">
+        {([["fotos", "Foto's en punten"], ["dagboek", "Dagboek"], ["meerwerk", "Meer- en minwerk"], ["geld", "Vordering en offerte"]] as const).map(([k, n]) => (
+          <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "actief" : ""} onClick={() => zetTab(k)}>{n}</button>
+        ))}
+      </div>
+      {tab === "dagboek" && <Dagboek project={project} wijzigProject={props.wijzigProject} exporteer={() => props.exporteer("dagboek", { firma })} />}
+      {tab === "meerwerk" && <Meerwerken project={project} wijzigProject={props.wijzigProject} exporteer={(id) => props.exporteer("meerwerk", { firma, id, btw: off.btwPct })} />}
+      {tab === "fotos" && (<>
       <p className="uitleg">Tik een ruimte aan in het plan om foto's en punten per ruimte te zien; zonder keuze zie je alles.</p>
 
       <h3>Werffoto's {r ? `(${r.naam})` : "(alle ruimtes)"}</h3>
@@ -61,6 +72,8 @@ export function WerfPaneel(props: {
         ))}
       </ul>
 
+      </>)}
+      {tab === "geld" && (<>
       <h3>Vorderingsstaat {open ? `${open.nr}${open.afgesloten ? " (afgesloten)" : ""}` : ""}</h3>
       {regels.regels.length === 0 ? <p className="uitleg">Geef eerst eenheidsprijzen in het lastenboek (Plan → Meetstaat → Lastenboek).</p> : !open ? (
         <button onClick={() => props.wijzigProject(nieuweVordering(project))}>Eerste vorderingsstaat beginnen</button>
@@ -123,6 +136,94 @@ export function WerfPaneel(props: {
         <button className="primair" disabled={!firma.naam || !regels.regels.length} onClick={() => props.exporteer("offerte", { firma, offerte: off })}>Offerte (PDF)</button>
       </div>
       {!firma.naam && <p className="uitleg">Vul eerst de firmanaam in.</p>}
+      </>)}
     </section>
+  );
+}
+
+const vandaag = () => new Date().toISOString().slice(0, 10);
+
+function Dagboek({ project, wijzigProject, exporteer }: { project: Project; wijzigProject: (p: Project) => void; exporteer: () => void }) {
+  const [datum, zetDatum] = useState(vandaag);
+  const dag = dagVan(project, datum);
+  const bestaat = project.dagboek.some((d) => d.datum === datum);
+  const zet = (n: Partial<DagboekDag>) => wijzigProject(bewaarDag(project, { ...dag, ...n }));
+  const tekst = (k: "ploeg" | "werk" | "leveringen" | "bezoekers" | "problemen") => ({
+    defaultValue: (dag[k] as string | undefined) ?? "", key: `${datum}-${k}-${bestaat}`,
+    onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => { const v = e.target.value.trim(); if (v !== ((dag[k] as string | undefined) ?? "")) zet({ [k]: k === "werk" ? v : v || undefined }); },
+  });
+  const t = dagboekTotalen(project);
+  return (
+    <>
+      <h3>Werfdagboek</h3>
+      <div className="rij">
+        <Veld label="Datum"><input type="date" value={datum} onChange={(e) => e.target.value && zetDatum(e.target.value)} /></Veld>
+        <Veld label="Weer"><select value={dag.weer ?? ""} onChange={(e) => zet({ weer: (e.target.value || undefined) as DagboekDag["weer"] })}><option value="">–</option>{Object.entries(WEER).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Veld>
+        <Veld label="Temperatuur (°C)"><input type="number" inputMode="decimal" defaultValue={dag.temperatuur ?? ""} key={`${datum}-t-${bestaat}`} onBlur={(e) => zet({ temperatuur: e.target.value === "" ? undefined : +e.target.value })} /></Veld>
+      </div>
+      <label className="vinkje"><input type="checkbox" checked={!!dag.verlet} onChange={(e) => zet({ verlet: e.target.checked || undefined })} /> Verlet (werf kon niet doorgaan)</label>
+      <div className="rij">
+        <Veld label="Ploeg (wie)"><input {...tekst("ploeg")} placeholder="bv. Jan, Piet, onderaannemer elektriciteit" /></Veld>
+        <Veld label="Uren (samen)"><input type="number" inputMode="decimal" min={0} defaultValue={dag.uren ?? ""} key={`${datum}-u-${bestaat}`} onBlur={(e) => zet({ uren: e.target.value === "" ? undefined : Math.max(0, +e.target.value) })} /></Veld>
+      </div>
+      <Veld label="Uitgevoerd werk"><textarea rows={3} {...tekst("werk")} placeholder="bv. afbraak keuken, sleuven elektriciteit leefruimte" /></Veld>
+      <Veld label="Leveringen"><input {...tekst("leveringen")} placeholder="bv. 2 paletten snelbouw, container 10 m³" /></Veld>
+      <Veld label="Bezoekers"><input {...tekst("bezoekers")} placeholder="bv. architect, klant, keuring" /></Veld>
+      <Veld label="Problemen en afspraken"><textarea rows={2} {...tekst("problemen")} /></Veld>
+      <h3>Foto's van deze dag</h3>
+      <FotoVeld ids={dag.fotoIds} label="Foto nemen"
+        voegToe={(id) => wijzigProject(bewaarDag({ ...project, fotos: [...project.fotos, { id, soort: "werf", datum: new Date().toISOString(), bijschrift: `dagboek ${datum}` }] }, { ...dag, fotoIds: [...dag.fotoIds, id] }))}
+        verwijder={(id) => wijzigProject(bewaarDag({ ...project, fotos: project.fotos.filter((f) => f.id !== id) }, { ...dag, fotoIds: dag.fotoIds.filter((x) => x !== id) }))} />
+      <p className="uitleg">{t.dagen} dagen ingevuld · {t.werkdagen} werkdagen · {t.verlet} verlet · {t.uren} uren</p>
+      {project.dagboek.length > 0 && (
+        <ul className="leden">{[...project.dagboek].reverse().slice(0, 14).map((d) => (
+          <li key={d.id}><button className="link" onClick={() => zetDatum(d.datum)}>{d.datum.split("-").reverse().join("/")}</button> {d.verlet ? "verlet" : d.werk.slice(0, 60)}</li>
+        ))}</ul>
+      )}
+      <div className="acties"><button className="primair" disabled={!project.dagboek.length} onClick={exporteer}>Werfdagboek (PDF)</button></div>
+    </>
+  );
+}
+
+const STATUS: Record<Meerwerk["status"], string> = { voorgesteld: "voorgesteld", akkoord: "akkoord klant", geweigerd: "geweigerd" };
+
+function Meerwerken({ project, wijzigProject, exporteer }: { project: Project; wijzigProject: (p: Project) => void; exporteer: (id: string) => void }) {
+  const [n, zetN] = useState({ omschrijving: "", soort: "meer" as Meerwerk["soort"], eenheid: "st", hoeveelheid: "1", prijs: "" });
+  const [fout, zetFout] = useState<string | null>(null);
+  const t = meerwerkTotalen(project);
+  const doe = (f: () => Project) => { try { wijzigProject(f()); zetFout(null); } catch (e) { zetFout((e as Error).message); } };
+  return (
+    <>
+      <h3>Meer- en minwerken</h3>
+      <p className="uitleg">Een meer- of minwerk wordt eerst voorgesteld. Pas na akkoord van de klant komt het in de vorderingsstaat (post MW1, MW2 …). Laat de bon ondertekenen: het akkoord in de app vervangt de handtekening niet.</p>
+      <div className="velden">
+        <Veld label="Omschrijving"><input value={n.omschrijving} onChange={(e) => zetN({ ...n, omschrijving: e.target.value })} placeholder="bv. extra stopcontact keuken" /></Veld>
+        <Veld label="Soort"><select value={n.soort} onChange={(e) => zetN({ ...n, soort: e.target.value as Meerwerk["soort"] })}><option value="meer">meerwerk (+)</option><option value="min">minwerk (−)</option></select></Veld>
+        <Veld label="Eenheid"><input value={n.eenheid} onChange={(e) => zetN({ ...n, eenheid: e.target.value })} /></Veld>
+        <Veld label="Hoeveelheid"><input type="number" inputMode="decimal" min={0} value={n.hoeveelheid} onChange={(e) => zetN({ ...n, hoeveelheid: e.target.value })} /></Veld>
+        <Veld label="Eenheidsprijs (€ excl. btw)"><input type="number" inputMode="decimal" min={0} value={n.prijs} onChange={(e) => zetN({ ...n, prijs: e.target.value })} /></Veld>
+      </div>
+      <button onClick={() => doe(() => { const r = nieuwMeerwerk(project, { omschrijving: n.omschrijving, soort: n.soort, eenheid: n.eenheid || "st", hoeveelheid: Math.max(0, +n.hoeveelheid || 0), prijs: Math.max(0, +n.prijs || 0) }); zetN({ ...n, omschrijving: "", prijs: "" }); return r.project; })}>+ Voorstel</button>
+      {fout && <p className="melding" role="alert">{fout}</p>}
+      {project.meerwerken.length > 0 && (
+        <table className="tabel klein">
+          <thead><tr><th>Nr</th><th>Omschrijving</th><th className="getal">Bedrag</th><th>Status</th><th></th></tr></thead>
+          <tbody>{project.meerwerken.map((m) => (
+            <tr key={m.id} className={m.status === "geweigerd" ? "zacht" : ""}>
+              <td>MW{m.nr}</td>
+              <td>{m.soort === "min" ? "− " : "+ "}{m.omschrijving}<br /><span className="zacht">{m.hoeveelheid} {m.eenheid} × {euro(m.prijs)}</span></td>
+              <td className="getal">{euro(meerwerkBedrag(m))}</td>
+              <td>{STATUS[m.status]}{m.akkoordDoor ? ` (${m.akkoordDoor})` : ""}</td>
+              <td className="acties">
+                {m.status !== "akkoord" && <button onClick={() => { const wie = window.prompt("Naam van de klant die akkoord gaf:", project.vergunning?.bouwheer ?? ""); if (wie !== null) doe(() => zetMeerwerkStatus(project, m.id, "akkoord", { door: wie })); }}>Akkoord</button>}
+                {m.status !== "geweigerd" && <button onClick={() => { const r = window.prompt("Geweigerd. Reden (mag leeg):", ""); if (r !== null) doe(() => zetMeerwerkStatus(project, m.id, "geweigerd", { reden: r || undefined })); }}>Geweigerd</button>}
+                <button onClick={() => exporteer(m.id)}>Bon (PDF)</button>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+      <p>Akkoord: meer <strong>{euro(t.meer)}</strong> · min <strong>{euro(t.min)}</strong> · saldo <strong>{euro(t.saldo)}</strong> excl. btw{t.open ? ` · ${t.open} voorstel(len) wachten op de klant (${euro(t.voorgesteld)})` : ""}</p>
+    </>
   );
 }
