@@ -61,6 +61,7 @@ import {
 } from "@scanapp/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { appartement } from "../../core/examples/appartement.ts";
+import { CloudPaneel, ConflictBalk, statusTekst, useCloud } from "./Cloud.tsx";
 import { LiggerPaneel } from "./Liggers.tsx";
 import { OntwerpBalk, OntwerpPaneel, type OntwerpGereedschap, type OntwerpWeergave } from "./Ontwerp.tsx";
 import { InstallatieBalk, InstallatiePaneel } from "./Installaties.tsx";
@@ -235,6 +236,18 @@ export function App() {
     }
   };
 
+  const vervangUitCloud = useCallback((p: Project, tekst: string) => {
+    const huidig = projectRef.current;
+    const recht = zetVloerenRecht(p);
+    if (huidig) zetGeschiedenis((g) => [...g.slice(-49), huidig]);
+    if (!huidig || huidig.id !== p.id) zetVi(0);
+    zetProject(recht.project);
+    zetSelectie(null);
+    zetBericht([tekst, recht.bericht].filter(Boolean).join(" "));
+  }, []);
+  const cloud = useCloud(project, vervangUitCloud);
+  const [cloudOpen, zetCloudOpen] = useState(false);
+
   return (
     <div className="app">
       <header className="kop">
@@ -249,11 +262,14 @@ export function App() {
             <input type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && openBestand(e.target.files[0])} />
           </label>
           <button onClick={ongedaan} disabled={!geschiedenis.length} title="Ctrl+Z">Ongedaan maken</button>
+          <button className={`cloud-knop ${cloud.status.soort}`} onClick={() => zetCloudOpen(true)}>{statusTekst(cloud.status)}</button>
         </nav>
       </header>
 
       {melding && <div className="melding" role="alert">{melding}<button onClick={() => zetMelding(null)} aria-label="Sluiten">×</button></div>}
       {bericht && <div className="melding bericht" role="status">{bericht}<button onClick={() => zetBericht(null)} aria-label="Sluiten">×</button></div>}
+      <ConflictBalk cloud={cloud} />
+      {cloudOpen && <CloudPaneel cloud={cloud} project={project} sluit={() => zetCloudOpen(false)} meld={zetMelding} />}
 
       {!project ? (
         <NieuwProject onMaak={nieuwProject} onVoorbeeld={() => nieuwProject(appartement)} />

@@ -30,6 +30,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build -w @scanapp/web
+        env:
+          # Cloud (Supabase): publieke gegevens, als repository-variabelen (geen geheimen). Leeg = cloud nog niet ingesteld.
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
