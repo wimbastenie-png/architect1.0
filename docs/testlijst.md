@@ -1,31 +1,19 @@
 # Testlijst: wat jij zelf moet testen
 
-Alle stappen van de roadmap zijn gebouwd en automatisch getest: 153 unit-tests, 49 browsertests op pc en gsm, plus de databaseregels op PostgreSQL. Wat een computer niet kan nagaan, staat hieronder: een echte werf, een echte gsm, echte software van architecten, en het oordeel van een vakman.
+Alles hieronder is gebouwd en automatisch getest (227 unit-tests, 71 browsertests op pc en gsm, en de databaseregels op PostgreSQL). Wat een computer niet kan nagaan, staat hier: een echte werf, een echte gsm, een echte laser of bankapp, echte software van architecten en boekhouders, en het oordeel van een vakman.
 
-**Hoe:** werk per blok. Vink af wat werkt (`[x]`). Schrijf bij wat niet werkt kort op wat je deed, wat je zag en op welk toestel. Een schermafdruk helpt. Daarna overlopen we alles en verbeter ik het.
+**Wil je alles in één keer overlopen?** Volg dan [testronde.md](testronde.md): één ronde door de hele app, in vier sessies, met de lijst "Wat jij moet regelen". Deze testlijst geeft per onderdeel meer uitleg.
 
-**Volgorde van mergen:** de PR's bouwen op elkaar verder. Merge ze in deze volgorde, dan staat alles online:
+**Hoe:** vink af wat werkt (`[x]`). Schrijf bij wat niet werkt kort op wat je deed, wat je zag en op welk toestel. Een schermafdruk helpt.
 
-| Volgorde | PR | Stap |
-| --- | --- | --- |
-| 1 | [#15](https://github.com/wimbastenie-png/architect1.0/pull/15) | IFC-export |
-| 2 | [#16](https://github.com/wimbastenie-png/architect1.0/pull/16) | RoomPlan-omzetting |
-| 3 | [#17](https://github.com/wimbastenie-png/architect1.0/pull/17) | Camera-opmeting verfijnen |
-| 4 | [#18](https://github.com/wimbastenie-png/architect1.0/pull/18) | Installaties |
-| 5 | [#19](https://github.com/wimbastenie-png/architect1.0/pull/19) | Ontwerp |
-| 6 | [#20](https://github.com/wimbastenie-png/architect1.0/pull/20) | Liggers |
-| 7 | [#21](https://github.com/wimbastenie-png/architect1.0/pull/21) | Cloud |
-| 8 | [#22](https://github.com/wimbastenie-png/architect1.0/pull/22) | Inrichting en 3D |
-| 9 | deze PR | Roadmap en testlijst |
-
-Daarna: https://wimbastenie-png.github.io/architect1.0/ (op de gsm de pagina vernieuwen; lukt dat niet, het tabblad sluiten en opnieuw openen).
+Adres: https://wimbastenie-png.github.io/architect1.0/ (op de gsm: na een nieuwe versie verschijnt bovenaan de balk **Nieuwe versie**).
 
 ---
 
 ## 0. Algemeen (5 min, gsm én pc)
 
 - [ ] De app opent; je laatste project staat er nog.
-- [ ] Bovenaan het plan staan de knoppen **Plan · Installaties · Ontwerp · Liggers · Inrichting**. Wisselen gaat vlot.
+- [ ] Bovenaan het plan staan de knoppen **Plan · Installaties · Ontwerp · Liggers · Inrichting · Energie · Keuken · Werf**. Wisselen gaat vlot.
 - [ ] In **Plan** werkt alles zoals vroeger: muur aanklikken, slepen (ingedrukt houden op de gsm), zoomen, ongedaan maken.
 
 ## 1. Werftest (stap 1, 1 à 2 uur)
@@ -115,9 +103,7 @@ Per blok: wat werkt, en wat niet (met toestel, wat je deed, wat je zag, schermaf
 
 ---
 
-## Stap 10–17 (per vakgebied)
-
-Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De volgorde van mergen staat telkens in de pull request.
+## Stap 10–17 (per vakgebied) en fase 1
 
 ## 10. Lastenboek uitbreiden (aannemer)
 
