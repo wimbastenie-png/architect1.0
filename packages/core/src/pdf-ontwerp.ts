@@ -9,7 +9,7 @@ import {
   aanzicht, doorsnede, muurToestand, ONTWERP_DISCLAIMER, ontwerpWaarschuwingen, openingToestand, TOESTAND_KLEUR, verdiepingInToestand, ZIJDEN, type Tekening,
 } from "./ontwerp.ts";
 import { lijstBladen } from "./pdf-lijst.ts";
-import { kiesBlad, PAPIER, PT, RAND, tekenBlad, tekenPaginaKader, tekenTitelblok, TITELBLOK_H, type Fonts, type Papier, type PdfOpties, type Schaal } from "./pdf.ts";
+import { kiesBlad, pdfTekst, PAPIER, PT, RAND, tekenBlad, tekenPaginaKader, tekenTitelblok, TITELBLOK_H, type Fonts, type Papier, type PdfOpties, type Schaal } from "./pdf.ts";
 import type { Project, Punt } from "./schema.ts";
 
 const hex = (k: string): RGB => { const h = k.length === 4 ? `#${k[1]}${k[1]}${k[2]}${k[2]}${k[3]}${k[3]}` : k; return rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255); };
@@ -57,7 +57,7 @@ export async function ontwerpNaarPDF(p: Project, opties: PdfOpties = {}): Promis
   for (const z of ZIJDEN) titelblokken.push(tekeningBlad(doc, f, p, aanzicht(p, z.zijde, { toestand: "nieuw" }), o, papier, `${z.naam} — nieuwe toestand`));
 
   const w = ontwerpWaarschuwingen(p);
-  const lijst = lijstBladen(doc, f, p, o, papier, "Ontwerp — aandachtspunten");
+  const lijst = lijstBladen(doc, f, p, o, papier, "Ontwerp — aandachtspunten", ["Status", "Schetsontwerp, geen vergunningsplan."]);
   lijst.kop("Aandachtspunten ontwerp");
   if (!w.length) lijst.alinea("Geen afbraak van (mogelijk) dragende muren en geen nieuwe openingen in (mogelijk) dragende muren.");
   for (const x of w) lijst.alinea(`${x.verdieping ? `${x.verdieping}: ` : ""}${x.tekst}`, { kleur: rgb(0.6, 0.2, 0.05) });
@@ -95,10 +95,11 @@ function tekenElementen(page: PDFPage, f: Fonts, t: Tekening, naar: (q: Punt) =>
     } else {
       const size = Math.max(5, Math.min(12, ((e.grootte / schaal) * PT) / 0.72));
       const font = e.vet ? f.vet : f.gewoon;
-      const w = font.widthOfTextAtSize(e.s, size);
+      const tekst = pdfTekst(e.s);
+      const w = font.widthOfTextAtSize(tekst, size);
       const q = naar(e.p);
       const x = e.anker === "middle" ? q.x - w / 2 : e.anker === "end" ? q.x - w : q.x;
-      page.drawText(e.s, { x, y: q.y, size, font, color: hex(e.kleur ?? "#1c1917") });
+      page.drawText(tekst, { x, y: q.y, size, font, color: hex(e.kleur ?? "#1c1917") });
     }
   }
 }

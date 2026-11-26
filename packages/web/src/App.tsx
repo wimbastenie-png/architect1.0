@@ -4,6 +4,7 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
+  rekennotaNaarPDF,
   maakHaaks,
   ontwerpNaarPDF,
   vangPunt,
@@ -60,6 +61,7 @@ import {
 } from "@scanapp/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { appartement } from "../../core/examples/appartement.ts";
+import { LiggerPaneel } from "./Liggers.tsx";
 import { OntwerpBalk, OntwerpPaneel, type OntwerpGereedschap, type OntwerpWeergave } from "./Ontwerp.tsx";
 import { InstallatieBalk, InstallatiePaneel } from "./Installaties.tsx";
 import { ArOpmeting, ArResultaat, DEMO_KAMERS, arOndersteund, type GemetenKamer } from "./ArOpmeting.tsx";
@@ -338,11 +340,12 @@ interface WerkbladProps {
   zetMelding: (s: string | null) => void;
 }
 
-type Modus = "plan" | "installaties" | "ontwerp";
+type Modus = "plan" | "installaties" | "ontwerp" | "liggers";
 const MODI: Array<{ modus: Modus; naam: string }> = [
   { modus: "plan", naam: "Plan" },
   { modus: "installaties", naam: "Installaties" },
   { modus: "ontwerp", naam: "Ontwerp" },
+  { modus: "liggers", naam: "Liggers" },
 ];
 
 function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigProject, zetMelding }: WerkbladProps) {
@@ -359,6 +362,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const [eerstePunt, zetEerstePunt] = useState<Punt | null>(null);
   const [nieuweDikte, zetNieuweDikte] = useState("100");
   const [ontwerpMuur, zetOntwerpMuur] = useState<string | null>(null);
+  const [liggerVoorstel, zetLiggerVoorstel] = useState<{ dagmaat: number; dikte: number; muurId?: string; tekst: string } | null>(null);
   const slepen = useSlepen({
     uit: modus !== "plan",
     houder: planRef,
@@ -388,14 +392,14 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const svg = useMemo(
     () => verdiepingNaarSVG(modus === "ontwerp" && ontwerpWeergave !== "verbouwing" ? verdiepingInToestand(v, ontwerpWeergave) : v, {
       interactief: true, labels, raak, kader: zoom.kader,
-      geselecteerd: modus === "plan" && selectie?.soort === "muur" ? selectie.id : modus === "ontwerp" ? ontwerpMuur ?? undefined : undefined,
+      geselecteerd: modus === "plan" && selectie?.soort === "muur" ? selectie.id : modus === "ontwerp" ? ontwerpMuur ?? undefined : modus === "liggers" ? liggerVoorstel?.muurId : undefined,
       installaties: modus === "installaties" ? { project, netten: [net], geselecteerd: instSel ?? undefined } : undefined,
       markeringen: modus === "ontwerp" ? [
         ...project.doorsneden.map((d) => ({ a: d.a, b: d.b, label: d.naam.split("-")[0] })),
         ...(eerstePunt ? [{ a: eerstePunt, kleur: gereedschap === "muur" ? "#dc2626" : "#7c3aed" }] : []),
       ] : undefined,
     }),
-    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel, ontwerpWeergave, ontwerpMuur, eerstePunt, gereedschap],
+    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel, ontwerpWeergave, ontwerpMuur, eerstePunt, gereedschap, liggerVoorstel],
   );
   // Tijdens het slepen: voorbeeld in een aparte laag bovenop, met het vaste kader van de
   // tekening eronder. Die onderste tekening blijft ongewijzigd onder de vinger staan.
@@ -451,6 +455,16 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const klik = (e: React.MouseEvent) => {
     const naSlepen = slepen.klikNegeren(), naVerschuiven = zoom.klikNegeren();
     if (naSlepen || naVerschuiven) return;
+    if (modus === "liggers") {
+      const el = (e.target as Element).closest("[data-muur]");
+      const m = el ? v.muren.find((x) => x.id === el.getAttribute("data-muur")) : undefined;
+      if (!m) { zetLiggerVoorstel(null); return; }
+      const o = el!.getAttribute("data-opening") ? v.openingen.find((x) => x.id === el!.getAttribute("data-opening")) : undefined;
+      zetLiggerVoorstel(o
+        ? { dagmaat: o.breedte, dikte: m.dikte, muurId: m.id, tekst: `${o.soort} ${o.breedte} mm` }
+        : { dagmaat: Math.round(binnenLengte(m, v.muren)), dikte: m.dikte, muurId: m.id, tekst: `hele muur ${Math.round(binnenLengte(m, v.muren))} mm` });
+      return;
+    }
     if (modus === "ontwerp") {
       const q = planRef.current ? naarPlan(planRef.current, e.clientX, e.clientY) : null;
       if (gereedschap === "kies") {
@@ -530,8 +544,9 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     }
   };
 
-  const exporteer = async (soort: "pdf" | "dxf" | "ifc" | "csv" | "lastenboek" | "json" | "installaties" | "ontwerp") => {
+  const exporteer = async (soort: "pdf" | "dxf" | "ifc" | "csv" | "lastenboek" | "json" | "installaties" | "ontwerp" | "rekennota") => {
     try {
+      if (soort === "rekennota") download(`${naam}-rekennota-liggers.pdf`, await rekennotaNaarPDF(project) as BlobPart, "application/pdf");
       if (soort === "ontwerp") download(`${naam}-ontwerp.pdf`, await ontwerpNaarPDF(project) as BlobPart, "application/pdf");
       if (soort === "installaties") download(`${naam}-installaties.pdf`, await installatiesNaarPDF(project) as BlobPart, "application/pdf");
       if (soort === "pdf") download(`${naam}.pdf`, await projectNaarPDF(project, { prijzen, btwPct: btw }) as BlobPart, "application/pdf");
@@ -558,9 +573,10 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         </div>
         <div className="modi" role="tablist" aria-label="Weergave">
           {MODI.map((m) => (
-            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); zetEerstePunt(null); zetOntwerpMuur(null); zetGereedschap("kies"); }}>{m.naam}</button>
+            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); zetEerstePunt(null); zetOntwerpMuur(null); zetGereedschap("kies"); zetLiggerVoorstel(null); }}>{m.naam}</button>
           ))}
         </div>
+        {modus === "liggers" && <p className="hint-kort">Tik een raam, deur of muur aan in het plan: een nieuwe ligger neemt dan de breedte en muurdikte over.</p>}
         {modus === "ontwerp" && <OntwerpBalk gereedschap={gereedschap} zetGereedschap={(g) => { zetGereedschap(g); zetEerstePunt(null); }} weergave={ontwerpWeergave} zetWeergave={zetOntwerpWeergave} eerstePunt={!!eerstePunt} dikte={nieuweDikte} zetDikte={zetNieuweDikte} />}
         {modus === "installaties" && <InstallatieBalk net={net} zetNet={(n) => { zetNet(n); zetInstSel(null); }} plaatsen={plaatsen} zetPlaatsen={(x) => { zetPlaatsen(x); zetInstSel(null); }} />}
         <div className="plan-houder">
@@ -612,7 +628,9 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
       <aside className="paneel">
         {kort && <div className="bevestiging" role="status">{kort}</div>}
-        {modus === "ontwerp" ? (
+        {modus === "liggers" ? (
+          <LiggerPaneel project={project} wijzigProject={wijzigProject} voorstel={liggerVoorstel} exporteerPdf={() => exporteer("rekennota")} />
+        ) : modus === "ontwerp" ? (
           <OntwerpPaneel
             project={project} v={v} muurId={ontwerpMuur} zetMuurId={zetOntwerpMuur} wijzig={wijzig} wijzigProject={wijzigProject}
             nieuweOpening={(id) => { try { const r = voegNieuweOpeningToe(v, id); wijzig(() => r.verdieping); alertKort("Nieuwe opening (raam 1000 × 1200) in het midden van de muur. Maten aanpassen: knop Plan, muur aanklikken."); } catch (err) { zetMelding((err as Error).message); } }}
