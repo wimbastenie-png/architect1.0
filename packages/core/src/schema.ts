@@ -93,6 +93,8 @@ export const Ruimte = z.object({
   bron: Bron,
   /** Vrije notities van de werf (vocht, stopcontacten, opmerkingen klant …). */
   notities: z.string().optional(),
+  /** Inrichting: materiaal van vloer en wanden (sleutels uit MATERIALEN in inrichting.ts). */
+  afwerking: z.object({ vloer: z.string().optional(), wand: z.string().optional() }).optional(),
 });
 export type Ruimte = z.infer<typeof Ruimte>;
 
@@ -128,6 +130,19 @@ export const InstallatiePunt = z.object({
 });
 export type InstallatiePunt = z.infer<typeof InstallatiePunt>;
 
+/** Meubel of toestel op het plan (inrichting). Positie = midden, hoek in graden (tegen de klok in). */
+export const Meubel = z.object({
+  id,
+  soort: z.string().min(1),
+  positie: Punt,
+  hoek: z.number().default(0),
+  breedte: mmPositief,
+  diepte: mmPositief,
+  hoogte: mmPositief,
+  kleur: z.string().optional(),
+});
+export type Meubel = z.infer<typeof Meubel>;
+
 export const Verdieping = z.object({
   id,
   naam: z.string(),
@@ -138,6 +153,7 @@ export const Verdieping = z.object({
   ruimtes: z.array(Ruimte).default([]),
   sparingen: z.array(Sparing).default([]),
   installaties: z.array(InstallatiePunt).default([]),
+  meubels: z.array(Meubel).default([]),
 });
 export type Verdieping = z.infer<typeof Verdieping>;
 

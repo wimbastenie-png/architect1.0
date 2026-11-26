@@ -4,6 +4,7 @@ import { maatketens, tekstBreedte } from "./maatvoering.ts";
 import { openingLabelPunt, openingLabels } from "./openingen.ts";
 import { binnenmaten, m2Tekst, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import { TOESTAND_KLEUR } from "./ontwerp.ts";
+import { materiaal, meubelDef, meubelHoeken } from "./inrichting.ts";
 import { installatiesSVG, type Net } from "./installaties.ts";
 import type { MeetMethode, Project, Punt, Verdieping } from "./schema.ts";
 
@@ -40,6 +41,8 @@ export interface SvgOpties {
   installaties?: { project: Project; netten?: Net[]; geselecteerd?: string };
   /** Lijnen of punten bovenop het plan (snijlijnen, eerste punt van een nieuwe muur …). */
   markeringen?: Array<{ a: Punt; b?: Punt; label?: string; kleur?: string }>;
+  /** Inrichting: meubels tekenen (en vloeren in hun materiaalkleur). */
+  meubels?: { geselecteerd?: string };
 }
 
 export type Kader = { minX: number; maxX: number; minY: number; maxY: number };
@@ -63,7 +66,8 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
   const el: string[] = [];
 
   for (const r of v.ruimtes) {
-    el.push(`<polygon points="${r.contour.map(t).join(" ")}" fill="#f5f5f4" stroke="none"${ia ? ` data-ruimte="${esc(r.id)}" style="cursor:pointer"` : ""}/>`);
+    const vloerKleur = opties.meubels ? materiaal(r.afwerking?.vloer)?.kleur : undefined;
+    el.push(`<polygon points="${r.contour.map(t).join(" ")}" fill="${vloerKleur ? mengWit(vloerKleur) : "#f5f5f4"}" stroke="none"${ia ? ` data-ruimte="${esc(r.id)}" style="cursor:pointer"` : ""}/>`);
     const c = zwaartepunt(r.contour);
     const [cx, cy] = t(c).split(",");
     const m2 = m2Tekst(vloerNetto(r, v));
@@ -165,6 +169,19 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
   }
 
   const sel = v.muren.find((m) => m.id === opties.geselecteerd);
+  if (opties.meubels) {
+    for (const m of v.meubels ?? []) {
+      const sel = m.id === opties.meubels.geselecteerd;
+      const h = meubelHoeken(m);
+      const d = meubelDef(m.soort);
+      el.push(`<polygon points="${h.map(t).join(" ")}" fill="${sel ? "#fde68a" : "#ffffffcc"}" stroke="${sel ? "#b45309" : "#57534e"}" stroke-width="${sel ? 30 : 16}"${ia ? ` data-meubel="${esc(m.id)}" style="cursor:pointer"` : ""}/>`);
+      // rugzijde dikker (oriëntatie)
+      el.push(`<line x1="${t(h[2]!).split(",")[0]}" y1="${t(h[2]!).split(",")[1]}" x2="${t(h[3]!).split(",")[0]}" y2="${t(h[3]!).split(",")[1]}" stroke="${sel ? "#b45309" : "#57534e"}" stroke-width="45" pointer-events="none"/>`);
+      const [cx, cy] = t(m.positie).split(",");
+      const grootte = Math.max(70, Math.min(140, Math.min(m.breedte, m.diepte) / 4));
+      el.push(`<text x="${cx}" y="${cy}" font-size="${grootte.toFixed(0)}" text-anchor="middle" dominant-baseline="central" fill="#44403c" pointer-events="none" transform="rotate(${(-m.hoek).toFixed(1)} ${cx} ${cy})">${esc((d?.naam ?? m.soort).split(" ")[0]!)}</text>`);
+    }
+  }
   for (const mk of opties.markeringen ?? []) {
     const k = mk.kleur ?? "#7c3aed";
     const [ax, ay] = t(mk.a).split(",");
@@ -196,3 +213,10 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+/** Materiaalkleur lichter maken voor de plantekening (tekst blijft leesbaar). */
+function mengWit(hex: string, f = 0.55): string {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [n >> 16, (n >> 8) & 255, n & 255].map((x) => Math.round(x + (255 - x) * f));
+  return `#${c.map((x) => x.toString(16).padStart(2, "0")).join("")}`;
+}

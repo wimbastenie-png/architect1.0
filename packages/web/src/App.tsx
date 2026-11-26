@@ -4,6 +4,9 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
+  ruimteVan,
+  voegMeubelToe,
+  wijzigMeubel,
   rekennotaNaarPDF,
   maakHaaks,
   ontwerpNaarPDF,
@@ -59,8 +62,10 @@ import {
   type Project,
   type Verdieping,
 } from "@scanapp/core";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+const Drie3D = lazy(() => import("./Drie3D.tsx"));
 import { appartement } from "../../core/examples/appartement.ts";
+import { InrichtingBalk, InrichtingPaneel } from "./Inrichting.tsx";
 import { CloudPaneel, ConflictBalk, statusTekst, useCloud } from "./Cloud.tsx";
 import { LiggerPaneel } from "./Liggers.tsx";
 import { OntwerpBalk, OntwerpPaneel, type OntwerpGereedschap, type OntwerpWeergave } from "./Ontwerp.tsx";
@@ -356,12 +361,13 @@ interface WerkbladProps {
   zetMelding: (s: string | null) => void;
 }
 
-type Modus = "plan" | "installaties" | "ontwerp" | "liggers";
+type Modus = "plan" | "installaties" | "ontwerp" | "liggers" | "inrichting";
 const MODI: Array<{ modus: Modus; naam: string }> = [
   { modus: "plan", naam: "Plan" },
   { modus: "installaties", naam: "Installaties" },
   { modus: "ontwerp", naam: "Ontwerp" },
   { modus: "liggers", naam: "Liggers" },
+  { modus: "inrichting", naam: "Inrichting" },
 ];
 
 function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigProject, zetMelding }: WerkbladProps) {
@@ -378,6 +384,11 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const [eerstePunt, zetEerstePunt] = useState<Punt | null>(null);
   const [nieuweDikte, zetNieuweDikte] = useState("100");
   const [ontwerpMuur, zetOntwerpMuur] = useState<string | null>(null);
+  const [meubelPlaatsen, zetMeubelPlaatsen] = useState<string | null>(null);
+  const [meubelSel, zetMeubelSel] = useState<string | null>(null);
+  const [inrRuimte, zetInrRuimte] = useState<string | null>(null);
+  const [meubelVerplaatsen, zetMeubelVerplaatsen] = useState(false);
+  const [toon3D, zetToon3D] = useState(false);
   const [liggerVoorstel, zetLiggerVoorstel] = useState<{ dagmaat: number; dikte: number; muurId?: string; tekst: string } | null>(null);
   const slepen = useSlepen({
     uit: modus !== "plan",
@@ -414,8 +425,9 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         ...project.doorsneden.map((d) => ({ a: d.a, b: d.b, label: d.naam.split("-")[0] })),
         ...(eerstePunt ? [{ a: eerstePunt, kleur: gereedschap === "muur" ? "#dc2626" : "#7c3aed" }] : []),
       ] : undefined,
+      meubels: modus === "inrichting" ? { geselecteerd: meubelSel ?? undefined } : undefined,
     }),
-    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel, ontwerpWeergave, ontwerpMuur, eerstePunt, gereedschap, liggerVoorstel],
+    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel, ontwerpWeergave, ontwerpMuur, eerstePunt, gereedschap, liggerVoorstel, meubelSel],
   );
   // Tijdens het slepen: voorbeeld in een aparte laag bovenop, met het vaste kader van de
   // tekening eronder. Die onderste tekening blijft ongewijzigd onder de vinger staan.
@@ -471,6 +483,24 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const klik = (e: React.MouseEvent) => {
     const naSlepen = slepen.klikNegeren(), naVerschuiven = zoom.klikNegeren();
     if (naSlepen || naVerschuiven) return;
+    if (modus === "inrichting") {
+      const q = planRef.current ? naarPlan(planRef.current, e.clientX, e.clientY) : null;
+      if (meubelVerplaatsen && meubelSel && q) {
+        wijzig((x) => wijzigMeubel(x, meubelSel, { positie: { x: Math.round(q.x / 10) * 10, y: Math.round(q.y / 10) * 10 } }));
+        zetMeubelVerplaatsen(false);
+        return;
+      }
+      if (meubelPlaatsen && q) {
+        let id = "";
+        if (wijzig((x) => { const r = voegMeubelToe(x, meubelPlaatsen, q); id = r.id; return r.verdieping; })) { zetMeubelSel(id); zetInrRuimte(null); }
+        return;
+      }
+      const mb = (e.target as Element).closest("[data-meubel]");
+      if (mb) { zetMeubelSel(mb.getAttribute("data-meubel")); zetInrRuimte(null); return; }
+      zetMeubelSel(null);
+      zetInrRuimte(q ? ruimteVan(v, q)?.id ?? null : null);
+      return;
+    }
     if (modus === "liggers") {
       const el = (e.target as Element).closest("[data-muur]");
       const m = el ? v.muren.find((x) => x.id === el.getAttribute("data-muur")) : undefined;
@@ -578,6 +608,11 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
   return (
     <main className="werkblad">
+      {toon3D && (
+        <Suspense fallback={<div className="dialoog-achtergrond"><section className="kaart dialoog"><p>3D laden…</p></section></div>}>
+          <Drie3D project={project} verdiepingId={v.id} sluit={() => zetToon3D(false)} />
+        </Suspense>
+      )}
       <section className="plan-kolom">
         <div className="tabs">
           {[...project.verdiepingen.map((x, i) => ({ x, i }))].reverse().map(({ x, i }) => (
@@ -589,9 +624,10 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         </div>
         <div className="modi" role="tablist" aria-label="Weergave">
           {MODI.map((m) => (
-            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); zetEerstePunt(null); zetOntwerpMuur(null); zetGereedschap("kies"); zetLiggerVoorstel(null); }}>{m.naam}</button>
+            <button key={m.modus} role="tab" aria-selected={modus === m.modus} className={modus === m.modus ? "actief" : ""} onClick={() => { zetModus(m.modus); zetSelectie(null); zetPlaatsen(null); zetInstSel(null); zetVerplaatsen(false); zetEerstePunt(null); zetOntwerpMuur(null); zetGereedschap("kies"); zetLiggerVoorstel(null); zetMeubelPlaatsen(null); zetMeubelSel(null); zetInrRuimte(null); zetMeubelVerplaatsen(false); }}>{m.naam}</button>
           ))}
         </div>
+        {modus === "inrichting" && <InrichtingBalk plaatsen={meubelPlaatsen} zetPlaatsen={(x) => { zetMeubelPlaatsen(x); zetMeubelVerplaatsen(false); }} />}
         {modus === "liggers" && <p className="hint-kort">Tik een raam, deur of muur aan in het plan: een nieuwe ligger neemt dan de breedte en muurdikte over.</p>}
         {modus === "ontwerp" && <OntwerpBalk gereedschap={gereedschap} zetGereedschap={(g) => { zetGereedschap(g); zetEerstePunt(null); }} weergave={ontwerpWeergave} zetWeergave={zetOntwerpWeergave} eerstePunt={!!eerstePunt} dikte={nieuweDikte} zetDikte={zetNieuweDikte} />}
         {modus === "installaties" && <InstallatieBalk net={net} zetNet={(n) => { zetNet(n); zetInstSel(null); }} plaatsen={plaatsen} zetPlaatsen={(x) => { zetPlaatsen(x); zetInstSel(null); }} />}
@@ -644,7 +680,10 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
 
       <aside className="paneel">
         {kort && <div className="bevestiging" role="status">{kort}</div>}
-        {modus === "liggers" ? (
+        {modus === "inrichting" ? (
+          <InrichtingPaneel v={v} meubelId={meubelSel} zetMeubelId={(x) => { zetMeubelSel(x); zetMeubelVerplaatsen(false); }} ruimteId={inrRuimte}
+            verplaatsen={meubelVerplaatsen} zetVerplaatsen={(b) => { zetMeubelVerplaatsen(b); if (b) zetMeubelPlaatsen(null); }} wijzig={wijzig} open3D={() => zetToon3D(true)} />
+        ) : modus === "liggers" ? (
           <LiggerPaneel project={project} wijzigProject={wijzigProject} voorstel={liggerVoorstel} exporteerPdf={() => exporteer("rekennota")} />
         ) : modus === "ontwerp" ? (
           <OntwerpPaneel

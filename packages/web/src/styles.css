@@ -200,3 +200,8 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--lijn); border
 .melding.conflict .acties { display: flex; gap: 6px; flex-wrap: wrap; }
 .uitleg.klein { font-size: 12px; }
 a.knop { text-decoration: none; color: inherit; }
+/* inrichting en 3D */
+.pijlen { display: grid; grid-template-columns: repeat(4, 48px); gap: 6px; margin: 8px 0; }
+.drie3d-achtergrond { padding: 8px; }
+.drie3d { width: min(1100px, 100%); margin-top: 8px; }
+.drie3d-beeld { width: 100%; height: min(70vh, 620px); border-radius: 8px; overflow: hidden; background: #e8eef3; touch-action: none; }
