@@ -147,3 +147,13 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
 - [ ] De lijst "Nog in te vullen" wordt korter naarmate je invult; muren worden groen.
 - [ ] **EPB-inventaris (PDF)** en **Invoerlijst (Excel)**: oppervlaktes per richting, U-waarden, volume, bron, aantal foto's. Er staat nergens een EPC-score.
 - [ ] **Energiedeskundige:** is de invoerlijst bruikbaar voor de officiële software? Welke meetregels moeten anders (buitenafmetingen)? Kloppen de richtwaarden voor λ, Ug en Uf?
+
+## 12. Ventilatie (ventilatie-expert)
+
+- [ ] **Installaties** → **Ventilatie** → kies het systeem (A, B, C of D).
+- [ ] De tabel **Debieten** toont per ruimte de functie (uit de naam afgeleid). Pas een functie aan (bv. slaapkamer → badkamer): het debiet past zich aan.
+- [ ] Plaats de **ventilatie-unit**, **toevoerventielen** (droge ruimtes) en **afvoerventielen** (natte ruimtes); bij systeem C **roosters** (RTO) in de droge ruimtes.
+- [ ] De kanalen verschijnen op het plan met diameter (Ø). De aandachtspunten tonen wat nog ontbreekt en de doorstroomopeningen.
+- [ ] **Installaties (PDF)**: ventilatieblad met kanalen, debietentabel, kanalen, materiaallijst en aandachtspunten.
+- [ ] **Lastenboek**: groep **Ventilatie** (unit, ventielen, kanalen per diameter, bochten, doorvoeren, geluiddempers).
+- [ ] **Ventilatie-expert:** kloppen de debieten (NBN D 50-001), de doorstroomopeningen, de kanaaldiameters (luchtsnelheid)? Wat moet erbij voor het ventilatieverslag?

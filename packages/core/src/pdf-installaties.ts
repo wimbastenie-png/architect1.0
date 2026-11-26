@@ -10,6 +10,7 @@ import {
   type Kring, type LeidingSoort, type Net,
 } from "./installaties.ts";
 import { lijstBladen } from "./pdf-lijst.ts";
+import { systeemVan, VENT_KLEUR, ventilatieAandachtspunten, ventilatieDebieten, ventilatieKanalen, ventilatieMateriaal, VENTILATIE_DISCLAIMER } from "./ventilatie.ts";
 import { kiesBlad, pdfTekst, PT, tekenBlad, type Fonts, type PdfOpties } from "./pdf.ts";
 import type { InstallatiePunt, Project, Punt } from "./schema.ts";
 
@@ -19,7 +20,7 @@ const KLEUR: Record<LeidingSoort | "elektriciteit" | "sanitairPunt", RGB> = {
 };
 const WIT = rgb(1, 1, 1), ZWART = rgb(0.16, 0.15, 0.14), GRIJS = rgb(0.34, 0.33, 0.31);
 
-const NAAM: Record<Net, string> = { elektriciteit: "Elektriciteit", sanitair: "Sanitair", gas: "Gas" };
+const NAAM: Record<Net, string> = { elektriciteit: "Elektriciteit", sanitair: "Sanitair", gas: "Gas", ventilatie: "Ventilatie" };
 
 export async function installatiesNaarPDF(p: Project, opties: PdfOpties = {}): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -36,7 +37,8 @@ export async function installatiesNaarPDF(p: Project, opties: PdfOpties = {}): P
   for (const k of kringen) for (const x of k.punten) kringcode.set(x.punt.id, k.code);
   const ld = leidingen(p);
 
-  for (const net of ["elektriciteit", "sanitair", "gas"] as Net[]) {
+  const kanalen = ventilatieKanalen(p);
+  for (const net of ["elektriciteit", "sanitair", "gas", "ventilatie"] as Net[]) {
     for (const v of p.verdiepingen) {
       const punten = v.installaties.filter((x) => x.net === net);
       if (!punten.length) continue;
@@ -44,7 +46,9 @@ export async function installatiesNaarPDF(p: Project, opties: PdfOpties = {}): P
         ? [[KLEUR.elektriciteit, "Punten met kringcode (K1 …)"], [ZWART, "Symbolen: zie lijst"]]
         : net === "sanitair"
           ? [[KLEUR.koud, "Koud water"], [KLEUR.warm, "Warm water"], [KLEUR.afvoer, `Afvoer (helling, zie lijst)`]]
-          : [[KLEUR.gas, "Gasleiding (geel)"], [hex("#713f12"), "Afsluitkraan"]];
+          : net === "ventilatie"
+            ? [[hex(VENT_KLEUR.toevoer), "Toevoerkanaal"], [hex(VENT_KLEUR.afvoer), "Afvoerkanaal"], [ZWART, `Systeem ${systeemVan(p)}`]]
+            : [[KLEUR.gas, "Gasleiding (geel)"], [hex("#713f12"), "Afsluitkraan"]];
       titelblokken.push(tekenBlad(doc, f, p, v, o, {
         titel: `Installaties ${NAAM[net].toLowerCase()} (voorstel) — ${v.naam}`,
         disclaimer,
@@ -59,6 +63,10 @@ export async function installatiesNaarPDF(p: Project, opties: PdfOpties = {}): P
               else lijn(a, b, KLEUR[l.soort], 0.35);
             }
             if (l.soort === "gas") kraan(page, naar, l.pad, schaal);
+          }
+          if (net === "ventilatie") for (const k of kanalen) {
+            if (k.verdiepingId !== v.id) continue;
+            for (let i = 1; i < k.pad.length; i++) lijn(k.pad[i - 1]!, k.pad[i]!, hex(VENT_KLEUR[k.soort]), 0.9);
           }
           for (const x of punten) symbool(page, f, naar(x.positie), x, kringcode.get(x.id));
         },
@@ -87,7 +95,17 @@ export async function installatiesNaarPDF(p: Project, opties: PdfOpties = {}): P
     );
     void afv;
   }
-  const mat = materiaallijst(p);
+  const deb = ventilatieDebieten(p).filter((d) => d.toevoer || d.afvoer);
+  if (p.verdiepingen.some((v) => v.installaties.some((x) => x.net === "ventilatie")) || p.ventilatie) {
+    lijst.kop(`Ventilatie: debieten (systeem ${systeemVan(p)}, richtwaarden NBN D 50-001)`);
+    lijst.tabel([{ kop: "Ruimte", breedte: 44 }, { kop: "Functie", breedte: 24 }, { kop: "m²", breedte: 14, rechts: true }, { kop: "Toevoer m³/h", breedte: 20, rechts: true }, { kop: "Afvoer m³/h", breedte: 20, rechts: true }, { kop: "Doorstr. cm²", breedte: 18, rechts: true }],
+      deb.map((d) => [`${d.ruimte.naam} (${d.verdieping})`, d.functie, String(d.oppervlakte).replace(".", ","), d.toevoer ? String(d.toevoer) : "–", d.afvoer ? String(d.afvoer) : "–", String(d.doorstroom)]));
+    if (kanalen.length) lijst.tabel([{ kop: "Kanaal", breedte: 24 }, { kop: "Debiet m³/h", breedte: 24, rechts: true }, { kop: "Ø mm", breedte: 18, rechts: true }, { kop: "Lengte m", breedte: 20, rechts: true }],
+      kanalen.map((k) => [k.soort, String(k.debiet), String(k.diameter), (k.lengte / 1000).toFixed(1).replace(".", ",")]));
+    for (const a of ventilatieAandachtspunten(p)) lijst.alinea(`${a.ernst === "let op" ? "LET OP" : "Info"} · Ventilatie: ${a.tekst}`, { kleur: a.ernst === "let op" ? rgb(0.6, 0.2, 0.05) : GRIJS });
+    lijst.alinea(VENTILATIE_DISCLAIMER, { vet: true });
+  }
+  const mat = [...materiaallijst(p), ...ventilatieMateriaal(p).map((m) => ({ ...m, net: "ventilatie" as const }))];
   if (mat.length) {
     lijst.kop("Materiaallijst (schatting, na te meten)");
     lijst.tabel(
