@@ -269,3 +269,28 @@ test("werf: e-factuur (UBL), verkoopdagboek en bestellijst voor de groothandel",
   await expect(page.getByLabel("Artikelnummer Vloerafwerking")).toHaveValue("TEG-6060");
   expect(fouten).toEqual([]);
 });
+
+test("werf: controlemetingen en nauwkeurigheidsrapport", async ({ page }) => {
+  const fouten = await start(page);
+  await openVoorbeeld(page);
+  await page.getByRole("tab", { name: "Werf", exact: true }).click();
+  await page.getByRole("tab", { name: "Controlemetingen" }).click();
+  await page.getByRole("combobox", { name: /^Plan opgemeten met/ }).selectOption("camera");
+  // muur: plan-maat staat in de keuzelijst; meet 6 mm minder
+  const keuze = await page.getByRole("combobox", { name: /^Element/ }).locator("option").first().textContent();
+  const plan = +keuze!.match(/(\d+) mm/)![1]!;
+  await page.getByLabel("Gemeten (mm)").fill(String(plan - 6));
+  await page.getByRole("button", { name: "+ Controlemeting" }).click();
+  // plafondhoogte: 25 mm verschil → buiten de tolerantie
+  await page.getByRole("combobox", { name: /^Soort maat/ }).selectOption("plafond");
+  await page.getByLabel("Gemeten (mm)").fill("2575");
+  await page.getByLabel("Gemeten (mm)").press("Enter");
+  await expect(page.locator(".werf tbody tr")).toHaveCount(2);
+  await expect(page.locator(".werf tbody tr").first()).toContainText("+6");
+  await expect(page.locator(".werf tr.let-op")).toHaveCount(1);
+  await expect(page.locator(".werf")).toContainText("binnen ± 10 mm: 50 %");
+  await expect(page.locator(".werf")).toContainText("minstens 10");
+  const [pdf] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Nauwkeurigheidsrapport (PDF)" }).click()]);
+  expect(readFileSync((await pdf.path())!).subarray(0, 4).toString()).toBe("%PDF");
+  expect(fouten).toEqual([]);
+});
