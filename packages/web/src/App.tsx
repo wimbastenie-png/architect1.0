@@ -4,6 +4,9 @@ import {
   controleerSamenhang,
   controleerVloeren,
   herstelVloeren,
+  projectNieuweToestand,
+  trapVoorstel,
+  vergunningNaarPDF,
   kastenlijstCSV,
   keukenNaarPDF,
   wandAanzichtDXF,
@@ -413,6 +416,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   const [toon3D, zetToon3D] = useState(false);
   const [epbSel, zetEpbSel] = useState<EpbSelectie>(null);
   const [keukenRuimte, zetKeukenRuimte] = useState<string | null>(null);
+  const [opmerkingSel, zetOpmerkingSel] = useState<string | null>(null);
   const [keukenRand, zetKeukenRand] = useState<number | null>(null);
   const [liggerVoorstel, zetLiggerVoorstel] = useState<{ dagmaat: number; dikte: number; muurId?: string; tekst: string } | null>(null);
   const slepen = useSlepen({
@@ -451,10 +455,11 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         ...(eerstePunt ? [{ a: eerstePunt, kleur: gereedschap === "muur" ? "#dc2626" : "#7c3aed" }] : []),
       ] : undefined,
       meubels: modus === "inrichting" ? { geselecteerd: meubelSel ?? undefined } : undefined,
+      opmerkingen: modus === "plan" || modus === "ontwerp" ? { lijst: project.opmerkingen.filter((o) => o.verdiepingId === v.id), geselecteerd: opmerkingSel ?? undefined } : undefined,
       noord: modus === "energie" || (project.noord ?? 0) !== 0 ? project.noord ?? 0 : undefined,
       epb: modus === "energie" ? { geselecteerd: epbSel?.soort === "muur" ? epbSel.id : undefined } : undefined,
     }),
-    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel, ontwerpWeergave, ontwerpMuur, eerstePunt, gereedschap, liggerVoorstel, meubelSel, epbSel, keukenRuimte, keukenRand],
+    [v, selectie, labels, raak, zoom.kader, modus, project, net, instSel, ontwerpWeergave, ontwerpMuur, eerstePunt, gereedschap, liggerVoorstel, meubelSel, epbSel, keukenRuimte, keukenRand, opmerkingSel],
   );
   // Tijdens het slepen: voorbeeld in een aparte laag bovenop, met het vaste kader van de
   // tekening eronder. Die onderste tekening blijft ongewijzigd onder de vinger staan.
@@ -500,7 +505,9 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
   };
   const [kort, alertKort] = useState<string | null>(null);
   useEffect(() => { if (!kort) return; const t = setTimeout(() => alertKort(null), 3000); return () => clearTimeout(t); }, [kort]);
-  const rijen = useMemo(() => meetstaat(project), [project]);
+  const [meetToestand, zetMeetToestand] = useState<"bestaand" | "nieuw">("bestaand");
+  const heeftNieuw = project.verdiepingen.some((x) => x.ruimtesNieuw || x.muren.some((m) => m.toestand));
+  const rijen = useMemo(() => meetstaat(meetToestand === "nieuw" ? projectNieuweToestand(project, verdiepingInToestand) : project), [project, meetToestand]);
   const fouten = useMemo(() => controleerSamenhang(project), [project]);
   const vloerProblemen = useMemo(() => controleerVloeren(v), [v]);
   const muur = selectie?.soort === "muur" ? v.muren.find((m) => m.id === selectie.id) : undefined;
@@ -566,8 +573,35 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
         : { dagmaat: Math.round(binnenLengte(m, v.muren)), dikte: m.dikte, muurId: m.id, tekst: `hele muur ${Math.round(binnenLengte(m, v.muren))} mm` });
       return;
     }
+    if (modus === "ontwerp" || modus === "plan") {
+      const pin = (e.target as Element).closest("[data-opmerking]");
+      if (pin && gereedschap === "kies") { zetOpmerkingSel(pin.getAttribute("data-opmerking")); if (modus === "plan") return; }
+    }
     if (modus === "ontwerp") {
       const q = planRef.current ? naarPlan(planRef.current, e.clientX, e.clientY) : null;
+      if (gereedschap === "opmerking" && q) {
+        const tekst = window.prompt("Opmerking:");
+        if (!tekst?.trim()) return;
+        let auteur = "";
+        try { auteur = localStorage.getItem("architect1.0:naam") ?? ""; } catch { /* leeg */ }
+        if (!auteur) { auteur = window.prompt("Jouw naam (wordt bij je opmerkingen gezet):")?.trim() ?? ""; try { if (auteur) localStorage.setItem("architect1.0:naam", auteur); } catch { /* privévenster */ } }
+        const id = `op-${Date.now().toString(36)}`;
+        wijzigProject({ ...project, opmerkingen: [...project.opmerkingen, { id, verdiepingId: v.id, positie: { x: Math.round(q.x), y: Math.round(q.y) }, tekst: tekst.trim(), auteur: auteur || undefined, datum: new Date().toISOString() }] });
+        zetOpmerkingSel(id);
+        zetGereedschap("kies");
+        return;
+      }
+      if (gereedschap === "trap" && q) {
+        const p = { x: Math.round(q.x / 10) * 10, y: Math.round(q.y / 10) * 10 };
+        if (!eerstePunt) { zetEerstePunt(p); return; }
+        const hoek = Math.round((Math.atan2(p.y - eerstePunt.y, p.x - eerstePunt.x) * 180) / Math.PI / 15) * 15;
+        const boven = project.verdiepingen.filter((x) => x.peil > v.peil).sort((a, b) => a.peil - b.peil)[0];
+        const t = trapVoorstel(boven ? boven.peil - v.peil : 2800, eerstePunt, hoek);
+        wijzig((x) => ({ ...x, trappen: [...(x.trappen ?? []), t] }));
+        zetEerstePunt(null);
+        zetGereedschap("kies");
+        return;
+      }
       if (gereedschap === "kies") {
         const el = (e.target as Element).closest("[data-muur]");
         zetOntwerpMuur(el ? el.getAttribute("data-muur") : null);
@@ -645,8 +679,9 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
     }
   };
 
-  const exporteer = async (soort: "pdf" | "dxf" | "ifc" | "csv" | "lastenboek" | "json" | "installaties" | "ontwerp" | "rekennota" | "epb-pdf" | "epb-csv" | "keuken-pdf" | "keuken-csv" | "keuken-dxf", mw?: Maatwerk) => {
+  const exporteer = async (soort: "pdf" | "dxf" | "ifc" | "csv" | "lastenboek" | "json" | "installaties" | "ontwerp" | "rekennota" | "epb-pdf" | "epb-csv" | "keuken-pdf" | "keuken-csv" | "keuken-dxf" | "vergunning", mw?: Maatwerk) => {
     try {
+      if (soort === "vergunning") download(`${naam}-vergunningsklare-basis.pdf`, await vergunningNaarPDF(project) as BlobPart, "application/pdf");
       if (soort === "keuken-pdf") download(`${naam}-keuken.pdf`, await keukenNaarPDF(project) as BlobPart, "application/pdf");
       if (soort === "keuken-csv" && mw) download(`${naam}-kasten-wand${mw.rand + 1}.csv`, kastenlijstCSV(project, mw), "text/csv;charset=utf-8");
       if (soort === "keuken-dxf" && mw) download(`${naam}-wand${mw.rand + 1}.dxf`, wandAanzichtDXF(project, mw), "application/dxf");
@@ -755,7 +790,7 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
           <OntwerpPaneel
             project={project} v={v} muurId={ontwerpMuur} zetMuurId={zetOntwerpMuur} wijzig={wijzig} wijzigProject={wijzigProject}
             nieuweOpening={(id) => { try { const r = voegNieuweOpeningToe(v, id); wijzig(() => r.verdieping); alertKort("Nieuwe opening (raam 1000 × 1200) in het midden van de muur. Maten aanpassen: knop Plan, muur aanklikken."); } catch (err) { zetMelding((err as Error).message); } }}
-            exporteerPdf={() => exporteer("ontwerp")}
+            exporteerPdf={() => exporteer("ontwerp")} exporteerVergunning={() => exporteer("vergunning")} opmerking={opmerkingSel} zetOpmerking={zetOpmerkingSel}
           />
         ) : modus === "installaties" ? (
           <InstallatiePaneel
@@ -820,6 +855,12 @@ function Werkblad({ project, vi, zetVi, selectie, zetSelectie, wijzig, wijzigPro
               <button role="tab" aria-selected={weergave === "lastenboek"} className={weergave === "lastenboek" ? "actief" : ""} onClick={() => zetWeergave("lastenboek")}>Lastenboek</button>
             </div>
           </div>
+          {heeftNieuw && weergave === "ruimtes" && (
+            <div className="segment" role="tablist" aria-label="Toestand meetstaat">
+              <button role="tab" aria-selected={meetToestand === "bestaand"} className={meetToestand === "bestaand" ? "actief" : ""} onClick={() => zetMeetToestand("bestaand")}>Bestaande toestand</button>
+              <button role="tab" aria-selected={meetToestand === "nieuw"} className={meetToestand === "nieuw" ? "actief" : ""} onClick={() => zetMeetToestand("nieuw")}>Nieuwe toestand</button>
+            </div>
+          )}
           {weergave === "lastenboek" ? (
             <LastenboekWeergave lb={lb} prijzen={prijzen} zetPrijs={zetPrijs} btw={btw} zetBtw={(b) => { zetBtw(b); schrijfOpslag(BTW, b); }} kopieer={kopieer} />
           ) : (

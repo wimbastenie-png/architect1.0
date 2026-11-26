@@ -5,6 +5,7 @@
  */
 import { muurLengte, muurVorm, puntLangsMuur, richting } from "./geometrie.ts";
 import { muurToestand, openingToestand, verdiepingInToestand } from "./ontwerp.ts";
+import { dakVlakken, dakVoet, type Vlak3D } from "./architect.ts";
 import type { Meubel, Project, Punt, Ruimte, Verdieping } from "./schema.ts";
 
 export interface MeubelDef { soort: string; naam: string; breedte: number; diepte: number; hoogte: number; kleur: string; groep: string }
@@ -254,7 +255,7 @@ function deel(m: Meubel, x0: number, x1: number, y0: number, y1: number): Punt[]
 }
 const verklein = (m: Meubel, fb: number, fd: number, dy = 0) => deel(m, 0.5 - fb / 2, 0.5 + fb / 2, 0.5 - fd / 2 + dy, 0.5 + fd / 2 + dy);
 
-export interface Model3D { prismas: Prisma[]; midden: Punt; grootte: number; hoogte: number }
+export interface Model3D { prismas: Prisma[]; vlakken: Vlak3D[]; midden: Punt; grootte: number; hoogte: number }
 
 /** 3D-model van het project (nieuwe toestand): muren met gaten, vloeren in hun materiaal, ramen, deuren en meubels. */
 export function model3D(p: Project, o: { verdiepingId?: string; toestand?: "bestaand" | "nieuw" } = {}): Model3D {
@@ -266,12 +267,21 @@ export function model3D(p: Project, o: { verdiepingId?: string; toestand?: "best
     prismas.push(...muurPrismas(v, v.peil));
     prismas.push(...meubelPrismas(v, v.peil));
   }
-  const alle = prismas.flatMap((x) => x.punten);
+  // dak (alleen als alle verdiepingen getoond worden of de bovenste)
+  const vlakken: Vlak3D[] = [];
+  const v = dakVoet(p);
+  if (p.dak && v && (!o.verdiepingId || o.verdiepingId === v.verdieping.id)) {
+    if (p.dak.soort === "plat") {
+      const ov = p.dak.overstek;
+      prismas.push({ soort: "plafond", punten: [{ x: v.x0 - ov, y: v.y0 - ov }, { x: v.x1 + ov, y: v.y0 - ov }, { x: v.x1 + ov, y: v.y1 + ov }, { x: v.x0 - ov, y: v.y1 + ov }], z0: v.basis, z1: v.basis + p.dak.dikte, kleur: "#57534e", naam: "plat dak" });
+    } else vlakken.push(...dakVlakken(p));
+  }
+  const alle = [...prismas.flatMap((x) => x.punten), ...vlakken.flatMap((x) => x.punten)];
   const xs = alle.map((q) => q.x), ys = alle.map((q) => q.y);
   const midden = alle.length ? { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 } : { x: 0, y: 0 };
   const grootte = alle.length ? Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) : 1000;
-  const hoogte = Math.max(2500, ...prismas.map((x) => x.z1));
-  return { prismas, midden, grootte, hoogte };
+  const hoogte = Math.max(2500, ...prismas.map((x) => x.z1), ...vlakken.flatMap((x) => x.punten.map((q) => q.z)));
+  return { prismas, vlakken, midden, grootte, hoogte };
 }
 
 export const ruimteVanMeubel = (v: Verdieping, m: Meubel): Ruimte | undefined => v.ruimtes.find((r) => binnen(m.positie, r.contour));

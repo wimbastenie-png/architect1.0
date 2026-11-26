@@ -58,6 +58,19 @@ export default function Drie3D({ project, verdiepingId, sluit }: { project: Proj
       mesh.receiveShadow = true;
       groep.add(mesh);
     }
+    for (const vl of m.vlakken) {
+      const pts = vl.punten.map((q) => new THREE.Vector3((q.x - m.midden.x) * s, q.z * s, -(q.y - m.midden.y) * s));
+      const geo = new THREE.BufferGeometry();
+      const pos: number[] = [];
+      for (let k = 1; k + 1 < pts.length; k++) for (const q of [pts[0]!, pts[k]!, pts[k + 1]!]) pos.push(q.x, q.y, q.z);
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: vl.kleur, roughness: 0.9, side: THREE.DoubleSide }));
+      mesh.name = vl.naam;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      groep.add(mesh);
+    }
     scene.add(groep);
     const grond = new THREE.Mesh(new THREE.CircleGeometry(m.grootte * s * 3, 48), new THREE.MeshStandardMaterial({ color: "#cbd5c0", roughness: 1 }));
     grond.rotation.x = -Math.PI / 2;

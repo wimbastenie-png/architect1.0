@@ -186,6 +186,21 @@ export const Verdieping = z.object({
   sparingen: z.array(Sparing).default([]),
   installaties: z.array(InstallatiePunt).default([]),
   meubels: z.array(Meubel).default([]),
+  /** Rechte trappen die op deze verdieping vertrekken. */
+  trappen: z.array(z.object({
+    id,
+    /** Onderaan de trap, midden van de eerste trede (plan-mm). */
+    start: Punt,
+    /** Looprichting naar boven, in graden (0 = plan-x, 90 = plan-y). */
+    richting: z.number(),
+    breedte: mmPositief,
+    treden: z.number().int().min(2).max(30),
+    /** Optrede en aantrede (mm). */
+    optrede: mmPositief,
+    aantrede: mmPositief,
+  })).default([]),
+  /** Ruimte-indeling van de NIEUWE toestand (na afbreken en nieuwe muren); leeg = zelfde als bestaand. */
+  ruimtesNieuw: z.array(Ruimte).optional(),
   /** EPB: vloer (onderkant) en plafond/dak (bovenkant) van deze verdieping. */
   epb: z.object({ vloer: Samenstelling.optional(), plafond: Samenstelling.optional() }).optional(),
 });
@@ -271,6 +286,31 @@ export const Project = z.object({
     /** Aansluitingen die (nog) niet als installatiepunt op het plan staan: radiator, water, afvoer, gas, stopcontact. */
     aansluitingen: z.array(z.object({ soort: z.enum(["radiator", "koud", "warm", "afvoer", "gas", "stopcontact", "dampkap-afvoer"]), x: mm.nonnegative(), hoogte: mm.nonnegative(), breedte: mm.positive().optional(), hoogteObject: mm.positive().optional() })).default([]),
   })).default([]),
+  /** Dak boven de bovenste verdieping (vergunningsklare basis). */
+  dak: z.object({
+    soort: z.enum(["plat", "zadel", "lessenaar"]),
+    /** Hellingshoek in graden (plat: 0). */
+    helling: z.number().min(0).max(75).default(35),
+    /** Richting van de nok of van de helling: "x" = nok evenwijdig met plan-x. */
+    nok: z.enum(["x", "y"]).default("x"),
+    overstek: mm.nonnegative().default(300),
+    dikte: mmPositief.default(300),
+    materiaal: z.string().optional(),
+  }).optional(),
+  /** Terrein: perceel (plan-mm, tegen de klok in) en maaiveldpeil t.o.v. ±0. */
+  terrein: z.object({ perceel: z.array(Punt).min(3), maaiveld: mm.default(0), straat: z.string().optional() }).optional(),
+  /** Vergunningsplan: gegevens voor het titelblok. */
+  vergunning: z.object({
+    bouwheer: z.string().optional(),
+    architect: z.string().optional(),
+    kadaster: z.string().optional(),
+    planNummer: z.string().optional(),
+    index: z.string().optional(),
+  }).optional(),
+  /** Gevelmaterialen per zijde (voor, achter, links, rechts). */
+  gevelmaterialen: z.record(z.string(), z.string()).optional(),
+  /** Opmerkingen (pins) op het plan, zichtbaar voor iedereen met wie het project gedeeld is. */
+  opmerkingen: z.array(z.object({ id, verdiepingId: id, positie: Punt, tekst: z.string(), auteur: z.string().optional(), datum: z.string(), opgelost: z.boolean().optional() })).default([]),
   /** Ventilatie: gekozen systeem (A natuurlijk, B mechanische toevoer, C mechanische afvoer, D balans). */
   ventilatie: z.object({ systeem: z.enum(["A", "B", "C", "D"]) }).optional(),
   /** Oriëntatie: richting van het noorden op het plan, in graden met de klok mee vanaf "boven" (0 = noorden boven). */

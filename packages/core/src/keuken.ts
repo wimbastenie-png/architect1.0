@@ -342,6 +342,7 @@ export function wandAanzichtDXF(p: Project, w: Maatwerk): string {
       const laag = i === 0 ? "WAND" : e.data ? "KASTEN" : e.vul === "#292524" ? "WERKBLAD" : e.lijn === "#0e7490" ? "OPENINGEN" : e.vul === "#a8a29e" ? "KASTEN" : "AANSLUITINGEN";
       d.polylijn(laag, [{ x: e.x, y: e.y }, { x: e.x + e.b, y: e.y }, { x: e.x + e.b, y: e.y + e.h }, { x: e.x, y: e.y + e.h }]);
     } else if (e.t === "lijn") d.lijn(e.lijn === "#dc2626" ? "WERKBLAD" : "MATEN", e.a, e.b);
+    else if (e.t === "veelhoek") d.polylijn("WAND", e.punten);
     else d.tekst("TEKST", e.p, e.grootte, e.s.replace(/[^\x20-\x7e]/g, (c) => (c === "×" ? "x" : c === "→" ? "->" : c === "—" ? "-" : "?")));
   });
   d.g(0, "ENDSEC"); d.g(0, "EOF");

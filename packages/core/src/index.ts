@@ -33,3 +33,5 @@ export * from "./ventilatie.ts";
 export * from "./keuken.ts";
 export * from "./pdf-keuken.ts";
 export * from "./statica.ts";
+export * from "./architect.ts";
+export * from "./pdf-vergunning.ts";

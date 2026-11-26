@@ -4,6 +4,7 @@ import { maatketens, tekstBreedte } from "./maatvoering.ts";
 import { openingLabelPunt, openingLabels } from "./openingen.ts";
 import { binnenmaten, m2Tekst, muurRechthoek, muurVorm, oppervlakte, puntLangsMuur, zwaartepunt } from "./geometrie.ts";
 import { TOESTAND_KLEUR } from "./ontwerp.ts";
+import { trapGeometrie } from "./architect.ts";
 import { materiaal, meubelDef, meubelHoeken } from "./inrichting.ts";
 import { installatiesSVG, type Net } from "./installaties.ts";
 import { ventilatieSVG } from "./ventilatie.ts";
@@ -46,6 +47,8 @@ export interface SvgOpties {
   meubels?: { geselecteerd?: string };
   /** Noordpijl tekenen: richting van het noorden in graden met de klok mee vanaf boven. */
   noord?: number;
+  /** Opmerkingen (pins) van deze verdieping. */
+  opmerkingen?: { lijst: Array<{ id: string; positie: Punt; opgelost?: boolean }>; geselecteerd?: string };
   /** EPB: muren en ramen kleuren naar wat al ingevuld is (groen) of ontbreekt (oranje). */
   epb?: { geselecteerd?: string };
 }
@@ -215,6 +218,25 @@ export function verdiepingNaarSVG(v: Verdieping, opties: SvgOpties = {}): string
     }
   }
 
+  // trappen: kader, treden, looplijn met pijl naar boven
+  for (const tr of v.trappen ?? []) {
+    const g = trapGeometrie(tr);
+    el.push(`<polygon points="${g.omtrek.map(t).join(" ")}" fill="#fff" stroke="#292524" stroke-width="16"${ia ? ` data-trap="${esc(tr.id)}" style="cursor:pointer"` : ""}/>`);
+    for (const [a1, b1] of g.treden.slice(1)) { const [x1, y1] = t(a1).split(","), [x2, y2] = t(b1).split(","); el.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#57534e" stroke-width="8" pointer-events="none"/>`); }
+    const [lx1, ly1] = t(g.P(0, 0)).split(","), [lx2, ly2] = t(g.P(g.loop, 0)).split(",");
+    el.push(`<line x1="${lx1}" y1="${ly1}" x2="${lx2}" y2="${ly2}" stroke="#292524" stroke-width="12" pointer-events="none"/>`);
+    const pijl = [g.P(g.loop, 0), g.P(g.loop - 200, -100), g.P(g.loop - 200, 100)].map(t).join(" ");
+    el.push(`<polygon points="${pijl}" fill="#292524" pointer-events="none"/>`);
+    const [tx, ty] = t(g.P(g.loop / 2, -tr.breedte / 2 - 160)).split(",");
+    el.push(`<text x="${tx}" y="${ty}" font-size="120" text-anchor="middle" dominant-baseline="central" fill="#292524" pointer-events="none">${tr.treden} × ${tr.optrede}/${tr.aantrede}</text>`);
+  }
+  if (opties.opmerkingen) {
+    opties.opmerkingen.lijst.forEach((o, i) => {
+      const [x, y] = t(o.positie).split(",");
+      const sel = o.id === opties.opmerkingen!.geselecteerd;
+      el.push(`<g${ia ? ` data-opmerking="${esc(o.id)}" style="cursor:pointer"` : ""}><path d="M ${x} ${y} l -110 -260 a 140 140 0 1 1 220 0 z" fill="${o.opgelost ? "#a8a29e" : sel ? "#b45309" : "#e11d48"}" stroke="#fff" stroke-width="24"/><text x="${x}" y="${Number(y) - 340}" font-size="150" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#fff">${i + 1}</text></g>`);
+    });
+  }
   if (opties.epb) {
     for (const m of v.muren) {
       const ingevuld = !!(m.epb?.uIngegeven || m.epb?.lagen.length);

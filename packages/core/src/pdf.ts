@@ -37,6 +37,8 @@ export interface PdfOpties {
   btwPct?: number;
   /** Eigen tekst in het vak "Belangrijk" (standaard DISCLAIMER). */
   disclaimer?: string;
+  /** Extra regel onder het adres in het titelblok (bv. bouwheer, architect, plan nr.). */
+  extraRegel?: string;
 }
 
 /** Papiermaten liggend, in mm. */
@@ -309,6 +311,7 @@ export function tekenTitelblok(
   label("Project", x0 + 3, y0 + hb - 5);
   tekst(afkappen(p.naam, f.vet, 11, xSchaal - x0 - 6), x0 + 3, y0 + hb - 11, 11, f.vet);
   if (adres) tekst(afkappen(adres, f.gewoon, 8, xSchaal - x0 - 6), x0 + 3, y0 + hb - 16);
+  if (o.extraRegel) tekst(afkappen(o.extraRegel, f.gewoon, 6.5, xSchaal - x0 - 6), x0 + 3, y0 + hb - 19.6, 6.5, f.gewoon, GRIJS);
   label("Blad", x0 + 3, y0 + hb - 22);
   tekst(afkappen(titel, f.vet, 9, xSchaal - x0 - 6), x0 + 3, y0 + hb - 27, 9, f.vet);
   label("Datum", x0 + 3, y0 + 9);

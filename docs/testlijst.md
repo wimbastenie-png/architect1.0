@@ -202,3 +202,26 @@ Bij elke stap komt hieronder een blok bij, zodra de pull request klaar is. De vo
   - Klopt lijfstuik/lijfplooi volgens EN 1993-1-5?
   - Zijn de knikkrommen juist?
   - Is de lastendaling uit het model bruikbaar?
+
+## 15. Architect: vergunningsklare basis
+
+- [ ] **Ontwerp → Dak**: plat, zadeldak of lessenaarsdak, met helling, nokrichting, overstek en materiaal. De nokhoogte verschijnt; het dak staat in de doorsneden, de gevels en in **3D** (Inrichting → 3D bekijken).
+- [ ] **Trap**: kies "Trap" boven het plan en tik twee punten (vertrek, looprichting). Kijk na:
+  - de treden en de pijl op het plan;
+  - de comfortregel (2·o + a);
+  - de melding als er geen trapgat boven de trap is;
+  - de trap in een doorsnede langs de trap.
+- [ ] **Terrein en inplanting**: perceel als rechthoek (breedte, diepte, afstand tot de straat en tot de linkergrens), maaiveld, straat → afstanden tot de grenzen.
+- [ ] **Ruimtes nieuwe toestand**:
+  - breek een tussenmuur af en/of teken een nieuwe muur van wand tot wand → **Ruimtes nieuwe toestand indelen** → namen aanpassen;
+  - in de meetstaat **Nieuwe toestand** kiezen.
+- [ ] **Gegevens vergunningsplan**: bouwheer, architect, kadaster, plan nr., gevelmaterialen per zijde.
+- [ ] **Opmerking**: kies "Opmerking" en tik in het plan. De pin blijft zichtbaar in Plan en Ontwerp en reist mee via de cloud of de deellink. Probeer met een tweede toestel.
+- [ ] **Vergunningsklare basis (PDF)**:
+  - inplantingsplan;
+  - plannen bestaand en nieuw per verdieping;
+  - doorsneden en gevels met dak, maaiveld en materialen;
+  - lijst met gegevens, afstanden, ruimtes, trappen, legende en handtekeningvakken.
+- [ ] **Architect:**
+  - Is dit een bruikbare basis voor het vergunningsdossier?
+  - Wat ontbreekt er in titelblok, legende, maatvoering of de stedenbouwkundige gegevens?
